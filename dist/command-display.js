@@ -95,11 +95,9 @@ function arrange(markers){
  }
  return out;
 }
-function create({state,esc,button,edit,fitMap}){
+function create({state,esc,button,edit,dialog}){
  const by=id=>document.getElementById(id);
- let open=false,zoom=false,selected='';
- try{open=sessionStorage.getItem('fof.command-sheet.open')==='1';}catch{}
- if(location.hash==='#command-display')open=true;
+ let selected='';
  const manual=s=>!window.FOF_COURSE.has(s.id)&&s.id!=='T1'&&s.id!=='Q1';
  function textFor(m){return m.id==='general'?m.label+' '+m.points+' 點':m.label+'・'+areas[m.area]+(['available','saved'].includes(m.area)?' '+m.points+' 點':'');}
  const percent=(v,total)=>(100*v/total).toFixed(4)+'%';
@@ -138,15 +136,6 @@ function create({state,esc,button,edit,fitMap}){
   const phase=phases[data.phase];if(phase!==undefined)marks+=chit(674,441+phase*63.7,29,'phase',phaseLabels[phase],'timing-token');
   return '<span class="sheet-paper"><img class="printed-sheet" width="1836" height="2376" src="'+boardImage+'" alt="美國陸軍二戰與韓戰指揮顯示表，第 1 頁全表" draggable="false">'+marks+'</span>';
  }
- function setView(value){
-  open=value;if(!value)zoom=false;
-  try{sessionStorage.setItem('fof.command-sheet.open',open?'1':'0');}catch{}
-  if(open||location.hash==='#command-display'){
-   const url=new URL(location.href);url.hash=open?'command-display':'';
-   try{window.history.replaceState(window.history.state,'',url);}catch{}
-  }
-  render();if(!open)fitMap();
- }
  function editor(s,markers){
   const current=markers.find(m=>m.id===selected);if(!current)return '';
   return '<div class="sheet-edit"><label for="commandUnit">登記指揮部</label><select id="commandUnit">'+markers.map(m=>'<option value="'+esc(m.id)+'" '+(m.id===selected?'selected':'')+'>'+esc(m.label)+'</option>').join('')+'</select>'+
@@ -156,30 +145,27 @@ function create({state,esc,button,edit,fitMap}){
  function render(){
   const s=state(),data=snapshot(s),markers=data.markers;
   if(!markers.some(m=>m.id===selected))selected=markers.find(m=>m.id!=='general')?.id||'';
-  const cmds=markers.filter(m=>m.id!=='general'),active=cmds.find(m=>m.area==='available')||cmds.find(m=>m.area==='saved')||cmds[0];
-  const el=by('sheetPreview');
-  el.innerHTML='<span aria-hidden="true" class="sheet-mini">'+paper(s,data,false)+'</span><span class="sheet-preview-text"><strong>指揮顯示表</strong><span>'+esc(active?textFor(active):'命令軌・回合・階段')+'</span><b>'+(open?'返回地形棋桌':'展開全表')+'</b></span>';
-  el.setAttribute('aria-expanded',String(open));
-  by('commandStage').hidden=!open;by('mapViewport').hidden=open;by('mapKey').hidden=open;by('sheetKey').hidden=!open;
-  by('terrainTools').hidden=open;by('commandTools').hidden=!open;by('boardTitle').textContent=open?'指揮顯示表':'地形棋桌';by('mapSize').hidden=open;
-  const toggle=by('sheetToggle');toggle.textContent=open?'地形棋桌':'指揮顯示表';toggle.setAttribute('aria-expanded',String(open));
-  if(!open)return;
-  by('commandPaper').innerHTML=paper(s,data,manual(s)&&!s.outcome);
-  by('commandPaper').classList.toggle('enlarged',zoom);
-  by('sheetZoom').textContent=zoom?'縮回全表':'放大表面';by('sheetZoom').setAttribute('aria-pressed',String(zoom));
+  const cmds=markers.filter(m=>m.id!=='general');
+  const sheet=paper(s,data,manual(s)&&!s.outcome);
+  by('commandPaper').innerHTML=sheet;
+  const expanded=document.querySelector('#panel[open][data-kind="sheet"] .modalcontent');
+  if(expanded)expanded.innerHTML=sheet;
   const info=by('commandState');
   const rows=markers.map(m=>{
    const points=m.id==='general'?m.points+' 點':areas[m.area]+(['available','saved'].includes(m.area)?'・'+m.points+' 點':'');
    const face=m.id==='general'||m.id==='shared'?'':m.face==='commands'?'可用命令面':'啟動完成面';
    return '<li><strong>'+esc(m.label)+'</strong><span>'+esc(points)+'</span>'+(face?'<small>'+face+'</small>':'')+'</li>';
   }).join('');
-  info.innerHTML='<h3>命令標記</h3><ul class="sheet-ledger">'+rows+'</ul>'+(data.note?'<p>'+esc(data.note)+'</p>':'')+((manual(s)&&!s.outcome)?editor(s,cmds):'')+
+  info.innerHTML=((manual(s)&&!s.outcome)?editor(s,cmds):'')+'<h3>命令標記</h3><ul class="sheet-ledger">'+rows+'</ul>'+(data.note?'<p>'+esc(data.note)+'</p>':'')+
     (cmds.some(m=>m.points>10)?'<p>超過 10 點的標記放在最右格，角標顯示實際點數。</p>':'');
  }
  function handle(action,value){
-  const s=state();if(action==='commandSheet'){setView(!open);return true;}
-  if(action==='sheetZoom'){zoom=!zoom;render();return true;}
-  if(!open||!manual(s)||s.outcome)return false;
+  const s=state();
+  if(action==='readSheet'){
+   dialog('sheet','指揮顯示表',paper(s,snapshot(s),manual(s)&&!s.outcome));
+   return true;
+  }
+  if(!manual(s)||s.outcome)return false;
   if(action==='sheetPlace'||action==='sheetArea'||action==='sheetDelta'){
    edit(()=>{
     if(action==='sheetDelta')return adjust(s,selected,Number(value));
@@ -191,8 +177,7 @@ function create({state,esc,button,edit,fitMap}){
   return false;
  }
  by('commandState').addEventListener('change',event=>{if(event.target.id==='commandUnit'){selected=event.target.value;render();by('commandUnit')?.focus();}});
- window.addEventListener('hashchange',()=>setView(location.hash==='#command-display'));
- return {render,handle,isOpen:()=>open,showMap:()=>{if(open)setView(false);}};
+ return {render,handle};
 }
 window.FOF_COMMAND_DISPLAY={create,adjust,newRound};
 })();

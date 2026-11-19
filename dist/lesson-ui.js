@@ -130,6 +130,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   }
   return true;
  }
- return {menu,hero,side,roster,target,handle,reset};
+ return {menu,hero,side,roster,target,handle,reset,chosen:()=>picked,
+  awaitingCell:()=>step()?.kind==='cell'||step()?.kind==='move'&&picked===step().unit};
 };
 })();
