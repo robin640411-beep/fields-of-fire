@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const C=window.FOF_CAMPAIGNS,S=window.FOF_SERIES,G=window.FOF,A=window.FOF_CAMPAIGN_AIR;
-window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,missionChoice,entryBrief,result,render,cellDialog})=>{
+window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,missionChoice,entryBrief,result,render})=>{
  const h=v=>esc(v), b=button,$=id=>document.getElementById(id);
  const opt=(v,label,selected=false)=>'<option value="'+h(v)+'"'+(selected?' selected':'')+'>'+h(label)+'</option>';
  const opts=(o,selected)=>Object.entries(o).map(([k,v])=>opt(k,v,k===selected)).join('');

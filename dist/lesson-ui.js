@@ -159,9 +159,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   const t=step(),coord=G.nameAt(c),s=state();
   if(t?.kind==='cell'){if(C.accepts(s,'cell',coord))success();else fail('你點了 '+coord+'。可以用「指出位置」核對這一步的地形。');return;}
   if(t?.kind==='move'&&picked===t.unit){if(C.accepts(s,'move',coord))success();else fail('目的地是 '+t.at+'，算子仍在 '+G.nameAt(unit(t.unit))+'。');return;}
-  const here=G.unitsAt(s,c);
-  const marks=c.marks.length?'<p>'+c.marks.map(esc).join('、')+'</p>':'';
-  dialog('lessonCell',coord+'・'+(G.terrain(c.t)?.name||'集結區'),marks+'<div class="lesson-cell-units">'+here.map(u=>button('lessonPick',u.name+(u.lessonStatus?'・'+u.lessonStatus:''),'',u.id)).join('')+'</div>'+(c.t?button('inspectStack','查看完整地形牌','tiny',c.x+','+c.y):''));
+
  }
  function handle(a,v){
   const s=state();

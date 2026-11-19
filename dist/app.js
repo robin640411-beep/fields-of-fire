@@ -25,7 +25,7 @@ const course=()=>C.has(s.id);
 const isTable=()=>!course()&&G.isTable(s);
 const lessons=window.FOF_LESSON_UI({state:()=>s,slots:()=>slots,switchState:st=>{s=st;resetView();},edit,render,dialog,close,tell,button,esc,box,tokenPic,logView,lastRow});
 const commandDisplay=window.FOF_COMMAND_DISPLAY.create({state:()=>s,esc,button,edit});
-const campaignUI=window.FOF_CAMPAIGN_UI({state:()=>s,slots:()=>slots,switchTo:st=>{s=st;resetView();},edit,dialog,button,close,tell,esc,missionChoice,entryBrief,result,render,cellDialog});
+const campaignUI=window.FOF_CAMPAIGN_UI({state:()=>s,slots:()=>slots,switchTo:st=>{s=st;resetView();},edit,dialog,button,close,tell,esc,missionChoice,entryBrief,result,render});
 function drawGroups(){
  if(s.tableRun){
   const read=piles.frames(s.tableRun).slice(0,s.tableRun.shown).filter(f=>f.id);
@@ -139,7 +139,7 @@ function cardBack(staging){
 }
 const backFace=staging=>cardBack(staging).face;
 const backName=staging=>cardBack(staging).name;
-const tabletop=window.FOF_TERRAIN_TABLE({catalog,esc,pic,terrain:G.terrain,backFace,backName,objectiveName});
+const tabletop=window.FOF_TERRAIN_TABLE({state:()=>s,catalog,esc,pic,terrain:G.terrain,backFace,backName,objectiveName});
 function destination(c){
  if(course())return lessons.target(c);
  if(isTable()&&!quick()&&mode==='move'&&selectedUnit())return !G.same(selectedUnit(),c)&&campaigns.canMove(s,selectedUnit(),c);
@@ -206,14 +206,6 @@ function boardZoom(direction){
 function revealCell(c){
  $('board').querySelector('[data-action="cell"][data-value="'+c.x+','+c.y+'"]')?.scrollIntoView({block:'nearest',inline:'nearest'});
 }
-function inspectStack(c){
- if(!c.t||c.faceDown)return;
- const t=G.terrain(c.t),layers=G.hillLayers(c);
- const surfaces=[{face:t?t.face:backFace(),name:t?[t.name,G.terrainCode(t)].filter(Boolean).join('　'):backName(),desc:layers.length?'上層地形':''}];
- layers.slice().reverse().forEach((id,i)=>surfaces.push({face:G.terrain(id??1).face,name:id?'丘陵　'+G.terrainCode(G.terrain(id)):'丘陵（示意牌）',desc:'下方第 '+(i+1)+' 張'+(id?'':'・舊存檔僅記錄層數')}));
- const figures=surfaces.map(v=>'<figure><figcaption><strong>'+esc(v.name)+'</strong><small>'+esc(v.desc)+'</small></figcaption>'+pic(v.face,'inspected-face',v.name)+'</figure>').join('');
- dialog('faces',G.nameAt(c)+'・'+(t?t.name:'集結區'),'<div class="stack-gallery" data-count="'+surfaces.length+'">'+figures+'</div>'+(course()&&c.marks.length?'<p>'+c.marks.map(esc).join('、')+'</p>':''));
-}
 function rosterButton(u){
  const t=catalog.get(u.art), st=u.casualty?'傷亡':u.pinned?'壓制':u.exposed?'暴露':G.nameAt(u);
  return '<button class="ubtn '+(selected===u.id?'selected':'')+'" data-action="unit" data-value="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-info="'+esc(st)+'">'+(t?pic(t.art,u.exposed?'faded':''):'<span class="piece-icon">◇</span>')+'<span><b>'+esc(shortAbbr(u))+'</b><small>'+esc(st)+'</small></span></button>';
@@ -271,7 +263,13 @@ function renderSide(){
  let main='<div class="turn-line"><b class="round-num">'+pad(s.turn)+'</b><div><span class="turn-label">回合'+(isTable()?' / '+campaigns.turnLimit(s):'')+'</span><span class="phase-label">'+esc(s.outcome?'已結算':G.phaseNames[s.phase]||'巡邏結算')+'</span></div></div><div class="phase-track">'+stages.map((p,i)=>'<i class="'+(p===s.phase?'on':i<stages.indexOf(s.phase)?'past':'')+'"></i>').join('')+'</div>';
  if(s.outcome)main+='<h3>'+(isTable()&&conf().mode==='patrol'?'三次巡邏已結算':s.outcome==='win'?'任務完成':'任務結束')+'</h3><p class="hint">'+esc(s.log.at(-1)?.text)+'</p>'+button('result','查看結算','primary wide')+' '+button('undo','復原上一步','flat tiny','',!history.length);
  else main+=quick()?quickPanel():isTable()?tablePanel():trainingPanel();
- $('side').innerHTML='<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('tab','行動面板',sideTab==='play'?'on':'','play')+button('tab','任務日誌',sideTab==='log'?'on':'','log')+'</div><span class="turnpill">R'+pad(s.turn)+'</span></div><div class="sidebody">'+(sideTab==='log'?logView():main)+'</div>'+lastRow()+'</section>'+goalBox();
+ const activeCell=focus&&isTable()&&!quick()&&!s.outcome?G.at(s,focus):null;
+ const showCell=sideTab==='cell'&&activeCell;
+ const tabs=button('tab','行動面板',!showCell&&sideTab!=='log'?'on':'','play')+
+  (activeCell?button('tab',G.nameAt(activeCell)+' 操作',showCell?'on':'','cell'):'')+
+  button('tab','任務日誌',sideTab==='log'?'on':'','log');
+ const body=showCell?cellControls(activeCell):sideTab==='log'?logView():main;
+ $('side').innerHTML='<section class="cardbox"><div class="sidehead"><div class="tabbar">'+tabs+'</div><span class="turnpill">R'+pad(s.turn)+'</span></div><div class="sidebody">'+body+'</div>'+lastRow()+'</section>'+goalBox();
 }
 function render(){renderHero();commandDisplay.render();renderBoard();renderPiles();renderSide();renderRoster();queueMicrotask(showPending);}
 function missionMenu(){let body='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide','1')+'<h3>野戰手冊 2</h3>'+button('courses','進階作戰・七堂逐步教學','primary wide','2')+'<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+'<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算');dialog('missions','任務選單',body);}
@@ -313,15 +311,9 @@ function quickPanel(){
  if(u)h+='<div class="selected-info"><b>'+esc(u.name)+'</b>　'+u.steps+' 階　'+(u.pinned?'壓制 ':'')+(u.covered?'掩蔽 ':'')+G.nameAt(u)+'</div><div class="actionpair">'+button('qact','尋找掩蔽','tiny','cover',!Q.canAct(s,u,'cover'))+button('qact','重整','tiny','rally',!Q.canAct(s,u,'rally'))+'</div>';
  return h+'<div class="buttonrow">'+button('advance',labels[s.phase],'primary wide')+'</div><div class="row">'+button('brief','快戰規則','flat tiny')+button('undo','復原上一步','flat tiny','',!history.length)+'</div>';
 }
-function guide(){dialog('guide','遊戲說明',button('courses','開啟手冊逐步教學','primary wide')+'<h3>第一次遊玩</h3><ol><li>點指揮顯示表上方的行動牌背，抽取啟動命令牌。</li><li>從「第 1 排編組」選擇單位，點選地圖上有金色虛線的目的牌。從集結區出發也可以斜走。</li><li>排部只能命令同牌單位。沒有合適對象時，結束排部命令，把點數留給下一回合。</li><li>使用一般主動點移動分散的單位，再結束回合。</li></ol><h3>牌堆與存檔</h3><p>抽到重洗牌時會先抽滿本次所需張數，再洗混整副牌。每點一次牌背翻一張，放在右側棄牌堆。停留在棄牌上可看完整牌面。可在「最近抽牌」翻閱最近一次操作。每次行動都會存到這個瀏覽器，也可匯出檔案帶往其他裝置。</p><h3>戰役棋桌</h3><p>從棋桌上方選擇戰役名稱，閱讀歷史背景後，可開始連續戰役或選擇該戰役的獨立任務。選地形可檢視整張牌、放置算子或檢查 PC。選算子可移動、登記狀態與兵力。在「行動牌工具」依指定修正值讀牌；「命令與紀錄」可記錄各部命令、彈藥與特殊效果。</p><p class="tagline">依《Fields of Fire Deluxe》第三版規則 §2–6、§8、§12、兩冊《野戰手冊》與四本戰役任務書改編。使用者提供之牌面與算子圖樣，原作 GMT Games。</p>');}
-function cellDialog(c){
- const us=G.unitsAt(s,c),t=c.faceDown?null:G.terrain(c.t),over=s.outcome,pc=c.pc||c.pending;
- let b='<div class="tagline">'+esc(G.nameAt(c))+'　'+(c.faceDown?'':c.level?'高度 '+c.level+'　':c.h?'高度 +'+c.h+'　':'')+(c.faceDown?'未揭開地形':t?(t.cover==null?'掩蔽值見牌面':'掩蔽 +'+t.cover):'集結區')+'</div>';
- if(c.faceDown)b+='<p class="hint">友軍地面單位對這張牌建立視線時，棋桌會自動翻開。牌上的算子與標記仍可操作。</p>';
- if(t)b+=button('inspectStack',c.h?'查看地形與下方丘陵':'查看完整地形牌','tiny',c.x+','+c.y);
- if(c.marks.length)b+='<p class="hint">'+c.marks.map(esc).join('、')+'</p>';
- if(us.length)b+='<h3>本牌算子</h3><div class="rostergrid">'+us.map(rosterButton).join('')+'</div>';
- if(isTable()&&!quick()&&!over){
+function guide(){dialog('guide','遊戲說明',button('courses','開啟手冊逐步教學','primary wide')+'<h3>第一次遊玩</h3><ol><li>點指揮顯示表上方的行動牌背，抽取啟動命令牌。</li><li>從「第 1 排編組」選擇單位，點選地圖上有金色虛線的目的牌。從集結區出發也可以斜走。</li><li>排部只能命令同牌單位。沒有合適對象時，結束排部命令，把點數留給下一回合。</li><li>使用一般主動點移動分散的單位，再結束回合。</li></ol><h3>牌堆與存檔</h3><p>抽到重洗牌時會先抽滿本次所需張數，再洗混整副牌。每點一次牌背翻一張，放在右側棄牌堆。停留在棄牌上可看完整牌面。可在「最近抽牌」翻閱最近一次操作。每次行動都會存到這個瀏覽器，也可匯出檔案帶往其他裝置。</p><h3>戰役棋桌</h3><p>從棋桌上方選擇戰役名稱，閱讀歷史背景後，可開始連續戰役或選擇該戰役的獨立任務。游標停在地形牌上可看完整牌面與圖示說明。點選地形牌後，可在右側放置算子或檢查 PC。選算子可移動、登記狀態與兵力。在「行動牌工具」依指定修正值讀牌；「命令與紀錄」可記錄各部命令、彈藥與特殊效果。</p><p class="tagline">依《Fields of Fire Deluxe》第三版規則 §2–6、§8、§12、兩冊《野戰手冊》與四本戰役任務書改編。使用者提供之牌面與算子圖樣，原作 GMT Games。</p>');}
+function cellControls(c){
+ let b='';
   const ref=G.needed(s).find(k=>!s.objectives[k]);
   if(s.phase==='setup'&&ref)b+='<p class="hint">'+esc(positionHint(ref))+'</p>'+button('putObj','放置'+objectiveName(ref),'primary',ref);
   if(s.phase==='setup'&&G.needed(s).length)b+='<div class="formgroup"><label>調整任務標記</label><select id="objKey">'+G.needed(s).map(k=>'<option value="'+k+'">'+esc(objectiveName(k))+'</option>').join('')+'</select>'+button('putChosen','放置於此牌','tiny')+'</div>';
@@ -332,8 +324,7 @@ function cellDialog(c){
   }
   if(c.pending)b+='<p><b>'+esc(c.contactDetail||'接敵已觸發')+'</b>。依任務表配置算子及標記後，更新活動程度，再判定下一枚 PC。</p><label class="formgroup">配置後的活動程度<select id="contactActivity">'+actLabels.map((v,i)=>'<option value="'+i+'" '+(i===s.activity?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select></label><div class="buttonrow">'+button('finishContact','完成配置','primary')+button('rerollContact','本組合無法配置・重抽')+button('emptyContact','全部組合皆無法配置')+'</div>';
   b+='<div class="buttonrow">'+button('library','放置算子')+button('editCell','編輯圖上標記')+'</div>';
- }
- dialog('cell',c.y?(t?.name||'地形'):'集結區',b,c);
+  return b;
 }
 function unitDialog(id){
  const u=s.units.find(q=>q.id===id);if(!u)return;
@@ -401,7 +392,7 @@ function campaignRetry(){
  close();
 }
 function applyPatrolMove(u,from,p){recordPatrol(u,from,p);u.x=p.x;u.y=p.y;if(s.phase!=='setup'&&u.side!=='marker'&&(from.y||p.y))u.exposed=true;G.note(s,u.name+' 移至 '+G.nameAt(p)+'。');}
-function modalCellClick(v){
+function selectCell(v){
  const p=readPos(v),c=G.at(s,p);
  if(!c)return;
  if(quick()&&selected&&Q.canMove(s,selectedUnit(),c)){
@@ -416,7 +407,12 @@ function modalCellClick(v){
   if(!campaigns.canMove(s,u,c)){tell('此任務的地圖移動限制不允許這個目的地。');return;}
   edit(()=>applyPatrolMove(u,{x:u.x,y:u.y},p));focus=c;mode='';selected=null;render();tell('已移至 '+G.nameAt(c));return;
  }
- focus=c;render();cellDialog(c);
+ focus=c;
+ if(isTable()&&!quick()&&!s.outcome)sideTab='cell';
+ const grid=$('terrainGrid');
+ grid.querySelector('.tile.focused')?.classList.remove('focused');
+ grid.querySelector('.tile[data-value="'+c.x+','+c.y+'"]')?.classList.add('focused');
+ renderSide();
 }
 function pickUnit(id){const u=s.units.find(x=>x.id===id);if(!u)return;close();selected=id;group=false;focus=G.at(s,u);sideTab='play';mode='';render();
  if(quick()){tell(u.casualty?'算子已退場':u.side!=='friendly'?'敵方算子由系統結算':'已選擇 '+u.name);if(u.side==='friendly'&&Q.able(s,u))scrollBoard();return;}
@@ -499,13 +495,13 @@ document.addEventListener('click',ev=>{
   if(key){
    const c=G.at(s,readPos(key));
    if(course()?lessons.awaitingCell():mode==='move'||destination(c)){
-    if(course())lessons.handle('cell',key);else modalCellClick(key);
+    if(course())lessons.handle('cell',key);else selectCell(key);
     return;
    }
    if(a==='boardPile'){
     focus=c;
     dialog('pile',G.nameAt(c)+'・'+(c.faceDown?'未揭開地形':G.terrain(c.t)?.name||'集結區'),tabletop.pile(s,c,course()?lessons.chosen():selected)+
-     button('pileCell','查看本牌','secondary',key));
+     button('pileCell',course()?'返回棋桌':'選擇此牌','secondary',key));
     return;
    }
   }
@@ -516,7 +512,7 @@ document.addEventListener('click',ev=>{
   return;
  }
  if(a==='pileCell'){
-  close();if(course())lessons.handle('cell',v);else modalCellClick(v);return;
+  close();if(course())lessons.handle('cell',v);else selectCell(v);return;
  }
  if(lessons.handle(a,v))return;
  switch(a){
@@ -524,7 +520,6 @@ document.addEventListener('click',ev=>{
  case 'zoomOut':boardZoom(-1);break;
  case 'zoomIn':boardZoom(1);break;
  case 'fitBoard':boardZoom(0);break;
- case 'inspectStack':{const c=G.at(s,readPos(v));if(c?.t)inspectStack(c);break;}
  case 'guide':guide();break;
  case 'saves':saveMenu();break;
  case 'missions':missionMenu();break;
@@ -543,13 +538,12 @@ document.addEventListener('click',ev=>{
  case 'undo':if(history.length){s=JSON.parse(history.pop());selected=null;focus=null;group=false;mode='';close();persist();render();tell('已復原上一步');}break;
  case 'qact':if(Q.canAct(s,selectedUnit(),v))armDraw({type:v,unit:selected});break;
  case 'group':group=!group;render();break;
- case 'cell':modalCellClick(v);break;
+ case 'cell':selectCell(v);break;
  case 'unit':pickUnit(v);break;
  case 'advance':step();break;
  case 'result':result();break;
  case 'deck':dialog('deck','行動牌組','<p>50 張行動牌，另有 1 張重洗牌。目前牌堆剩 '+s.deck.length+' 張。</p>'+pic('assets/action-back.webp','cardface','行動牌背')+'<p class="tagline">鋼盔顯示啟動命令，星形顯示主動點。卡面同時列出結果、事件圖示與隨機數字。</p>');break;
  case 'last':draws.show(drawGroups(),'最近抽牌','');break;
- case 'backCell':cellDialog(G.at(s,focus));break;
  case 'putObj':case 'putChosen':{
   const k=a==='putChosen'?$('objKey').value:v;
   if(edit(()=>{if(!G.placeObjective(s,k,focus))return false;G.note(s,objectiveName(k)+' 位於 '+G.nameAt(focus)+'。');return true;})){close();tell('已放置'+objectiveName(k));}else tell(positionHint(k)+' 請確認位置符合條件。');

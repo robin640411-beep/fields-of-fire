@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,objectiveName}){
+window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backName,objectiveName}){
  const G=window.FOF;
  const markArt=[
   [/^PC\s*([ABC])\b/i,m=>'pc-'+m[1].toLowerCase()], [/^PC\s*\?/, 'pc-hidden'],
@@ -74,12 +74,30 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
  const preview=document.getElementById('terrainPreview');
  const caption=preview.querySelector('figcaption'),picture=preview.querySelector('img');
  const symbolFace=preview.querySelector('.preview-symbol'),note=preview.querySelector('small');
- let timer,active,shownSrc,pointerPosition,scrollFrame;
+ const legendPanel=preview.querySelector('.terrain-legend');
+ function terrainNotes(card,layer){
+  const [x,y]=card.dataset.coord.split(',').map(Number),s=state(),cell=G.at(s,{x,y});
+  const id=layer===null?cell.t:G.hillLayers(cell)[layer];
+  const t=cell.faceDown?null:terrain(id??1);
+  const description=window.FOF_TERRAIN_LEGEND(t,cell,layer);
+  const {units,markers}=contents(s,cell);
+  const names=items=>items.map(i=>esc(i.label+(i.condition?'（'+i.condition+'）':''))).join('、');
+  const row=({glyph,title,meaning})=>'<div class="legend-row">'+(glyph?'<span class="legend-glyph glyph-'+glyph+'" aria-hidden="true"></span>':'')+
+   '<dt>'+esc(title)+'</dt><dd>'+esc(meaning)+'</dd></div>';
+  const summary=description.summary+(layer!==null&&id==null?'　此層牌號未記錄':'');
+  return '<p class="legend-summary">'+esc(summary)+'</p><dl>'+description.rows.map(row).join('')+'</dl>'+
+   (units.length?'<p class="legend-pieces"><b>本牌算子</b>　'+names(units)+'</p>':'')+
+   (markers.length?'<p class="legend-pieces"><b>本牌標記</b>　'+names(markers)+'</p>':'')+
+   (cell.pending&&cell.contactDetail?'<p class="legend-pieces"><b>接敵配置</b>　'+esc(cell.contactDetail)+'</p>':'');
+ }
+
+ let timer,active,shownSrc,described,pointerPosition,scrollFrame;
  function dismiss(){
   clearTimeout(timer);active=null;shownSrc=null;preview.hidden=true;
+  if(described){described.removeAttribute('aria-describedby');described=null;}
   if(preview.parentElement!==document.body)document.body.append(preview);
  }
- function schedule(anchor,src,name,info='',symbol=''){
+ function schedule(anchor,src,name,info='',symbol='',details=null){
   if(anchor===active&&src===shownSrc)return;
   dismiss();active=anchor;shownSrc=src;
   timer=setTimeout(()=>{
@@ -88,13 +106,24 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
    if(modal?!modal.open:document.querySelector('dialog[open]'))return;
    if(modal)modal.append(preview);
    preview.dataset.kind=anchor.hasAttribute('data-piece-name')?'piece':'card';
+   preview.toggleAttribute('data-terrain',!!details);
+   legendPanel.hidden=!details;
+   const r=anchor.getBoundingClientRect(),margin=10;
+   const roomRight=innerWidth-r.right-margin,roomLeft=r.left-margin;
+   const onRight=roomRight>=710||roomRight>=roomLeft;
+   if(details){
+    preview.style.setProperty('--preview-room',Math.max(220,onRight?roomRight:roomLeft)+'px');
+    legendPanel.style.setProperty('--legend-face','url("'+src+'")');
+    legendPanel.innerHTML=details();legendPanel.scrollTop=0;
+   }else legendPanel.replaceChildren();
    caption.textContent=name;note.textContent=info;note.hidden=!info;
    picture.hidden=!src;if(src)picture.src=src;else picture.removeAttribute('src');
    symbolFace.hidden=!!src;symbolFace.textContent=symbol;
    preview.hidden=false;
-   const r=anchor.getBoundingClientRect(),p=preview.getBoundingClientRect(),margin=10;
-   const right=r.right+margin;
-   preview.style.left=Math.max(margin,Math.min(innerWidth-p.width-margin,right+p.width+margin<=innerWidth?right:r.left-p.width-margin))+'px';
+   described=anchor.querySelector('.tile')||anchor;described.setAttribute('aria-describedby',preview.id);
+   const p=preview.getBoundingClientRect(),gap=details?0:margin;
+   const left=(details?onRight:r.right+p.width+2*margin<=innerWidth)?r.right+gap:r.left-p.width-gap;
+   preview.style.left=Math.max(margin,Math.min(innerWidth-p.width-margin,left))+'px';
    preview.style.top=Math.max(margin,Math.min(innerHeight-p.height-margin,(r.top+r.bottom-p.height)/2))+'px';
   },380);
  }
@@ -108,6 +137,7 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
  }
  function inspect(event){
   const pointer=event.type==='pointermove',target=event.target;
+  if(preview.contains(target))return;
   const card=target.closest('.card-location');
   let piece=target.closest('[data-piece-name]');
   if(!piece&&pointer){
@@ -124,17 +154,18 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
   if(front&&!front.hidden){schedule(discard,front.src,front.alt);return;}
   if(!card||card.hasAttribute('data-staging')||target.closest('.pile-count')){dismiss();return;}
   let img=card.querySelector('.board-face'),name=card.querySelector('.cell-name').textContent;
-  let number=card.querySelector('.cell-ref small')?.textContent||'';
+  let number=card.querySelector('.cell-ref small')?.textContent||'',layer=null;
   if(pointer&&event.clientY<img.getBoundingClientRect().top){
    const hill=[...card.querySelectorAll('.hill-face')].reverse().find(h=>event.clientY>=h.getBoundingClientRect().top);
-   if(hill){img=hill;name='下層丘陵';number=hill.dataset.code;}
+   if(hill){img=hill;layer=[...card.querySelectorAll('.hill-face')].indexOf(hill);name='下層丘陵';number=hill.dataset.code;}
   }
-  schedule(card,img.src,[card.querySelector('.cell-ref b').textContent,name,number].filter(Boolean).join('　'));
+  schedule(card,img.src,[card.querySelector('.cell-ref b').textContent,name,number].filter(Boolean).join('　'),'','',()=>terrainNotes(card,layer));
  }
  function stop(){
   pointerPosition=null;cancelAnimationFrame(scrollFrame);dismiss();
  }
  document.addEventListener('pointermove',e=>{
+  if(preview.contains(e.target))return;
   if(e.pointerType==='touch'||e.buttons){stop();return;}
   pointerPosition={clientX:e.clientX,clientY:e.clientY};inspect(e);
  });
@@ -142,9 +173,16 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
  document.addEventListener('focusout',dismiss);
  document.addEventListener('pointerout',e=>{if(!e.relatedTarget)stop();});
  document.addEventListener('close',stop,true);
- document.addEventListener('keydown',e=>{if(e.key==='Escape')stop();});
- document.addEventListener('pointerdown',stop,true);
- document.addEventListener('scroll',()=>{
+ document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){stop();return;}
+  if(!preview.hidden&&!legendPanel.hidden&&document.activeElement===described){
+   const delta={ArrowDown:40,ArrowUp:-40,PageDown:legendPanel.clientHeight,PageUp:-legendPanel.clientHeight}[e.key];
+   if(delta&&legendPanel.scrollHeight>legendPanel.clientHeight){e.preventDefault();legendPanel.scrollBy(0,delta);}
+  }
+ });
+ document.addEventListener('pointerdown',e=>{if(!preview.contains(e.target))stop();},true);
+ document.addEventListener('scroll',e=>{
+  if(preview.contains(e.target))return;
   dismiss();cancelAnimationFrame(scrollFrame);
   scrollFrame=requestAnimationFrame(()=>{
    if(!pointerPosition)return;
