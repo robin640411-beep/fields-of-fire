@@ -1,10 +1,10 @@
 (() => {
 'use strict';
 const C=window.FOF_CAMPAIGNS,S=window.FOF_SERIES,G=window.FOF,A=window.FOF_CAMPAIGN_AIR;
-window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,missionChoice,result,render,cellDialog})=>{
+window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,missionChoice,entryBrief,result,render,cellDialog})=>{
  const h=v=>esc(v), b=button,$=id=>document.getElementById(id);
  const opt=(v,label,selected=false)=>'<option value="'+h(v)+'"'+(selected?' selected':'')+'>'+h(label)+'</option>';
- const opts=o=>Object.entries(o).map(([k,v])=>opt(k,v)).join('');
+ const opts=(o,selected)=>Object.entries(o).map(([k,v])=>opt(k,v,k===selected)).join('');
  const labels={patrol:'三排巡邏',offensive:'進攻',assault:'進攻',defense:'防禦'};
  const action=(a,label,v,cls='tiny')=>b('cam'+a,label,cls,v);
  function directory(withTitle=true){return (withTitle?'<h3>戰役任務書</h3>':'')+'<div class="book-list">'+['N','K','H','V'].map(k=>{const book=C.books[k],save=slots()['campaign-'+k];return '<button class="choice" data-action="camBook" data-value="'+k+'"><span class="code">'+k+'</span><span><strong>'+book.label+'</strong><small>'+book.missions.length+' 個獨立任務・'+book.order.length+' 場連續戰役'+(save?'・已存至任務 '+G.scenario(save.id).number:'')+'</small></span></button>';}).join('')+'</div>';}
@@ -18,23 +18,33 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
   return '<article class="history-article" data-history="'+h(missionId||bookKey)+'"><header><span class="history-date">'+h(date)+'</span><h3>'+h(heading)+'</h3></header>'+
     paragraphs+table+'<footer>依《'+h(C.books[bookKey].label)+'戰役任務書》第 '+h(article.pages)+' 頁整理。'+(article.sourceNote?' '+h(article.sourceNote):'')+'</footer></article>';
  }
+ function campaignIntro(k){
+  const book=C.books[k];
+  dialog('campaignIntro',book.label+'戰役歷史背景',historyArticle(k)+
+   '<div class="buttonrow">'+action('Missions','選擇遊玩方式',k,'primary')+b('missions','返回任務選單')+'</div>');
+ }
+ function missionBriefing(m){
+  return historyArticle(m.book,m.id)+'<h3>勝利條件</h3><p>'+h(m.objective)+'</p><h3>設置</h3><ul>'+
+   m.setupNotes.map(note=>'<li>'+h(note)+'</li>').join('')+'</ul><p class="tagline">'+h(C.books[m.book].label)+
+   '任務書，第 '+h(m.page)+'–'+h(m.lastPage)+' 頁。特殊配屬、敵軍組合與額外效果請依任務書處理。</p>';
+ }
  function bookPage(k){
   const book=C.books[k];if(!book)return;
   const save=slots()['campaign-'+k];
-  let html=historyArticle(k)+'<h3>連續戰役</h3>';
+  let html='<h3>連續戰役</h3>';
   if(save)html+='<p>'+h(C.rules[save.series.rule])+'　'+h(G.scenario(save.id).title)+'　'+h(save.series.finished||('第 '+save.turn+' 回合'))+'</p>'+action('Resume','繼續戰役',k,'primary')+' '+action('New','重新開始戰役',k);
   else html+=action('New','建立戰役',k,'primary');
   html+='<h3>獨立任務</h3>'+book.missions.map(m=>missionChoice(m.id,m.id,m.title,labels[m.mode]+'・'+m.cols+' × '+m.rows+'・'+m.turns+' 回合')).join('');
-  dialog('campaignBook',book.label+'任務書',html+b('missions','返回任務選單','tiny'));
+  dialog('campaignBook',book.label+'任務書',html+action('Book','回顧戰役背景',k)+' '+b('missions','返回任務選單','tiny'));
  }
- function newSeries(k){
+ function newSeries(k,rule,formation){
   const book=C.books[k],save=slots()['campaign-'+k];
   const html='<p>'+book.order.length+' 場任務依序進行。每場結算後，連隊剩餘兵力、經驗與技能會帶入下一場。'+(k==='V'?'第七場選 Alpha 或 Bravo 連其中一路。':'')+'</p>'+
-  '<label class="formgroup">戰役勝負<select id="campaignRule">'+opts(C.rules)+'</select></label><p class="hint">標準模式要求完成每場非巡邏任務。生存者模式追蹤連指揮部是否生還。硬派模式同時檢查兩項條件。</p>'+form(k)+
-  (save?'<p>開始後會取代這本任務書的戰役進度。</p>':'')+action('Launch','開始第一場任務',k,'primary')+' '+action('Book','返回',k);
+  '<label class="formgroup">戰役勝負<select id="campaignRule">'+opts(C.rules,rule)+'</select></label><p class="hint">標準模式要求完成每場非巡邏任務。生存者模式追蹤連指揮部是否生還。硬派模式同時檢查兩項條件。</p>'+form(k,formation)+
+  (save?'<p>開始後會取代這本任務書的戰役進度。</p>':'')+action('Launch','閱讀第一場任務簡報',k,'primary')+' '+action('Missions','返回',k);
   dialog('seriesSetup',book.label+'戰役設置',html);
  }
- function form(k){return k==='V'?'<label class="formgroup">連隊編制<select id="campaignForm">'+opt('mortar81','81 公釐迫砲分隊')+opt('fourthPlatoon','第 4 步槍排')+'</select></label>':'';}
+ function form(k,formation){return k==='V'?'<label class="formgroup">連隊編制<select id="campaignForm">'+opt('mortar81','81 公釐迫砲分隊')+opt('fourthPlatoon','第 4 步槍排',formation==='fourthPlatoon')+'</select></label>':'';}
  function reader(id,page){
   const m=G.scenario(id);if(!m)return;
   const book=C.books[m.book],pages=book.refPages;
@@ -53,7 +63,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
    if(f.finished)html+='<p><strong>'+h(f.finished)+'</strong></p>';
    else if(s.outcome)html+=action('Settle',s.settlement?'繼續整補':'結算本場戰役','', 'primary');
    else html+='<p>目前任務　'+h(m.title)+'</p>';
-   dialog('seriesStatus','戰役紀錄',html+action('Book','任務書目錄',f.book));
+   dialog('seriesStatus','戰役紀錄',html+action('Missions','任務書目錄',f.book));
  }
  const input=(id,name,value,max=500)=>'<label>'+h(name)+' <input type="number" id="'+id+'" min="0" max="'+max+'" value="'+Number(value||0)+'"></label>';
  function settle(){
@@ -125,11 +135,22 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
  function handle(a,v){
   if(!a.startsWith('cam'))return false;const s=state(),m=G.scenario(s.id);
   switch(a){
-   case 'camBook':bookPage(v);break;
+   case 'camBook':campaignIntro(v);break;
+   case 'camMissions':bookPage(v);break;
    case 'camHistory':dialog('campaignHistory',C.books[v].label+'戰役背景',historyArticle(v)+b('brief','返回本場簡報','secondary'));break;
    case 'camNew':newSeries(v);break;
-   case 'camLaunch':switchTo(C.launch(v,$('campaignRule').value,$('campaignForm')?.value));break;
-   case 'camResume':{const saved=slots()['campaign-'+v];if(saved){switchTo(saved);if(saved.settlement)settle();}break;}
+   case 'camLaunch':{
+    const rule=$('campaignRule').value,formation=$('campaignForm')?.value;
+    entryBrief(C.books[v].order[0][0],()=>switchTo(C.launch(v,rule,formation)),()=>newSeries(v,rule,formation));
+    break;
+   }
+   case 'camResume':{
+    const saved=slots()['campaign-'+v];
+    if(!saved)break;
+    if(saved.settlement||saved.outcome){switchTo(saved);if(saved.settlement)settle();}
+    else entryBrief(saved.id,()=>switchTo(saved),()=>bookPage(v),'繼續戰役・第 '+saved.turn+' 回合');
+    break;
+   }
    case 'camRef':{const [id,page]=v.split('|');reader(id,page);break;}
    case 'camStatus':status(s);break;
    case 'camForm':{
@@ -188,7 +209,11 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
     if(ok)settle();else tell('請核對人數及經驗數字。');break;}
    case 'camLedger':{const [command,index,idx]=v.split('|'),row=s.settlement?.rows[Number(index)],skill=$('seriesSkill')?.value;
     if(edit(()=>S.ledger(s,command,{id:row?.id,index:Number(idx),grade:idx,skill})))settle();else tell('可用兵力、經驗或輪調條件尚未符合。');break;}
-   case 'camNext':{const next=S.advance(s,v);if(next)switchTo(next);else tell('請先完成任務間輪調。');break;}
+   case 'camNext':{
+    if(S.canAdvance(s,v))entryBrief(v,()=>switchTo(S.advance(s,v)),settle);
+    else tell('請先完成任務間輪調。');
+    break;
+   }
    case 'camMapTools':mapTools(s);break;
    case 'camMapApply':{if(edit(()=>C.adjustMap(s,v))){close();}else tell('此地圖已達範圍上限。');break;}
    default:return false;
@@ -201,6 +226,6 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
    if(['K6','K7','N6','N7'].includes(s.id))html+=action('MapApply','新增左側縱欄','left')+action('MapApply','新增右側縱欄','right');
    dialog('mapTools','任務地圖',html);
  }
- return {directory,bookPage,historyArticle,reader,setupPanel,status,handle,form};
+ return {directory,missionBriefing,reader,setupPanel,status,handle,form};
 };
 })();

@@ -341,7 +341,7 @@ body{min-width:1080px}
 .series-inputs,.formation-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:1rem 0}.series-inputs label,.formation-grid label{display:flex;align-items:center;gap:.4rem}
 .series-inputs input{width:5rem}.series-metrics{background:#e7eade;padding:.65rem;color:#273c2c}
 
-#panel[data-kind="campaignBook"], #panel[data-kind="campaignHistory"], #panel[data-kind="missionInfo"] {
+#panel:is([data-kind="campaignBook"], [data-kind="campaignIntro"], [data-kind="campaignHistory"], [data-kind="missionInfo"], [data-kind="missionEntry"]) {
   width: min(750px, calc(100% - 32px));
 }
 .history-article {
@@ -357,3 +357,5 @@ body{min-width:1080px}
 .history-table strong { font-size: .9rem; }
 .modalcontent .history-table p { margin: 3px 0 0; line-height: 1.65; }
 .history-article footer { margin-top: 12px; font-size: .81rem; color: var(--muted); }
+
+.modalcontent .entry-title { font-size: 1.2rem; margin-bottom: .6rem; }

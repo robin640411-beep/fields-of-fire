@@ -155,9 +155,13 @@ function ledger(s,action,value){
  }
  return false;
 }
-function advance(s,next){
+function canAdvance(s,next){
  const t=s.settlement;
- if(t?.phase!=='skills'||t.hqRotation||t.tour||!eligibleNext(s).includes(next))return null;
+ return t?.phase==='skills'&&!t.hqRotation&&!t.tour&&eligibleNext(s).includes(next);
+}
+function advance(s,next){
+ if(!canAdvance(s,next))return null;
+ const t=s.settlement;
  const company=t.rows.map(r=>{const {ranks,...u}=r;return {...u,steps:ranks.length,experience:C.composite(ranks.map(z=>z.grade))};});
  const series=structuredClone(s.series);series.history.push({...t.record,xp:t.xp+t.extra,spent:t.spent});series.index++;
  const m=G.scenario(next);return C.create(next,{company,series,form:series.form,previous:m.carryMapFrom===G.scenario(s.id).number?s:null});
@@ -185,5 +189,5 @@ function valid(s){
  if(s.settlement){const t=s.settlement;if(!t.record||t.record.id!==s.id||!Array.isArray(t.transfers)||!t.spentBy||!t.perPlatoon||!['xp','extra','lat','lost','spent','green','veteran','rotation'].every(k=>Number.isInteger(t[k])&&t[k]>=0)||!s.outcome||!['report','rebuild','replace','skills'].includes(t.phase)||!Array.isArray(t.rows)||t.rows.length!==s.company.length||!t.rows.every((r,i)=>r.id===s.company[i].id&&Array.isArray(r.ranks)&&r.ranks.length<=r.max&&r.ranks.every(z=>grades.includes(z.grade))&&Array.isArray(r.skills)&&r.skills.every(x=>Object.hasOwn(skills,x))))return false;}
  return true;
 }
-window.FOF_SERIES={score,total,survivors,openSettlement,ledger,advance,nextPatrol,eligibleNext,valid,skills,syncRotation,canTour};
+window.FOF_SERIES={score,total,survivors,openSettlement,ledger,canAdvance,advance,nextPatrol,eligibleNext,valid,skills,syncRotation,canTour};
 })();
