@@ -80,7 +80,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   const s=state(),l=lesson();
   const ledger=Object.entries(s.tracks);
   return '<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('lessonTab','教學步驟',tab==='play'?'on':'','play')+button('lessonTab','演練紀錄',tab==='log'?'on':'','log')+'</div>'+button('lessonTurnGuide','流程表','tiny')+'</div><div class="sidebody">'+(tab==='play'?play():logView())+'</div>'+lastRow()+'</section>'+
-   (ledger.length?box('指揮顯示板','<dl class="lesson-tracks">'+ledger.map(([label,v])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>'):'')+box('演練目標','<p class="hint">'+esc(l.goal)+'</p>');
+   (ledger.length?box('演練紀錄值','<dl class="lesson-tracks">'+ledger.map(([label,v])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>'):'')+box('演練目標','<p class="hint">'+esc(l.goal)+'</p>');
  }
  function roster(){
   const s=state();

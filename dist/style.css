@@ -246,3 +246,40 @@ body{min-width:1080px}
 .turn-reference li{padding-left:3px}
 .turn-reference p{margin:2px 0 9px;font-size:.94rem}
 .lesson-finished~.wide{margin-top:6px}
+
+/* The face and counters share one coordinate plane at every zoom level. */
+[hidden]{display:none!important}
+#sheetToggle{color:#253b2d;background:#e6d39b;border-color:#f2e0ae;padding:4px 10px;line-height:1.35}
+#sheetPreview{width:100%;display:flex;align-items:center;gap:14px;text-align:left;margin-bottom:9px;padding:8px 12px;background:#edf0e5;border:1px solid #b8c3ac;border-radius:5px}
+.sheet-mini{display:block;flex:none;width:56px;pointer-events:none;box-shadow:0 1px 5px #20362938}
+.sheet-preview-text{min-width:0;display:grid;gap:1px}
+.sheet-preview-text strong{font-size:1.01rem}
+.sheet-preview-text span{color:#4c604b;font-size:.84rem}
+.sheet-preview-text b{color:#283e2b;font-size:.85rem;text-decoration:underline;text-underline-offset:2px}
+#commandStage{display:grid;grid-template-columns:minmax(0,1fr) clamp(175px,15vw,235px);min-height:0;overflow:hidden}
+.sheet-scroll{container-type:size;min-width:0;min-height:0;overflow:auto;background:#354a39 url("assets/contours.png") center/550px;overscroll-behavior:contain}
+#commandPaper{width:min(calc(100cqw - 24px),calc((100cqh - 24px)*612/792));margin:12px auto;box-shadow:0 3px 16px #172b24aa}
+#commandPaper.enlarged{width:max(870px,calc(100cqw - 24px));margin:12px}
+.sheet-paper{display:block;position:relative;width:100%;aspect-ratio:612/792}
+.printed-sheet{width:100%;display:block;height:auto;pointer-events:none}
+.sheet-chit{position:absolute;aspect-ratio:1;display:grid;place-items:center;transform:translate(-50%,-50%);pointer-events:none;border-radius:2px;box-shadow:0 1px 3px #15271c88}
+.sheet-chit img{display:block;width:100%;height:auto;border-radius:2px}
+.sheet-chit.command-token{outline:1px solid #f6ecb5}
+.sheet-chit.chosen{outline:2px solid #9b5c16}
+.sheet-chit b{position:absolute;bottom:0;right:0;background:#26382d;color:white;font-size:.77rem;line-height:1.15;padding:1px 3px}
+.sheet-mini .sheet-chit b{display:none}
+.sheet-custom{display:grid;align-content:center;width:100%;height:100%;background:#617346;color:white;border:1px solid #efe7d2;font-size:clamp(8px,.8vw,13px);line-height:1.15;overflow:hidden}
+.sheet-mini .sheet-custom{font-size:0}
+.sheet-target{position:absolute;border:none;padding:0;border-radius:0;background:transparent;z-index:1}
+.sheet-target:hover,.sheet-target:focus-visible{outline:2px solid #926922;outline-offset:-2px;background:#e8c77442}
+#commandState{min-width:0;min-height:0;overflow:auto;background:#eef0e4;color:#283b2f;padding:14px 12px;border-left:1px solid #acb5a0}
+#commandState h3{font-size:1.05rem}
+.sheet-ledger{list-style:none;padding:0;margin:6px 0 13px}
+.sheet-ledger li{display:flex;flex-direction:column;padding:6px 0;border-bottom:1px solid #cbd2bd;overflow-wrap:anywhere}
+.sheet-ledger strong{font-size:.94rem}.sheet-ledger span,#commandState p{color:#4b604a;font-size:.87rem}
+.sheet-edit label{display:block;font-size:.94rem;font-weight:700}
+.sheet-edit select{font:inherit;width:100%;padding:5px;margin:5px 0;background:#fafaf4;border:1px solid #aeb9a3}
+.sheet-adjust{display:flex;align-items:center;justify-content:space-between;margin:8px 0}
+.sheet-adjust button,.sheet-area-actions button{padding:4px 8px}
+.sheet-area-actions{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.sheet-ledger small{color:#586b54;font-size:.78rem}

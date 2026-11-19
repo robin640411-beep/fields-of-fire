@@ -23,6 +23,7 @@ const conf=()=>G.scenario(s.id);
 const course=()=>C.has(s.id);
 const isTable=()=>!course()&&G.isTable(s);
 const lessons=window.FOF_LESSON_UI({state:()=>s,slots:()=>slots,switchState:st=>{s=st;resetView();},edit,render,dialog,close,tell,button,esc,box,tokenPic,logView,lastRow});
+const commandDisplay=window.FOF_COMMAND_DISPLAY.create({state:()=>s,esc,button,edit,fitMap:sizeBoard});
 function drawGroups(){return s.recentDraws?.length?s.recentDraws:s.last.length?[{why:'行動牌',ids:s.last}]:[];}
 function showPending(){
  if(!s.pendingDraws?.length||draws.isOpen())return;
@@ -178,7 +179,7 @@ function renderSide(){
  else main+=quick()?quickPanel():isTable()?tablePanel():trainingPanel();
  $('side').innerHTML='<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('tab','行動面板',sideTab==='play'?'on':'','play')+button('tab','任務日誌',sideTab==='log'?'on':'','log')+'</div><span class="turnpill">R'+pad(s.turn)+'</span></div><div class="sidebody">'+(sideTab==='log'?logView():main)+'</div>'+lastRow()+'</section>'+goalBox();
 }
-function render(){renderHero();renderBoard();renderSide();renderRoster();queueMicrotask(showPending);}
+function render(){renderHero();renderBoard();renderSide();renderRoster();commandDisplay.render();queueMicrotask(showPending);}
 function missionMenu(){let body='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide')+'<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+'<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算')+'<h3>諾曼第戰役</h3><p class="tagline">輔助棋桌處理抽牌、地圖與任務目標。戰役的敵軍活動、特殊行動與編組由玩家依任務書裁定。</p>'+window.FOF_SCENARIOS.map(m=>missionChoice(m.id,'N'+pad(m.number),m.title,m.cols+' × '+m.rows+' 地形・'+(m.mode==='patrol'?'三次十回合巡邏':'十回合進攻'))).join('');dialog('missions','任務選單',body);}
 function missionChoice(id,code,n,sub){return '<button class="choice" data-action="missionInfo" data-value="'+id+'"><span class="code">'+code+'</span><span><strong>'+esc(n)+'</strong><small>'+esc(sub)+(slots[id]?' ・ 已有進度':'')+'</small></span></button>';}
 function missionInfo(id){
@@ -237,7 +238,7 @@ function library(cat='friendly',q=''){
 function tableDraw(){dialog('draw','行動牌工具','<p>依任務書抽取指定張數。每張牌的原圖都可放大查看。</p><div class="formgroup"><label for="drawN">抽牌張數</label><input id="drawN" type="number" value="1" min="1" max="12"></div>'+button('drawBatch','抽取行動牌','primary')+'<hr class="divider"><h3>戰鬥效果檢定</h3><p class="tagline">輸入依棋桌狀態計出的淨戰鬥修正。命中時再抽一張讀取經驗欄，並將結果套用到該算子。</p><div class="formgroup"><label for="ncm">淨戰鬥修正（NCM）</label><select id="ncm">'+Array.from({length:11},(_,i)=>'<option '+(i===4?'selected':'')+' value="'+(i-4)+'">'+(i-4)+'</option>').join('')+'</select><label for="exp">經驗</label><select id="exp"><option value="line">一般</option><option value="green">新兵</option><option value="veteran">老兵</option></select></div>'+button('combatDraw','判讀效果','primary')+'<hr class="divider">'+button('deck','檢視行動牌組','tiny'));}
 function ledger(){
  const known=s.units.filter(u=>u.side==='friendly'&&(/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr))), names=[...new Set([...known.map(u=>u.id),...Object.keys(s.tracks)])];
- let b='<label class="formgroup">目前活動等級<select id="activity">'+actLabels.map((x,i)=>'<option value="'+i+'" '+(s.activity===i?'selected':'')+'>'+x+'</option>').join('')+'</select></label><h3>命令軌</h3>'+names.map(id=>'<div class="detailrow"><label>'+esc(s.units.find(u=>u.id===id)?.name||id)+'</label><span>'+button('track','−','tiny',id+'|-1')+' <b class="mono">'+Number(s.tracks[id]||0)+'</b> '+button('track','＋','tiny',id+'|1')+'</span></div>').join('')+'<div class="formgroup"><label for="notes">任務紀錄與資源</label><textarea id="notes" maxlength="10000">'+esc(s.notes)+'</textarea></div>'+button('saveLedger','儲存紀錄','primary');
+ let b='<label class="formgroup">目前活動等級<select id="activity">'+actLabels.map((x,i)=>'<option value="'+i+'" '+(s.activity===i?'selected':'')+'>'+x+'</option>').join('')+'</select></label>'+button('openLedgerSheet','儲存紀錄並檢視完整指揮表','secondary wide')+'<h3>命令軌</h3>'+names.map(id=>'<div class="detailrow"><label>'+esc(s.units.find(u=>u.id===id)?.name||id)+'</label><span>'+button('track','−','tiny',id+'|-1')+' <b class="mono">'+Number(s.tracks[id]||0)+'</b> '+button('track','＋','tiny',id+'|1')+'</span></div>').join('')+'<div class="formgroup"><label for="notes">任務紀錄與資源</label><textarea id="notes" maxlength="10000">'+esc(s.notes)+'</textarea></div>'+button('saveLedger','儲存紀錄','primary');
  dialog('ledger','命令與紀錄',b);
 }
 function recordPatrol(u,from,to){
@@ -291,7 +292,7 @@ function patrolFinish(){
  });selected=null;focus=null;mode='';close();render();if(s.outcome)result();
 }
 function campaignRetry(){
- edit(()=>{for(const [k,v] of Object.entries(scoreTable()))s.xpCards[k]=Math.max(s.xpCards[k]||0,v);s.attempt++;s.outcome='';s.turn=1;s.phase='setup';s.tracks={};s.activity=0;s.events={};s.counterUntil=0;
+ edit(()=>{for(const [k,v] of Object.entries(scoreTable()))s.xpCards[k]=Math.max(s.xpCards[k]||0,v);s.attempt++;s.outcome='';s.turn=1;s.phase='setup';s.tracks={};s.commandAreas={};s.activity=0;s.events={};s.counterUntil=0;
   for(const u of s.units){u.exposed=false;u.pinned=false;u.moved='';}
   G.note(s,'重試 '+(s.attempt-1)+'：地形、敵軍、尚存 PC 與已計分牌保留。請依規則 §3.9 重新編組及配置。');});
  close();
@@ -323,7 +324,12 @@ function step(){
  if(isTable()&&!quick()&&s.turn>=2&&['events','enemy'].includes(s.phase)&&!s.events?.[s.turn+'-'+(s.phase==='events'?'friendly':'enemy')]){edit(()=>G.hqEvent(s));tell('已檢查上級事件，確認結果後可推進階段。');return;}
  if(isTable()&&!quick()&&s.phase==='combat'&&s.map.some(c=>c.pending||c.pc&&G.unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty))){tell('請先完成地圖上待處理的接敵檢查與配置。');return;}
  const old=s.phase;
- edit(()=>quick()?Q.advance(s):isTable()?G.advanceTable(s):G.advanceTraining(s));
+ const previousTurn=s.turn;
+ edit(()=>{
+  const ok=quick()?Q.advance(s):isTable()?G.advanceTable(s):G.advanceTraining(s);
+  if(ok&&isTable()&&!quick()&&s.turn!==previousTurn)window.FOF_COMMAND_DISPLAY.newRound(s);
+  return ok;
+ });
  selected=null;group=false;mode='';close();
  if(!isTable()&&s.phase==='command'&&old==='ready'){
   const u=s.units.find(q=>q.id==='s1'&&!G.trainingStatus(s,q))||s.units.find(q=>!G.trainingStatus(s,q));selected=u?.id||null;focus=u?G.at(s,u):null;
@@ -336,6 +342,8 @@ function step(){
 document.addEventListener('click',ev=>{
  const el=ev.target.closest('[data-action]');if(!el||el.disabled)return;
  const a=el.dataset.action,v=el.dataset.value||'';
+ if(commandDisplay.handle(a,v))return;
+ if(commandDisplay.isOpen()&&(a==='lessonHint'||a==='lessonPick'&&course()&&C.current(s)?.kind==='move'||a==='moveMode'||a==='unit'&&(!isTable()||quick())))commandDisplay.showMap();
  if(lessons.handle(a,v))return;
  switch(a){
  case 'close':close();break;
@@ -388,8 +396,8 @@ document.addEventListener('click',ev=>{
    if(r==='HIT'){const ef=G.draw(s,1,'命中效果')[0];cs.push(ef.id);message+='　／　'+ef.hitEffect[experience];}s.last=cs;G.note(s,message);});
   dialog('combat','戰鬥效果', '<h3>'+esc(message)+'</h3><p>依結果更新算子與標記。</p>'+button('last','檢視使用的牌面')+' '+button('close','返回棋桌','primary'));break;}
  case 'ledger':ledger();break;
- case 'track':{const [id,delta]=v.split('|');const notes=$('notes').value,activity=Number($('activity').value);edit(()=>{s.notes=notes;s.activity=activity;s.tracks[id]=Math.max(0,Math.min(99,(s.tracks[id]||0)+Number(delta)));});ledger();break;}
- case 'saveLedger':edit(()=>{s.activity=Number($('activity').value);s.notes=$('notes').value;G.note(s,'更新命令與任務紀錄。');});close();break;
+ case 'track':{const [id,delta]=v.split('|');const notes=$('notes').value,activity=Number($('activity').value);edit(()=>{s.notes=notes;s.activity=activity;window.FOF_COMMAND_DISPLAY.adjust(s,id,Number(delta));});ledger();break;}
+ case 'openLedgerSheet':case 'saveLedger':edit(()=>{s.activity=Number($('activity').value);s.notes=$('notes').value;G.note(s,'更新命令與任務紀錄。');});close();if(a==='openLedgerSheet'&&!commandDisplay.isOpen())commandDisplay.handle('commandSheet','');break;
  case 'patrolFinish':patrolFinish();break;
  case 'retry':campaignRetry();break;
  case 'export':{const obj={version:1,active:s.id,slots};const url=URL.createObjectURL(new Blob([JSON.stringify(obj)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='Fields-of-Fire-存檔.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break;}

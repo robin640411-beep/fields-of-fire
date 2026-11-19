@@ -282,6 +282,7 @@ function hqEvent(s){
  }s.events[k]=detail;note(s,detail);return detail;
 }
 function validSave(s){
+ if(s?.commandAreas!==undefined&&(!s.commandAreas||typeof s.commandAreas!=='object'||Array.isArray(s.commandAreas)||!Object.values(s.commandAreas).every(area=>['ready','available','saved','done','carried'].includes(area))))return false;
  if(!s||![s.pendingDraws,s.recentDraws].every(b=>b===undefined||(Array.isArray(b)&&b.length<=2000&&b.every(g=>g&&typeof g.why==='string'&&Array.isArray(g.ids)&&g.ids.length>0&&g.ids.length<=60&&g.ids.every(id=>Number.isInteger(id)&&id>=1&&id<=51)))))return false;
  if(window.FOF_COURSE?.has(s.id))return window.FOF_COURSE.validSave(s);
  if(!s||s.version!==1||!(s.id==='T1'||scenario(s.id))||!Array.isArray(s.map)||!Array.isArray(s.units)||!Array.isArray(s.log)||!Array.isArray(s.deck)||!Array.isArray(s.discard)||!Array.isArray(s.last)||typeof s.objectives!=='object'||!s.objectives||!s.tracks||!Number.isInteger(s.turn)||s.turn<1)return false;

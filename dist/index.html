@@ -7,7 +7,7 @@
 <title>Fields of Fire｜戰火洗禮</title>
 <link rel="stylesheet" href="style.css">
 <script defer src="assets/decks.js"></script><script defer src="assets/pieces.js"></script><script defer src="scenarios.js"></script><script defer src="engine.js"></script><script defer src="quick.js"></script><script defer src="assets/mission-tables.js"></script>
-<script defer src="course.js"></script><script defer src="lessons-p12.js"></script><script defer src="lessons-c12.js"></script><script defer src="lessons-p3c3.js"></script><script defer src="lesson-ui.js"></script><script defer src="draw-view.js"></script><script defer src="app.js"></script>
+<script defer src="course.js"></script><script defer src="lessons-p12.js"></script><script defer src="lessons-c12.js"></script><script defer src="lessons-p3c3.js"></script><script defer src="lesson-ui.js"></script><script defer src="draw-view.js"></script><script defer src="lesson-commands.js"></script><script defer src="command-display.js"></script><script defer src="app.js"></script>
 </head>
 <body>
 <header class="mast"><div class="mast-inner">
@@ -18,18 +18,24 @@
 <main class="shell"><div class="desk">
   <section class="board-pane" aria-labelledby="boardTitle">
     <div class="boardbar">
-      <div class="board-title"><span class="tiny-grid" aria-hidden="true"></span><h2 id="boardTitle">地形棋桌</h2><span id="mapSize"></span></div>
-      <div class="board-tools">
+      <div class="board-title"><span class="tiny-grid" aria-hidden="true"></span><h2 id="boardTitle">地形棋桌</h2><span id="mapSize"></span><button type="button" data-action="commandSheet" id="sheetToggle" aria-controls="commandStage" aria-expanded="false">指揮顯示表</button></div>
+      <div class="board-tools" id="terrainTools">
         <button data-action="fitBoard" id="fitBoard" aria-pressed="true" title="顯示整張地圖">全圖</button>
         <div class="zoom-controls" role="group" aria-label="牌面大小">
           <button data-action="zoomOut" aria-label="縮小牌面">−</button><output id="boardScale" aria-label="牌面比例"></output><button data-action="zoomIn" aria-label="放大牌面">＋</button>
         </div>
       </div>
+      <div class="board-tools" id="commandTools" hidden><button data-action="sheetZoom" id="sheetZoom" aria-pressed="false">放大表面</button></div>
     </div>
     <div class="map-pad" id="mapViewport" tabindex="0" role="region" aria-label="地形棋盤，可捲動"><div id="board"></div></div>
-    <div class="mapkey"><span><i class="key-piece"></i>友軍</span><span><i class="key-destination"></i>可移入</span><span><i class="key-target">⚑</i>目標</span><span class="play-edge">玩家側・第 1 列在下方</span></div>
+    <div id="commandStage" hidden>
+      <div class="sheet-scroll" tabindex="0" role="region" aria-label="完整指揮顯示表"><div id="commandPaper"></div></div>
+      <section id="commandState" aria-label="指揮部命令"></section>
+    </div>
+    <div class="mapkey" id="sheetKey" hidden><span>美國陸軍・二戰與韓戰</span><span class="play-edge">指揮顯示表　第 1 頁</span></div>
+    <div class="mapkey" id="mapKey"><span><i class="key-piece"></i>友軍</span><span><i class="key-destination"></i>可移入</span><span><i class="key-target">⚑</i>目標</span><span class="play-edge">玩家側・第 1 列在下方</span></div>
   </section>
-  <aside class="command-dock" aria-label="棋桌控制"><div id="side"></div><section id="roster"></section><footer><span id="savedStatus">本機自動存檔</span></footer></aside>
+  <aside class="command-dock" aria-label="棋桌控制"><button type="button" id="sheetPreview" data-action="commandSheet" aria-controls="commandStage" aria-expanded="false"></button><div id="side"></div><section id="roster"></section><footer><span id="savedStatus">本機自動存檔</span></footer></aside>
 </div></main>
 <dialog id="panel"><div id="modalBody"></div></dialog>
 <dialog id="drawViewer" aria-labelledby="drawHeading">
