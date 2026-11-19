@@ -52,7 +52,46 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   return !!t&&(t.kind==='move'&&picked===t.unit&&coord===t.at||hint&&(coord===t.at||t.unit&&G.same(unit(t.unit),c)));
  }
  const numbered=i=>'<span class="lesson-counter">步驟 <b>'+i+'</b> / '+lesson().steps.length+'</span>';
- function play(){
+ function pieceCue(u,selectable){
+  const info=[G.nameAt(u),u.lessonStatus].filter(Boolean).join('・');
+  const attrs=' data-piece-name="'+esc(u.name)+'" data-piece-info="'+esc(info)+'"';
+  if(!selectable)return '<span class="cue-companion" tabindex="0"'+attrs+'>'+tokenPic(u)+'</span>';
+  return '<button type="button" class="cue-counter'+(picked===u.id?' is-picked':'')+'" data-action="lessonPick" data-value="'+esc(u.id)+'" aria-label="選取'+esc(u.name)+'（'+G.nameAt(u)+'）"'+attrs+'>'+tokenPic(u)+'</button>';
+ }
+ function instruction(t,drawInstruction){
+  let art,caption='',gesture;
+  switch(t.kind){
+  case 'unit':case 'move':{
+   const u=unit(t.unit);
+   art=pieceCue(u,true);
+   if(t.kind==='move'){
+    const companions=Object.keys(t.effects?.move||{}).filter(id=>id!==u.id).map(unit);
+    if(companions.length)art+='<div class="cue-companions">'+companions.map(v=>pieceCue(v,false)).join('')+'</div>';
+   }
+   caption=G.nameAt(u);
+   gesture=picked===u.id?'已選取，請點棋桌上的 '+t.at+'。':'點選左圖或棋桌上的算子。';
+   break;
+  }
+  case 'cell':{
+   const c=state().map.find(c=>G.nameAt(c)===t.at),terrain=G.terrain(c.t);
+   art='<img class="cue-card" src="'+esc(terrain?.face||'assets/terrain-back.webp')+'" alt="'+esc(terrain?.name||'集結區')+'">';
+   caption=t.at;
+   gesture='點選棋桌上的'+(terrain?'地形牌。':'集結區。');
+   break;
+  }
+  case 'draw':
+   art='<img class="cue-card" src="assets/action-back.webp" alt="行動牌背面">';
+   gesture=drawInstruction||'點桌上的行動牌組，每點一次翻一張。';
+   break;
+  case 'choice':
+   art='<span class="cue-options" role="img" aria-label="選擇答案">'+t.options.map(()=>'<i></i>').join('')+'</span>';
+   gesture='點選下方的判讀結果。';
+   break;
+  }
+  return '<div class="lesson-instruction" data-kind="'+esc(t.kind)+'"><div class="lesson-art">'+art+
+   (caption?'<span class="cue-coordinate">'+esc(caption)+'</span>':'')+'</div><div><h2 class="lesson-prompt">'+esc(t.text)+'</h2><p class="lesson-gesture">'+esc(gesture)+'</p></div></div>';
+ }
+ function play(drawInstruction){
   const s=state(),t=step(),l=lesson();
   if(!t){
    const next=C.ids[C.ids.indexOf(s.id)+1];
@@ -60,26 +99,23 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
     (next?button('courseInfo','進入下一課','primary wide',next):button('missions','開啟任務選單','primary wide'))+
     (s.id==='P1'?button(slots().T1?'resume':'start',slots().T1?'繼續已存的自由演練':'用隨機牌序練習移動','secondary wide',slots().T1?'T1':'random'):'')+button('courses','查看六課進度','flat tiny');
   }
-  const rule=({draw:'點桌上的行動牌組，每點一次翻一張',unit:'選取算子',cell:'點選地形牌',choice:'選擇判讀結果',move:picked===t.unit?'點選目的地':'先選取算子'})[t.kind];
   let body='<div class="lesson-position">'+numbered(s.cursor+1)+'<small>手冊第 '+esc(t.page)+' 頁</small></div>'+
    '<div class="progressline"><i style="width:'+100*s.cursor/l.steps.length+'%"></i></div><p class="lesson-phase">第 '+t.turn+' 回合　／　'+esc(t.phase)+'</p>'+
-   '<h2 class="lesson-prompt">'+esc(t.text)+'</h2><p class="lesson-gesture">'+esc(rule)+'</p>';
+   instruction(t,drawInstruction);
   if(t.kind==='draw')body+=button('focusDraw','前往行動牌組','secondary wide');
   if(t.kind==='choice')body+='<div class="answer-list">'+t.options.map((v,i)=>button('lessonAnswer',v,'',i)).join('')+'</div>';
-  if(t.kind==='move'||t.kind==='unit'){
-   const u=unit(t.unit);if(u)body+='<div class="lesson-counterpick">'+button('lessonPick',u.name+'　'+G.nameAt(u),picked===u.id?'highlight':'',u.id)+'</div>';
-  }
   if(error)body+='<p role="alert" class="lesson-error">'+esc(error)+'</p>';
   if(hint&&t.kind!=='choice'&&t.kind!=='draw')body+='<p class="lesson-tip">'+(t.unit?'算子位於 '+G.nameAt(unit(t.unit))+'。':'')+(t.at?'請找 '+esc(t.at)+'。':'')+'</p>';
-  body+='<div class="lesson-tools">'+button('lessonBack','上一步','flat tiny','',!s.cursor)+(t.kind==='move'||t.kind==='cell'||t.kind==='unit'?button('lessonHint',hint?'收起提示':'指出位置','flat tiny'):'')+'</div>';
+  body+='<div class="lesson-tools">'+button('lessonBack','上一步','flat tiny','',!s.cursor||!!drawInstruction)+(t.kind==='move'||t.kind==='cell'||t.kind==='unit'?button('lessonHint',hint?'收起提示':'指出位置','flat tiny'):'')+'</div>';
   const previous=l.steps[s.cursor-1];
   if(previous?.detail)body+='<div class="lesson-feedback"><small>上一步的結果</small><p>'+esc(previous.detail)+'</p></div>';
   return body;
  }
- function side(){
+ function side(drawInstruction=''){
   const s=state(),l=lesson();
   const ledger=Object.entries(s.tracks);
-  return '<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('lessonTab','教學步驟',tab==='play'?'on':'','play')+button('lessonTab','演練紀錄',tab==='log'?'on':'','log')+'</div>'+button('lessonTurnGuide','流程表','tiny')+'</div><div class="sidebody">'+(tab==='play'?play():logView())+'</div>'+lastRow()+'</section>'+
+  const showPlay=tab==='play'||!!drawInstruction;
+  return '<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('lessonTab','教學步驟',showPlay?'on':'','play',!!drawInstruction)+button('lessonTab','演練紀錄',showPlay?'':'on','log',!!drawInstruction)+'</div>'+button('lessonTurnGuide','流程表','tiny')+'</div><div class="sidebody">'+(showPlay?play(drawInstruction):logView())+'</div>'+lastRow()+'</section>'+
    (ledger.length?box('演練紀錄值','<dl class="lesson-tracks">'+ledger.map(([label,v])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>'):'')+box('演練目標','<p class="hint">'+esc(l.goal)+'</p>');
  }
  function roster(){

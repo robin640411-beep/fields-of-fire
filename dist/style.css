@@ -225,8 +225,22 @@ body{min-width:1080px}
 .lesson-position small,.lesson-source,.lesson-phase,.lesson-gesture,.lesson-feedback small{color:#586b53}
 .lesson-counter b{font:700 1.55rem var(--cond)}
 .lesson-phase{font-size:.86rem;font-weight:700;margin:9px 0 5px}
-.lesson-prompt{font-size:1.08rem;line-height:1.5;margin:4px 0}
-.lesson-gesture{font-size:.88rem;margin:8px 0 4px}
+.lesson-instruction{display:grid;grid-template-columns:clamp(50px,4vw,64px) minmax(0,1fr);align-items:start;gap:12px;margin:10px 0 13px}
+.lesson-art{display:grid;justify-items:center;gap:5px}
+.cue-counter,.cue-card,.cue-companion{display:grid;place-items:center;width:100%;padding:0;border:0;border-radius:2px;box-shadow:0 1px 3px #25342655}
+.cue-counter,.cue-companion{aspect-ratio:1;background:#e4dfbf}
+.cue-counter.is-picked{outline:3px solid #53683a;outline-offset:2px}
+.cue-counter:focus-visible{outline:3px solid #ac7122;outline-offset:3px}
+.cue-counter img,.cue-companion img{width:100%;height:100%;object-fit:contain}
+.cue-companions{display:grid;width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+.cue-card{height:auto;aspect-ratio:5/7;object-fit:contain}
+.cue-coordinate{font:700 .85rem var(--cond);color:#42533d}
+.cue-options{box-sizing:border-box;width:100%;aspect-ratio:1;display:grid;align-content:center;gap:5px;padding:7px;border:1px solid var(--line);border-radius:4px;background:#eef1e5}
+.cue-options i{display:flex;align-items:center;gap:4px}
+.cue-options i::before{content:'';border:1.5px solid #53684e;width:7px;height:7px;border-radius:50%}
+.cue-options i::after{content:'';height:2px;background:#687963;flex:1}
+.lesson-prompt{font-size:1.08rem;line-height:1.5;margin:0}
+.lesson-gesture{font-size:.88rem;margin:5px 0 0}
 .lesson-tools{margin:9px 0}
 .lesson-feedback{border-top:1px solid var(--line);padding-top:8px}
 .lesson-feedback p,.lesson-tip,.lesson-error{font-size:.92rem;line-height:1.55}
@@ -234,7 +248,6 @@ body{min-width:1080px}
 .lesson-error{border-left:3px solid #995d3a}
 .lesson-cell-units,.answer-list{display:grid;gap:5px;margin:8px 0}
 .answer-list button{text-align:left}
-.lesson-counterpick button{width:100%;text-align:left}
 .lesson-tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin:9px 0 0}
 .lesson-tracks div{background:#e8eddd;border-radius:3px;padding:5px 8px;overflow-wrap:anywhere}
 .lesson-tracks dt{font-size:.84rem;color:#465d45}

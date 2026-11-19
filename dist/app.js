@@ -225,6 +225,7 @@ function tablePanel(){
 }
 function positionHint(k){const o=conf().objectives;if(k==='outpost')return '在第 2 列選擇前哨。';if(k.startsWith('way'))return '在第 2 至 4 列選擇尚未使用的路線點。';const r=o[k+'Row'];return '在第 '+r+' 列放置'+objectiveName(k)+(k==='position'?'，須鄰接指定目標。':'。');}
 function renderSide(){
+ if(course()){$('side').innerHTML=lessons.side(s.tableRun?drawProgress():'');return;}
  if(s.tableRun||s.drawOrder){
   const order=s.tableRun?.order||s.drawOrder;
   const progress=s.tableRun?drawProgress():'請點指揮顯示表上方的行動牌背。';
@@ -232,7 +233,6 @@ function renderSide(){
    (s.tableRun?button('last','檢視已翻的牌','tiny'):button('cancelDraw','取消待抽操作','tiny'))+'</section>';
   return;
  }
- if(course()){$('side').innerHTML=lessons.side();return;}
  const stages=quick()?['ready','command','initiative','review']:isTable()?['setup','events','orders','enemy','retreat','vehicles','combat','cleanup']:['ready','command','initiative'];
  let main='<div class="turn-line"><b class="round-num">'+pad(s.turn)+'</b><div><span class="turn-label">回合'+(isTable()?' / '+conf().turns:'')+'</span><span class="phase-label">'+esc(s.outcome?'已結算':G.phaseNames[s.phase]||'巡邏結算')+'</span></div></div><div class="phase-track">'+stages.map((p,i)=>'<i class="'+(p===s.phase?'on':i<stages.indexOf(s.phase)?'past':'')+'"></i>').join('')+'</div>';
  if(s.outcome)main+='<h3>'+(isTable()&&conf().mode==='patrol'?'三次巡邏已結算':s.outcome==='win'?'任務完成':'任務結束')+'</h3><p class="hint">'+esc(s.log.at(-1)?.text)+'</p>'+button('result','查看結算','primary wide')+' '+button('undo','復原上一步','flat tiny','',!history.length);
