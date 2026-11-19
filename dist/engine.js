@@ -43,7 +43,11 @@ const templates=[
   ['lmg','輕機槍組','1/LMG',1],['at','巴祖卡組','1/AT',1],['fo','前進觀測員','Mtr FO',1]
 ];
 const piece = (id,name,abbr,steps,x,y,side='friendly',art=id) => ({id,name,abbr,steps,x,y,side,art,exposed:false,moved:'',pinned:false,notes:''});
-const blank = (x,y,t=0,h=0) => ({x,y,t,h,pc:null,hadPC:false,pending:false,marks:[]});
+function hillLayers(cell){
+  // Older saves recorded elevation but did not store the individual hill IDs.
+  return cell.hills || Array(cell.h).fill(null);
+}
+const blank = (x,y,t,hills) => ({x,y,t,h:hills.length,hills,pc:null,hadPC:false,pending:false,marks:[]});
 function base(id,cols,rows,guided){
   return {version:1,id,cols,rows,guided,turn:1,phase:'ready',points:0,saved:0,spent:0,
     last:[],deck:newDeck(guided),discard:[],drawCount:0,units:[],map:[],log:[],
@@ -52,7 +56,7 @@ function base(id,cols,rows,guided){
 function training(guided=true){
   const s=base('T1',3,3,guided);
   const rows=[[0,0,0],[41,42,43],[9,44,10],[17,18,19]];
-  rows.forEach((r,y)=>r.forEach((t,x)=>s.map.push(blank(x,y,t,y===3&&x===1?1:0))));
+  rows.forEach((r,y)=>r.forEach((t,x)=>s.map.push(blank(x,y,t,y===3&&x===1?[1]:[]))));
   s.units=templates.map(([id,n,a,steps])=>piece(id,n,a,steps,1,0));
   note(s,'七枚算子已放在 B0 集結區。'+(guided?'使用手冊前五回合的示範牌序。':'行動牌已洗混。'));
   return s;
@@ -120,14 +124,14 @@ function tabletop(id,previous=null){
  let pool=shuffle(window.FOF_TERRAIN.map(t=>t.id));
  for(let y=0;y<=m.rows;y++)for(let x=0;x<m.cols;x++){
   if(!y&&!m.staging)continue;
-  let t=0,h=0;
+  let t=0,hills=[];
   if(y>0){
    const old=previous&&at(previous,{x,y});
-   if(old?.t){t=old.t;h=old.h;}else{
-    t=pool.pop();while(terrain(t)?.type==='hill'&&pool.length){h++;t=pool.pop();}
+   if(old?.t){t=old.t;hills=hillLayers(old).slice();}else{
+    t=pool.pop();while(terrain(t)?.type==='hill'&&pool.length){hills.push(t);t=pool.pop();}
    }
   }
-  const c=blank(x,y,t,h);
+  const c=blank(x,y,t,hills);
   if(y>0){const raw=m.pcRows[y-1];c.pc=pcFor(raw);c.hidden=String(raw||'').startsWith('?');c.hadPC=!!c.pc;}
   if(m.foxholes?.row===y)c.marks.push('散兵坑 ×2');
   if(previous){const prior=at(previous,c);if(prior)c.marks=[...new Set([...c.marks,...prior.marks.filter(v=>/掩蔽|雷區|散兵坑/.test(v))])];}
@@ -236,6 +240,9 @@ function validSave(s){
  if(!(s.id==='T1'?['ready','command','initiative']:s.id==='Q1'?['ready','command','initiative','review']:['setup','patrolresult',...phases]).includes(s.phase)||!['','win','loss'].includes(s.outcome))return false;
  if(!s.deck.concat(s.discard,s.last).every(n=>Number.isInteger(n)&&n>=1&&n<=51)||!s.last.every(n=>n!==51))return false;
  if(!s.map.every(c=>c&&validPos(s,c)&&(!c.y||terrain(c.t))&&Array.isArray(c.marks)&&(!c.pc||['A','B','C'].includes(c.pc))))return false;
+ if(!s.map.every(c=>Number.isInteger(c.h)&&c.h>=0&&c.h<=6&&
+     (c.hills===undefined||(Array.isArray(c.hills)&&c.hills.length===c.h&&
+       c.hills.every(id=>id===null||terrain(id)?.type==='hill')))))return false;
  if(new Set(s.map.map(nameAt)).size!==s.map.length)return false;
  if(!s.units.every(u=>u&&validPos(s,u)&&typeof u.name==='string'&&typeof u.id==='string'&&['friendly','enemy','marker'].includes(u.side)))return false;
  if(!s.log.every(e=>e&&typeof e.text==='string')||!Object.values(s.objectives).every(p=>validPos(s,p)))return false;
@@ -248,5 +255,5 @@ function validSave(s){
  if(s.id==='T1'&&(s.units.length!==7||!templates.every(t=>s.units.some(u=>u.id===t[0]))))return false;
  return ['points','saved','spent','serial','drawCount','activity'].every(k=>Number.isInteger(s[k])&&s[k]>=0)&&s.activity<=3;
 }
-Object.assign(E,{hqEvent,card,terrain,scenario,nameAt,same,near,at,unitsAt,shuffle,note,draw,training,tabletop,isTable,trainingStatus,atThird,movers,allowedMove,moveTraining,advanceTraining,advanceTable,placeObjective,needed,goals,pcCheck,secured,isClear,phaseNames,validSave,piece});
+Object.assign(E,{hillLayers,hqEvent,card,terrain,scenario,nameAt,same,near,at,unitsAt,shuffle,note,draw,training,tabletop,isTable,trainingStatus,atThird,movers,allowedMove,moveTraining,advanceTraining,advanceTable,placeObjective,needed,goals,pcCheck,secured,isClear,phaseNames,validSave,piece});
 })();

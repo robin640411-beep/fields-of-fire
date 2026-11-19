@@ -1,6 +1,34 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#26372d"><title>Fields of Fire｜戰火洗禮</title><link rel="stylesheet" href="style.css">
-<script defer src="assets/decks.js"></script><script defer src="assets/pieces.js"></script><script defer src="scenarios.js"></script><script defer src="engine.js"></script><script defer src="quick.js"></script><script defer src="assets/mission-tables.js"></script><script defer src="app.js"></script></head><body>
-<header class="mast"><div class="mast-inner"><div class="brand"><span class="crest" aria-hidden="true"><i></i><b></b></span><div><strong>FIELDS OF FIRE</strong><small>戰 火 洗 禮</small></div></div><div class="mast-tools"><button data-action="guide"><span class="sym">▤</span> 遊戲說明</button><button data-action="saves"><span class="sym">▣</span> 存檔</button></div></div></header>
-<main class="shell"><section id="hero"></section><div class="desk"><section class="board-pane"><div class="boardbar"><div class="board-title"><span class="tiny-grid"></span><h2>地形圖</h2></div><div class="board-tools"><span id="mapSize"></span><button id="compactBtn" data-action="zoom" title="切換地圖大小" aria-label="切換地圖大小">⛶</button></div></div><div class="map-pad"><div id="board"></div></div><div class="mapkey"><span><i class="key-piece"></i>友軍</span><span><i class="key-destination"></i>可移入</span><span><i class="key-target">⚑</i>目標</span><span class="north">N ↑</span></div></section><aside id="side"></aside></div><section id="roster"></section><footer><span>FIELDS OF FIRE <i>／</i> DELUXE EDITION</span><span id="savedStatus">本機自動存檔</span></footer></main>
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#26372d">
+<title>Fields of Fire｜戰火洗禮</title>
+<link rel="stylesheet" href="style.css">
+<script defer src="assets/decks.js"></script><script defer src="assets/pieces.js"></script><script defer src="scenarios.js"></script><script defer src="engine.js"></script><script defer src="quick.js"></script><script defer src="assets/mission-tables.js"></script><script defer src="app.js"></script>
+</head>
+<body>
+<header class="mast"><div class="mast-inner">
+  <div class="brand"><span class="crest" aria-hidden="true"><i></i><b></b></span><div><strong>FIELDS OF FIRE</strong><small>戰 火 洗 禮</small></div></div>
+  <section id="hero" aria-label="目前任務"></section>
+  <div class="mast-tools"><button data-action="guide">遊戲說明</button><button data-action="saves">存檔</button></div>
+</div></header>
+<main class="shell"><div class="desk">
+  <section class="board-pane" aria-labelledby="boardTitle">
+    <div class="boardbar">
+      <div class="board-title"><span class="tiny-grid" aria-hidden="true"></span><h2 id="boardTitle">地形棋桌</h2><span id="mapSize"></span></div>
+      <div class="board-tools">
+        <button data-action="fitBoard" id="fitBoard" aria-pressed="true" title="顯示整張地圖">全圖</button>
+        <div class="zoom-controls" role="group" aria-label="牌面大小">
+          <button data-action="zoomOut" aria-label="縮小牌面">−</button><output id="boardScale" aria-label="牌面比例"></output><button data-action="zoomIn" aria-label="放大牌面">＋</button>
+        </div>
+      </div>
+    </div>
+    <div class="map-pad" id="mapViewport" tabindex="0" role="region" aria-label="地形棋盤，可捲動"><div id="board"></div></div>
+    <div class="mapkey"><span><i class="key-piece"></i>友軍</span><span><i class="key-destination"></i>可移入</span><span><i class="key-target">⚑</i>目標</span><span class="play-edge">玩家側・第 1 列在下方</span></div>
+  </section>
+  <aside class="command-dock" aria-label="棋桌控制"><div id="side"></div><section id="roster"></section><footer><span id="savedStatus">本機自動存檔</span></footer></aside>
+</div></main>
 <dialog id="panel"><div id="modalBody"></div></dialog><div id="toast" role="status" aria-live="polite"></div><input type="file" id="importFile" accept=".json,application/json" hidden>
 </body></html>

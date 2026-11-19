@@ -15,7 +15,7 @@ const readPos=v=>{const [x,y]=String(v).split(',').map(Number);return {x,y};};
 let slots={},s,storageOK=true;
 try{const b=JSON.parse(localStorage.getItem(key)||'null');if(b?.slots){for(const [id,st] of Object.entries(b.slots)){if(id===st.id&&G.validSave(st))slots[id]=st;}s=slots[b.active];}}catch{storageOK=false;}
 s=s||G.training();slots[s.id]=s;
-let selected=null,focus=null,mode='',group=false,sideTab='play',modal='',modalData=null,toastTimer,zoom=false,origin=null;
+let selected=null,focus=null,mode='',group=false,sideTab='play',modal='',modalData=null,toastTimer,origin=null;
 const history=[];
 const selectedUnit=()=>s.units.find(u=>u.id===selected);
 const conf=()=>G.scenario(s.id);
@@ -24,33 +24,88 @@ function tell(v){if($modal.open){let msg=$modal.querySelector('.modalmessage');i
 function persist(){slots[s.id]=s;try{localStorage.setItem(key,JSON.stringify({version:1,active:s.id,slots}));storageOK=true;}catch{storageOK=false;} $('savedStatus').textContent=storageOK?'✓ 本機自動存檔':'目前僅保留在此頁　請匯出存檔';}
 function edit(fn){const last=JSON.stringify(s);const ok=fn();if(ok===false)return false;history.push(last);if(history.length>35)history.shift();persist();render();return true;}
 function close(){if($modal.open)$modal.close();modal='';modalData=null;}
-function dialog(type,heading,html,data=null){modal=type;modalData=data;$('modalBody').innerHTML='<div class="modalhead"><h2>'+esc(heading)+'</h2>'+button('close','×','','')+'</div><div class="modalcontent">'+html+'</div>';if(!$modal.open)$modal.showModal();$modal.scrollTop=0;}
+function dialog(type,heading,html,data=null){modal=type;modalData=data;$modal.dataset.kind=type;$('modalBody').innerHTML='<div class="modalhead"><h2>'+esc(heading)+'</h2>'+button('close','×','','')+'</div><div class="modalcontent">'+html+'</div>';if(!$modal.open)$modal.showModal();$modal.scrollTop=0;}
 function resetView(){selected=null;focus=null;mode='';group=false;sideTab='play';history.length=0;origin=null;close();persist();render();}
 function activeProgress(){if(!isTable())return {v:G.atThird(s),n:7,label:'抵達第 3 列'};const gs=G.goals(s);return {v:gs.filter(g=>g.done).length,n:gs.length,label:'達成任務條件'};}
-function renderHero(){const m=conf(),is=isTable(),pat=m?.mode==='patrol';$('hero').innerHTML='<div class="hero" style="--art:url(assets/'+(is?'normandy':'training')+'.webp)"><div class="hero-content"><div class="overline"><span></span>'+(is?'NORMANDY &nbsp; / &nbsp; MISSION '+pad(m.number):'FIELD MANUAL &nbsp; / &nbsp; EXERCISE 01')+'</div><h1>'+esc(title(s.id))+'</h1><div class="herofoot"><b>'+(is?'諾曼第戰役':'野戰手冊・排突擊課程')+'</b><i></i><span>'+(quick()?'快戰改編・自動判定':is?'輔助棋桌':'規則自動判定')+'</span><i></i><span>'+(pat?'月光 +'+s.vis+'・第 '+s.patrol+' 次巡邏':'日間')+'</span></div></div><div class="hero-acts">'+(!is?button('missionInfo','單人快戰','heroquick','Q1'):'')+button('missions','任務選單')+'</div></div>';}
+function renderHero(){
+ const m=conf();
+ const section=m?'諾曼第戰役・任務 '+pad(m.number):'野戰手冊・演練 01';
+ const kind=quick()?'單人快戰':m?'輔助棋桌':'基礎演練';
+ const light=m?.mode==='patrol'?'月光 +'+s.vis+'・第 '+s.patrol+' 次巡邏':'日間';
+ $('hero').innerHTML='<div class="mission-name"><small>'+esc(section)+'</small><h1>'+esc(title(s.id))+'</h1></div><span class="mission-context">'+esc(kind+' ／ '+light)+'</span><div class="hero-acts">'+(!m?button('missionInfo','單人快戰','heroquick','Q1'):'')+button('missions','任務選單')+'</div>';
+}
 function shortAbbr(u){return u.abbr||u.name.split(' · ')[0];}
 function tokenPic(u){const t=catalog.get(u.art);return t?pic(t.art,'',u.name):'<b>'+esc(shortAbbr(u).slice(0,3))+'</b>';}
+const backFace=()=>isTable()?'assets/staging-naktong.webp':'assets/terrain-back.webp';
+const backName=()=>isTable()?'洛東江地形牌背':'諾曼第地形牌背';
 function tile(c){
- const us=G.unitsAt(s,c),terrain=G.terrain(c.t),dest=quick()?Q.canMove(s,selectedUnit(),c):!isTable()&&selected&&G.allowedMove(s,selected,c,group);
- const objs=Object.entries(s.objectives).filter(([,p])=>G.same(c,p)).map(([k])=>k);
+ const terrain=G.terrain(c.t), name=terrain?.name||'集結區', coord=G.nameAt(c), hills=G.hillLayers(c);
+ const dest=quick()?Q.canMove(s,selectedUnit(),c):!isTable()&&selected&&G.allowedMove(s,selected,c,group);
+ const units=G.unitsAt(s,c).sort((a,b)=>Number(b.side==='enemy')-Number(a.side==='enemy'));
  const tags=[];
- if(c.y===3&&!isTable())tags.push('⚑');
- if(c.h)tags.push('▲'+c.h);
+ if(!isTable()&&c.y===3)tags.push('⚑ 目標');
+ if(c.h)tags.push('丘陵 ×'+c.h);
  if(c.pc)tags.push('PC '+(c.hidden?'?':c.pc));
  if(c.pending)tags.push('接敵');
  if(isTable()&&G.secured(s,c))tags.push('控制');
- for(const k of objs)tags.push(({primary:'⚑ 1',secondary:'⚑ 2',position:'AP',outpost:'OP'})[k]||k.replace('way','路'));
- if(c.marks.length)tags.push('◆'+c.marks.length);
- const nm=c.y?terrain?.name||'地形':'集結區';
- const pos=G.nameAt(c);
- const order=us.slice().sort((a,b)=>(a.side==='enemy'?-1:0)-(b.side==='enemy'?-1:0));
- return '<button type="button" class="tile '+(!c.y?'staging ':'')+(dest?'can ':'')+(G.same(focus,c)?'focused':'')+'" data-action="cell" data-value="'+c.x+','+c.y+'" aria-label="'+esc(pos+' '+nm+'，'+us.length+' 枚算子'+(dest?'，可移入':''))+'">'+(terrain?'<span class="land" style="--cardart:url('+esc(terrain.art)+')"></span>':'')+'<span class="cardtop"><span class="coord">'+pos+'</span><span class="tags">'+tags.map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</span></span>'+(us.length?'<span class="stack">'+order.slice(0,2).map(tokenPic).join('')+(us.length>2?'<b>+'+(us.length-2)+'</b>':'')+'</span>':'')+'<span class="tile-name">'+esc(nm)+(terrain?'<small>N'+pad(terrain.id)+'</small>':'')+'</span></button>';
+ for(const [key,p] of Object.entries(s.objectives))if(G.same(c,p))tags.push(objectiveName(key));
+ if(c.marks.length)tags.push('標記 ×'+c.marks.length);
+ const faces=hills.map((id,i)=>'<img class="hill-face" style="--layer:'+i+'" src="'+G.terrain(id??1).face+'" alt="" draggable="false">').join('');
+ const captions='<span class="cell-state">'+tags.map(v=>'<span>'+esc(v)+'</span>').join('')+'</span>';
+ const pieces=units.length?'<span class="unit-total">'+units.length+' 枚</span><span class="cell-units">'+units.slice(0,3).map(tokenPic).join('')+(units.length>3?'<b>+'+(units.length-3)+'</b>':'')+'</span>':'';
+ const key=c.x+','+c.y;
+ return '<div class="card-location" style="--layers:'+hills.length+'"><button type="button" class="tile'+(c.y?'':' staging')+(dest?' can':'')+(G.same(focus,c)?' focused':'')+'" data-action="cell" data-value="'+key+'" aria-label="'+esc(coord+' '+name+'，'+units.length+' 枚算子'+(dest?'，可移入':''))+'">'+
+  '<span class="card-stack">'+faces+'<img class="board-face" src="'+(terrain?terrain.face:backFace())+'" alt="'+esc(terrain?name+' N'+pad(c.t):backName())+'" draggable="false"></span>'+
+  '<span class="cell-rail"><span class="cell-coord">'+coord+'</span><span class="cell-name">'+esc(name)+'</span>'+captions+pieces+'</span></button>'+
+  '<button type="button" class="inspect-card" data-action="inspectStack" data-value="'+key+'" aria-label="'+esc('放大 '+coord+' 的完整牌面')+'" title="放大完整牌面"><span aria-hidden="true"></span></button></div>';
 }
 function renderBoard(){
- $('mapSize').textContent=s.cols+' × '+s.rows+'  GRID';let out='<div class="mapgrid '+(s.cols>3?'dense':'')+'" style="--cols:'+s.cols+'"><span></span>';
+ $('mapSize').textContent=s.cols+' × '+s.rows;
+ let out='<div class="mapgrid" style="--cols:'+s.cols+'"><span></span>';
  for(let x=0;x<s.cols;x++)out+='<span class="axis topaxis">'+String.fromCharCode(65+x)+'</span>';
- for(let y=s.rows;y>=0;y--){const row=s.map.filter(c=>c.y===y);if(!row.length)continue;out+='<span class="axis">'+pad(y)+'</span>'+row.sort((a,b)=>a.x-b.x).map(tile).join('');}
- $('board').innerHTML=out+'</div>';document.querySelector('.desk').classList.toggle('zoom',zoom);$('compactBtn').setAttribute('aria-pressed',String(zoom));
+ for(let y=s.rows;y>=0;y--){
+  const row=s.map.filter(c=>c.y===y);
+  if(row.length)out+='<span class="axis rowaxis">'+pad(y)+'</span>'+row.sort((a,b)=>a.x-b.x).map(tile).join('');
+ }
+ $('board').innerHTML=out+'</div>';sizeBoard();
+}
+const scaleSteps=[72,88,104,128,152,180,220,268,325];
+let fixedWidth=null,faceWidth=152;
+function sizeBoard(){
+ const port=$('mapViewport');
+ if(!port.clientHeight)return;
+ const rows=new Set(s.map.map(c=>c.y));
+ const extra=Array.from(rows,y=>Math.max(...s.map.filter(c=>c.y===y).map(c=>c.h))).reduce((sum,n)=>sum+n,0);
+ // The tallest stack sets each grid row's height. Reserve the status rail beside each face.
+ const hFit=(port.clientHeight-48-12*rows.size)/(rows.size*1.4+extra*.22);
+ const colSpace=(port.clientWidth-54-s.cols*14)/s.cols;
+ const wFit=colSpace-57;
+ faceWidth=fixedWidth??Math.max(36,Math.floor(Math.min(250,hFit,wFit)));
+ $('board').style.setProperty('--face-w',faceWidth+'px');
+ $('board').style.setProperty('--rail',Math.min(84,Math.max(57,Math.floor(colSpace-faceWidth)))+'px');
+ $('board').classList.toggle('small-cards',faceWidth<96);
+ $('boardScale').textContent=Math.round(faceWidth/152*100)+'%';
+ $('fitBoard').setAttribute('aria-pressed',String(fixedWidth===null));
+ document.querySelector('[data-action="zoomOut"]').disabled=faceWidth<=scaleSteps[0];
+ document.querySelector('[data-action="zoomIn"]').disabled=faceWidth>=scaleSteps.at(-1);
+}
+function boardZoom(direction){
+ if(!direction){fixedWidth=null;}
+ else if(direction>0){fixedWidth=scaleSteps.find(n=>n>faceWidth)??scaleSteps.at(-1);}
+ else{fixedWidth=scaleSteps.slice().reverse().find(n=>n<faceWidth)??scaleSteps[0];}
+ sizeBoard();
+ if(fixedWidth===null)$('mapViewport').scrollTo(0,0);
+ else if(focus)revealCell(focus);
+}
+function revealCell(c){
+ $('board').querySelector('[data-action="cell"][data-value="'+c.x+','+c.y+'"]')?.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+function inspectStack(c){
+ const t=G.terrain(c.t),layers=G.hillLayers(c);
+ const surfaces=[{face:t?t.face:backFace(),name:t?t.name+'　N'+pad(t.id):backName(),desc:layers.length?'上層地形':''}];
+ layers.slice().reverse().forEach((id,i)=>surfaces.push({face:G.terrain(id??1).face,name:id?'丘陵　N'+pad(id):'丘陵（示意牌）',desc:'下方第 '+(i+1)+' 張'+(id?'':'・舊存檔僅記錄層數')}));
+ const figures=surfaces.map(v=>'<figure><figcaption><strong>'+esc(v.name)+'</strong><small>'+esc(v.desc)+'</small></figcaption>'+pic(v.face,'inspected-face',v.name)+'</figure>').join('');
+ dialog('faces',G.nameAt(c)+'・'+(t?t.name:'集結區'),'<div class="stack-gallery" data-count="'+surfaces.length+'">'+figures+'</div>');
 }
 function rosterButton(u){
  const t=catalog.get(u.art), st=u.casualty?'傷亡':u.pinned?'壓制':u.exposed?'暴露':G.nameAt(u);
@@ -121,8 +176,7 @@ function cardBook(ids,label){const arr=ids.map(i=>i===51?window.FOF_SHUFFLE:G.ca
 function cellDialog(c){
  const us=G.unitsAt(s,c),t=G.terrain(c.t),over=s.outcome,pc=c.pc||c.pending;
  let b='<div class="tagline">'+esc(G.nameAt(c))+'　'+(c.h?'高度 +'+c.h+'　':'')+(t?'掩蔽 +'+t.cover:'集結區')+'</div>';
- if(!t)b+=button('terrainBack','查看集結區牌背','tiny');
- if(t)b+=button('terrainFace','檢視完整地形牌','tiny',t.id);
+ b+=button('inspectStack',c.h?'查看地形與下方丘陵':t?'放大完整地形牌':'查看集結區牌背','tiny',c.x+','+c.y);
  if(c.marks.length)b+='<p class="hint">'+c.marks.map(esc).join('、')+'</p>';
  if(us.length)b+='<h3>本牌算子</h3><div class="rostergrid">'+us.map(rosterButton).join('')+'</div>';
  if(isTable()&&!quick()&&!over){
@@ -233,7 +287,7 @@ function pickUnit(id){const u=s.units.find(x=>x.id===id);if(!u)return;close();se
  if(quick()){tell(u.casualty?'算子已退場':u.side!=='friendly'?'敵方算子由系統結算':'已選擇 '+u.name);if(u.side==='friendly'&&Q.able(s,u))scrollBoard();return;}
  if(isTable()){unitDialog(id);return;}
  const msg=G.trainingStatus(s,u);if(!msg)scrollBoard();tell(msg||'已選擇 '+u.name+'，點金色虛線格移動。');}
-function scrollBoard(){if(window.matchMedia('(max-width:700px)').matches)document.querySelector('.board-pane').scrollIntoView({behavior:'smooth',block:'start'});}
+function scrollBoard(){if(focus&&fixedWidth!==null)revealCell(focus);}
 function step(){
  if(s.outcome)return;
  if(isTable()&&!quick()&&s.turn>=2&&['events','enemy'].includes(s.phase)&&!s.events?.[s.turn+'-'+(s.phase==='events'?'friendly':'enemy')]){edit(()=>G.hqEvent(s));tell('已檢查上級事件，確認結果後可推進階段。');return;}
@@ -254,7 +308,10 @@ document.addEventListener('click',ev=>{
  const a=el.dataset.action,v=el.dataset.value||'';
  switch(a){
  case 'close':close();break;
- case 'zoom':zoom=!zoom;renderBoard();break;
+ case 'zoomOut':boardZoom(-1);break;
+ case 'zoomIn':boardZoom(1);break;
+ case 'fitBoard':boardZoom(0);break;
+ case 'inspectStack':{const c=G.at(s,readPos(v));if(c)inspectStack(c);break;}
  case 'guide':guide();break;
  case 'saves':saveMenu();break;
  case 'missions':missionMenu();break;
@@ -273,8 +330,6 @@ document.addEventListener('click',ev=>{
  case 'result':result();break;
  case 'deck':dialog('deck','行動牌組','<p>50 張行動牌，另有 1 張重洗牌。目前牌堆剩 '+s.deck.length+' 張。</p>'+pic('assets/action-back.webp','cardface','行動牌背')+'<p class="tagline">鋼盔顯示啟動命令，星形顯示主動點。卡面同時列出結果、事件圖示與隨機數字。</p>');break;
  case 'last':cardBook(s.last,'最近抽牌');break;
- case 'terrainBack':dialog('terrain','集結區牌背',pic('assets/terrain-back.webp','cardface','地形牌背')+button('backCell','返回地形','tiny'));break;
- case 'terrainFace':{const t=G.terrain(Number(v));dialog('terrain',t.name+'・N'+pad(t.id),pic(t.face,'cardface',t.name)+button('backCell','返回地形','tiny'));break;}
  case 'backCell':cellDialog(G.at(s,focus));break;
  case 'putObj':case 'putChosen':{
   const k=a==='putChosen'?$('objKey').value:v;
@@ -320,5 +375,6 @@ $('importFile').addEventListener('change',async e=>{
 });
 $modal.addEventListener('click',e=>{if(e.target!==$modal)return;const r=$modal.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close();});
 $modal.addEventListener('cancel',()=>{modal='';modalData=null;});
+new ResizeObserver(sizeBoard).observe($('mapViewport'));
 render();persist();
 })();
