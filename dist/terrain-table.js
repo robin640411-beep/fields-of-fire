@@ -35,11 +35,15 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
  function chit(item,selected,inList=false){
   const label=item.label+(item.condition?'・'+item.condition:'');
   const entry=catalog.get(item.art);
+  const info=[entry?.name!==item.label&&entry?.name,item.condition].filter(Boolean).join('　');
+  const previewAttrs='data-piece-name="'+esc(item.label)+'" data-piece-info="'+esc(info)+'"';
   const face=entry?pic(entry.art,'',''):'<span class="chit-text">'+esc(item.short.slice(0,3))+'</span>';
   const attr=item.id?'data-action="boardPiece" data-value="'+esc(item.id)+'"':'data-action="boardPile"';
-  if(inList&&!item.id)return '<li><span class="chit-icon">'+face+'</span><span>'+esc(label)+'</span></li>';
-  const btn='<button type="button" '+attr+' class="'+(inList?'pile-choice':'map-chit')+(selected&&selected===item.id?' chosen':'')+'" aria-label="'+esc(label)+'">'+
-   (inList?'<span class="chit-icon">'+face+'</span><span>'+esc(label)+'</span>':face+((item.condition||item.quantity)?'<i class="condition-tab">'+esc(item.condition?item.condition.slice(0,2):'×'+item.quantity)+'</i>':''))+'</button>';
+  if(inList&&!item.id)return '<li '+previewAttrs+' tabindex="0"><span class="chit-icon">'+face+'</span><span>'+esc(label)+'</span></li>';
+  const statusArt=item.condition&&Object.entries({'受壓制':'pinned','暴露':'exposed','掩蔽':'cover','傷亡':'casualty'}).find(([name])=>item.condition.startsWith(name));
+  const statusAttrs=statusArt?' data-piece-name="'+esc(statusArt[0])+'" data-piece-info="'+esc(label)+'" data-piece-art="'+statusArt[1]+'"':'';
+  const btn='<button type="button" '+attr+' '+previewAttrs+' class="'+(inList?'pile-choice':'map-chit')+(selected&&selected===item.id?' chosen':'')+'" aria-label="'+esc(label)+'">'+
+   (inList?'<span class="chit-icon">'+face+'</span><span>'+esc(label)+'</span>':face+((item.condition||item.quantity)?'<i class="condition-tab"'+statusAttrs+'>'+esc(item.condition?item.condition.slice(0,2):'×'+item.quantity)+'</i>':''))+'</button>';
   return inList?'<li>'+btn+'</li>':btn;
  }
  function bank(items,name,limit,selected){
@@ -64,55 +68,88 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
   return [[units,'算子'],[markers,'標記']].filter(([items])=>items.length).map(([items,name])=>
    '<h3>'+name+'（'+items.length+'）</h3><ul class="pile-list">'+items.map(i=>chit(i,selected,true)).join('')+'</ul>').join('');
  }
- const board=document.getElementById('board'),preview=document.getElementById('terrainPreview');
- let timer,active,face;
- function dismiss(){clearTimeout(timer);active=null;face=null;preview.hidden=true;}
- function schedule(card,img,chit){
-  if(!card||!img||img.hidden||card.hasAttribute('data-staging')){dismiss();return;}
-  const badge=preview.querySelector('small');
-  badge.textContent=chit?.getAttribute('aria-label')||'';
-  badge.hidden=!badge.textContent;
-  if(card===active&&img===face){
-   if(!preview.hidden)preview.style.top=Math.max(10,Math.min(preview.offsetTop,innerHeight-preview.offsetHeight-10))+'px';
-   return;
-  }
-  dismiss();active=card;face=img;
+ const preview=document.getElementById('terrainPreview');
+ const caption=preview.querySelector('figcaption'),picture=preview.querySelector('img');
+ const symbolFace=preview.querySelector('.preview-symbol'),note=preview.querySelector('small');
+ let timer,active,shownSrc,pointerPosition,scrollFrame;
+ function dismiss(){
+  clearTimeout(timer);active=null;shownSrc=null;preview.hidden=true;
+  if(preview.parentElement!==document.body)document.body.append(preview);
+ }
+ function schedule(anchor,src,name,info='',symbol=''){
+  if(anchor===active&&src===shownSrc)return;
+  dismiss();active=anchor;shownSrc=src;
   timer=setTimeout(()=>{
-   if(!card.isConnected||document.querySelector('dialog[open]'))return;
-   const hill=img.classList.contains('hill-face');
-   preview.querySelector('figcaption').textContent=card.id==='discardPile'?img.alt:card.querySelector('.cell-ref b').textContent+'　'+(hill?'下層丘陵　N'+img.getAttribute('src').split('/').pop().split('.')[0]:card.querySelector('.cell-name').textContent+'　'+(card.querySelector('.cell-ref small')?.textContent||''));
-   const view=preview.querySelector('img');view.src=img.currentSrc||img.src;
+   if(!anchor.isConnected)return;
+   const modal=anchor.closest('dialog');
+   if(modal?!modal.open:document.querySelector('dialog[open]'))return;
+   if(modal)modal.append(preview);
+   preview.dataset.kind=anchor.hasAttribute('data-piece-name')?'piece':'card';
+   caption.textContent=name;note.textContent=info;note.hidden=!info;
+   picture.hidden=!src;if(src)picture.src=src;else picture.removeAttribute('src');
+   symbolFace.hidden=!!src;symbolFace.textContent=symbol;
    preview.hidden=false;
-   const r=card.getBoundingClientRect(),p=preview.getBoundingClientRect(),margin=10;
+   const r=anchor.getBoundingClientRect(),p=preview.getBoundingClientRect(),margin=10;
    const right=r.right+margin;
    preview.style.left=Math.max(margin,Math.min(innerWidth-p.width-margin,right+p.width+margin<=innerWidth?right:r.left-p.width-margin))+'px';
-   preview.style.top=Math.min(innerHeight-p.height-margin,Math.max(margin,(r.top+r.bottom-p.height)/2))+'px';
+   preview.style.top=Math.max(margin,Math.min(innerHeight-p.height-margin,(r.top+r.bottom-p.height)/2))+'px';
   },380);
  }
- board.addEventListener('pointermove',e=>{
-  if(e.pointerType==='touch'||e.buttons)return;
-  const discard=e.target.closest('#discardPile');
-  if(discard){schedule(discard,discard.querySelector('img'));return;}
-  const card=e.target.closest('.card-location');
-  if(!card||card.hasAttribute('data-staging')){dismiss();return;}
-  let img=card.querySelector('.board-face');
-  if(e.clientY<img.getBoundingClientRect().top){
-   const hills=[...card.querySelectorAll('.hill-face')].reverse();
-   img=hills.find(h=>e.clientY>=h.getBoundingClientRect().top)||img;
+ function pieceAtPointer(surface,event){
+  // These markers let clicks pass through to a destination card or a printed command box.
+  const pieces=surface.querySelectorAll('[data-piece-name]');
+  for(let i=pieces.length-1;i>=0;i--){
+   const r=pieces[i].getBoundingClientRect();
+   if(event.clientX>=r.left&&event.clientX<r.right&&event.clientY>=r.top&&event.clientY<r.bottom)return pieces[i];
   }
-  schedule(card,img,e.target.closest('.map-chit'));
+ }
+ function inspect(event){
+  const pointer=event.type==='pointermove',target=event.target;
+  const card=target.closest('.card-location');
+  let piece=target.closest('[data-piece-name]');
+  if(!piece&&pointer){
+   const surface=target.closest('#commandPaper')||(card?.matches('.choosing-cell .card-location,.move-target')&&card);
+   if(surface)piece=pieceAtPointer(surface,event);
+  }
+  if(piece){
+   const name=piece.dataset.pieceName;
+   const src=catalog.get(piece.dataset.pieceArt)?.art||piece.querySelector('img')?.src;
+   const symbol=piece.querySelector('.chit-text,.sheet-custom,.piece-icon')?.textContent||name.slice(0,3);
+   schedule(piece,src,name,piece.dataset.pieceInfo,symbol);return;
+  }
+  const discard=target.closest('#discardPile'),front=discard?.querySelector('img');
+  if(front&&!front.hidden){schedule(discard,front.src,front.alt);return;}
+  if(!card||card.hasAttribute('data-staging')||target.closest('.pile-count')){dismiss();return;}
+  let img=card.querySelector('.board-face'),name=card.querySelector('.cell-name').textContent;
+  let number=card.querySelector('.cell-ref small')?.textContent||'';
+  if(pointer&&event.clientY<img.getBoundingClientRect().top){
+   const hill=[...card.querySelectorAll('.hill-face')].reverse().find(h=>event.clientY>=h.getBoundingClientRect().top);
+   if(hill){img=hill;name='下層丘陵';number='N'+hill.getAttribute('src').split('/').pop().split('.')[0];}
+  }
+  schedule(card,img.src,[card.querySelector('.cell-ref b').textContent,name,number].filter(Boolean).join('　'));
+ }
+ function stop(){
+  pointerPosition=null;cancelAnimationFrame(scrollFrame);dismiss();
+ }
+ document.addEventListener('pointermove',e=>{
+  if(e.pointerType==='touch'||e.buttons){stop();return;}
+  pointerPosition={clientX:e.clientX,clientY:e.clientY};inspect(e);
  });
- board.addEventListener('focusin',e=>{
-  if(!e.target.matches(':focus-visible'))return;
-  const card=e.target.closest('.card-location,#discardPile');
-  schedule(card,card?.querySelector('.board-face,#discardFace'),e.target.closest('.map-chit'));
- });
- board.addEventListener('focusout',dismiss);
- board.addEventListener('pointerleave',dismiss);
- document.addEventListener('keydown',e=>{if(e.key==='Escape')dismiss();});
- document.addEventListener('pointerdown',dismiss,true);
- document.addEventListener('scroll',dismiss,true);
- window.addEventListener('blur',dismiss);window.addEventListener('resize',dismiss);
+ document.addEventListener('focusin',e=>{if(e.target.matches(':focus-visible')){stop();inspect(e);}});
+ document.addEventListener('focusout',dismiss);
+ document.addEventListener('pointerout',e=>{if(!e.relatedTarget)stop();});
+ document.addEventListener('close',stop,true);
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')stop();});
+ document.addEventListener('pointerdown',stop,true);
+ document.addEventListener('scroll',()=>{
+  dismiss();cancelAnimationFrame(scrollFrame);
+  scrollFrame=requestAnimationFrame(()=>{
+   if(!pointerPosition)return;
+   const target=document.elementFromPoint(pointerPosition.clientX,pointerPosition.clientY);
+   if(target)inspect({target,type:'pointermove',...pointerPosition});
+  });
+ },true);
+ window.addEventListener('blur',stop);window.addEventListener('resize',stop);
  return {tile,pile,dismiss};
 };
 })();

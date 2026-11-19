@@ -102,8 +102,8 @@ function create({state,esc,button,edit}){
  function textFor(m){return m.id==='general'?m.label+' '+m.points+' 點':m.label+'・'+areas[m.area]+(['available','saved'].includes(m.area)?' '+m.points+' 點':'');}
  const percent=(v,total)=>(100*v/total).toFixed(4)+'%';
  function position(x,y,w){return 'left:'+percent(x,734)+';top:'+percent(y,950)+';width:'+percent(w,734);}
- function chit(x,y,w,src,label,cls='',extra='',text=''){
-  return '<span class="sheet-chit '+cls+'" style="'+position(x,y,w)+'" title="'+esc(label)+'" '+extra+'>'+
+ function chit(x,y,w,src,label,name,cls='',extra='',text=''){
+  return '<span class="sheet-chit '+cls+'" style="'+position(x,y,w)+'" tabindex="0" role="img" aria-label="'+esc(name+'・'+label)+'" data-piece-name="'+esc(name)+'" data-piece-info="'+esc(label)+'" '+extra+'>'+
    (src?'<img src="'+imageRoot+src+'.webp" alt="'+esc(label)+'" draggable="false">':'<span class="sheet-custom">'+esc(label.split('・')[0])+'</span>')+(text?'<b>'+esc(text)+'</b>':'')+'</span>';
  }
  function hotspot(x,y,w,h,area,points,label){
@@ -124,16 +124,16 @@ function create({state,esc,button,edit}){
   for(const {m,x,y,side} of arrange(data.markers)){
    const slot=m.slot===undefined?m.id:m.slot;
    const src=readyOrder.includes(slot)?slot+'-'+(m.face||(m.area==='available'?'commands':'complete')):null;
-   marks+=chit(x,y,side,src,textFor(m),'command-token'+(interactive&&m.id===selected?' chosen':''),'data-command-id="'+esc(m.id)+'" data-area="'+esc(m.area)+'" data-points="'+number(m.points)+'"',m.points>10?String(m.points):'');
+   marks+=chit(x,y,side,src,textFor(m),'命令標記','command-token'+(interactive&&m.id===selected?' chosen':''),'data-command-id="'+esc(m.id)+'" data-area="'+esc(m.area)+'" data-points="'+number(m.points)+'"',m.points>10?String(m.points):'');
   }
   if(s.id==='C3'){
    const gear=[['營戰術網','bn-radio',100,452],['連戰術網','co-radio',164,452],['第 1 排部裝備','co-radio',166,563],['第 2 排部裝備','co-radio',364,563],['分隊裝備','co-radio',169,773]];
    for(const [key,asset,x,y] of gear)if(s.tracks[key])
-    marks+=chit(x,y,38,asset,key+'・'+s.tracks[key],'equipment-token');
+    marks+=chit(x,y,38,asset,key+'・'+s.tracks[key],asset==='bn-radio'?'營無線電':'連無線電','equipment-token');
   }
   const turn=Math.max(1,s.turn);
-  marks+=chit(81+54*clamp(turn-1,0,11),350,34,'turn','第 '+turn+' 回合','timing-token','',turn>12?String(turn):'');
-  const phase=phases[data.phase];if(phase!==undefined)marks+=chit(674,441+phase*63.7,29,'phase',phaseLabels[phase],'timing-token');
+  marks+=chit(81+54*clamp(turn-1,0,11),350,34,'turn','第 '+turn+' 回合','回合標記','timing-token','',turn>12?String(turn):'');
+  const phase=phases[data.phase];if(phase!==undefined)marks+=chit(674,441+phase*63.7,29,'phase',phaseLabels[phase],'階段標記','timing-token');
   return '<span class="sheet-paper"><img class="printed-sheet" width="1836" height="2376" src="'+boardImage+'" alt="美國陸軍二戰與韓戰指揮顯示表，第 1 頁全表" draggable="false">'+marks+'</span>';
  }
  function editor(current){

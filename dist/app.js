@@ -182,7 +182,7 @@ function inspectStack(c){
 }
 function rosterButton(u){
  const t=catalog.get(u.art), st=u.casualty?'傷亡':u.pinned?'壓制':u.exposed?'暴露':G.nameAt(u);
- return '<button class="ubtn '+(selected===u.id?'selected':'')+'" data-action="unit" data-value="'+esc(u.id)+'" title="'+esc(u.name)+'">'+(t?pic(t.art,u.exposed?'faded':''):'<span class="piece-icon">◇</span>')+'<span><b>'+esc(shortAbbr(u))+'</b><small>'+esc(st)+'</small></span></button>';
+ return '<button class="ubtn '+(selected===u.id?'selected':'')+'" data-action="unit" data-value="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-info="'+esc(st)+'">'+(t?pic(t.art,u.exposed?'faded':''):'<span class="piece-icon">◇</span>')+'<span><b>'+esc(shortAbbr(u))+'</b><small>'+esc(st)+'</small></span></button>';
 }
 function renderRoster(){if(course()){$('roster').innerHTML=lessons.roster();return;}const full=isTable(),list=full?s.units.filter(u=>u.side==='friendly'):s.units;
  $('roster').innerHTML='<div class="cardbox rosterbox"><div class="rosterhead"><h2>'+(full?'友軍編組':'第 1 排編組')+'</h2><span class="turnpill">'+list.length+' 枚算子</span></div><div class="rostergrid">'+list.map(rosterButton).join('')+'</div></div>';
@@ -283,7 +283,7 @@ function cellDialog(c){
 function unitDialog(id){
  const u=s.units.find(q=>q.id===id);if(!u)return;
  const art=catalog.get(u.art);
- let b='<div class="unitrow">'+(art?pic(art.art,'piece-icon','算子'):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
+ let b='<div class="unitrow" data-piece-name="'+esc(u.name)+'" data-piece-info="'+G.nameAt(u)+'" tabindex="0">'+(art?pic(art.art,'piece-icon','算子'):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
  if(isTable()&&!quick()&&!s.outcome){
   b+='<div class="buttonrow">'+button('moveMode','選擇移動目的地','primary',id)+'</div><div class="formgroup"><label for="steps">兵力階</label><input type="number" id="steps" min="0" max="16" value="'+Number(u.steps)+'"><label><input id="exposed" type="checkbox" '+(u.exposed?'checked':'')+'> 暴露</label><label><input id="pinned" type="checkbox" '+(u.pinned?'checked':'')+'> 受壓制</label><label><input id="casualty" type="checkbox" '+(u.casualty?'checked':'')+'> 傷亡算子（不計佔領）</label><label for="unitNote">算子紀錄</label><textarea id="unitNote" maxlength="2000">'+esc(u.notes)+'</textarea></div><div class="buttonrow">'+button('unitApply','套用變更','primary',id)+button('removeAsk','移出棋桌','',id)+'</div>';
  }
@@ -291,7 +291,7 @@ function unitDialog(id){
 }
 function library(cat='friendly',q=''){
  const pool=window.FOF_PIECES.filter(t=>t.category===cat&&(t.name+' '+t.id).toLowerCase().includes(q.toLowerCase()));
- const list=pool.map(t=>'<button data-action="placePiece" data-value="'+esc(t.id)+'">'+pic(t.art,'','')+'<span>'+esc(t.name.split(' · ')[0])+'</span></button>').join('');
+ const list=pool.map(t=>'<button data-action="placePiece" data-value="'+esc(t.id)+'" data-piece-name="'+esc(t.name)+'">'+pic(t.art,'','')+'<span>'+esc(t.name.split(' · ')[0])+'</span></button>').join('');
  if(modal==='library'&&document.getElementById('pieceList')){$('pieceList').innerHTML=list;return;}
  dialog('library','放置算子・'+G.nameAt(focus),'<div class="formgroup"><select id="pieceCat"><option value="friendly">友軍</option><option value="enemy">敵軍</option><option value="marker">遊戲標記</option></select><input id="pieceQuery" type="search" placeholder="搜尋名稱或代號" aria-label="搜尋算子"></div><div id="pieceList" class="gallery">'+list+'</div><p class="tagline">找不到所需算子時，可以名稱建立自訂棋子。</p><div class="buttonrow"><input id="customName" class="control" maxlength="40" placeholder="自訂名稱" aria-label="自訂名稱">'+button('customPiece','放置')+'</div>');
 }
