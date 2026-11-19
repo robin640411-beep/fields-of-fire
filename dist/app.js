@@ -200,7 +200,7 @@ function patrolFinish(){
   const next=s.patrol+1,other=G.tabletop(s.id,s);
   const marksToKeep=s.units.filter(u=>u.side==='marker'&&['cover','mines','foxhole','trench','bunker','pillbox'].includes(u.art));
   for(const c of s.map){const fresh=G.at(other,c);if(c.pc){fresh.pc=c.pc;fresh.hidden=c.hidden;} fresh.marks=c.marks.slice();}
-  other.units=other.units.map((u,i)=>{u.art=i===0?'hq'+next:'p'+next+'s'+i;u.abbr=i===0?next+' HQ':i+'/'+next;u.name=i===0?'第 '+next+' 排部':'第 '+next+' 排第 '+i+' 班';return u;});
+  other.units=other.units.filter(u=>u.side==='friendly').map((u,i)=>{u.art=i===0?'hq'+next:'p'+next+'s'+i;u.abbr=i===0?next+' HQ':i+'/'+next;u.name=i===0?'第 '+next+' 排部':'第 '+next+' 排第 '+i+' 班';return u;});
   other.units.push(...marksToKeep);other.serial=s.serial;other.patrol=next;other.patrolHistory=s.patrolHistory;other.log=[...s.log,...other.log];other.notes=s.notes;
   if(s.objectives.outpost)G.placeObjective(other,'outpost',s.objectives.outpost);
   s=other;G.note(s,'第 '+next+' 排開始新的巡邏設置。');
@@ -237,7 +237,7 @@ function scrollBoard(){if(window.matchMedia('(max-width:700px)').matches)documen
 function step(){
  if(s.outcome)return;
  if(isTable()&&!quick()&&s.turn>=2&&['events','enemy'].includes(s.phase)&&!s.events?.[s.turn+'-'+(s.phase==='events'?'friendly':'enemy')]){edit(()=>G.hqEvent(s));tell('已檢查上級事件，確認結果後可推進階段。');return;}
- if(isTable()&&!quick()&&s.phase==='combat'&&s.map.some(c=>c.pc&&G.unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty))){tell('請先點選有友軍與 PC 的地形，完成接敵檢查。');return;}
+ if(isTable()&&!quick()&&s.phase==='combat'&&s.map.some(c=>c.pending||c.pc&&G.unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty))){tell('請先完成地圖上待處理的接敵檢查與配置。');return;}
  const old=s.phase;
  edit(()=>quick()?Q.advance(s):isTable()?G.advanceTable(s):G.advanceTraining(s));
  selected=null;group=false;mode='';close();
