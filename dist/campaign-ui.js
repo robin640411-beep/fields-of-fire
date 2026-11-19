@@ -7,7 +7,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
  const opts=(o,selected)=>Object.entries(o).map(([k,v])=>opt(k,v,k===selected)).join('');
  const labels={patrol:'三排巡邏',offensive:'進攻',assault:'進攻',defense:'防禦'};
  const action=(a,label,v,cls='tiny')=>b('cam'+a,label,cls,v);
- function directory(withTitle=true){return (withTitle?'<h3>戰役任務書</h3>':'')+'<div class="book-list">'+['N','K','H','V'].map(k=>{const book=C.books[k],save=slots()['campaign-'+k];return '<button class="choice" data-action="camBook" data-value="'+k+'"><span class="code">'+k+'</span><span><strong>'+book.label+'</strong><small>'+book.missions.length+' 個獨立任務・'+book.order.length+' 場連續戰役'+(save?'・已存至任務 '+G.scenario(save.id).number:'')+'</small></span></button>';}).join('')+'</div>';}
+ function directory(){return '<div class="book-list">'+['N','K','H','V'].map(k=>{const book=C.books[k],save=slots()['campaign-'+k];return '<button class="choice" data-action="camBook" data-value="'+k+'"><span class="code">'+k+'</span><span><strong>'+book.label+'</strong><small>'+book.missions.length+' 個獨立任務・'+book.order.length+' 場連續戰役'+(save?'・已存至任務 '+G.scenario(save.id).number:'')+'</small></span></button>';}).join('')+'</div>';}
  function historyArticle(bookKey, missionId){
   const book=window.FOF_HISTORY[bookKey];
   const article=missionId ? book.missions[missionId] : book;
@@ -21,7 +21,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
  function campaignIntro(k){
   const book=C.books[k];
   dialog('campaignIntro',book.label+'戰役歷史背景',historyArticle(k)+
-   '<div class="buttonrow">'+action('Missions','選擇遊玩方式',k,'primary')+b('missions','返回任務選單')+'</div>');
+   '<div class="buttonrow">'+action('Missions','選擇遊玩方式',k,'primary')+b('close','返回棋桌')+'</div>',k);
  }
  function missionBriefing(m){
   return historyArticle(m.book,m.id)+'<h3>勝利條件</h3><p>'+h(m.objective)+'</p><h3>設置</h3><ul>'+
@@ -35,7 +35,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
   if(save)html+='<p>'+h(C.rules[save.series.rule])+'　'+h(G.scenario(save.id).title)+'　'+h(save.series.finished||('第 '+save.turn+' 回合'))+'</p>'+action('Resume','繼續戰役',k,'primary')+' '+action('New','重新開始戰役',k);
   else html+=action('New','建立戰役',k,'primary');
   html+='<h3>獨立任務</h3>'+book.missions.map(m=>missionChoice(m.id,m.id,m.title,labels[m.mode]+'・'+m.cols+' × '+m.rows+'・'+m.turns+' 回合')).join('');
-  dialog('campaignBook',book.label+'任務書',html+action('Book','回顧戰役背景',k)+' '+b('missions','返回任務選單','tiny'));
+  dialog('campaignBook',book.label+'戰役',html+action('Book','回顧戰役背景',k)+' '+b('close','返回棋桌','tiny'));
  }
  function newSeries(k,rule,formation){
   const book=C.books[k],save=slots()['campaign-'+k];

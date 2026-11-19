@@ -102,11 +102,24 @@ function showPending(){
 function tell(v){if($modal.open){let msg=$modal.querySelector('.modalmessage');if(!msg){msg=document.createElement('p');msg.className='modalmessage';msg.setAttribute('role','status');$modal.querySelector('.modalhead').after(msg);}msg.textContent=v;}$('toast').textContent=v;$('toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('on'),2600);}
 function persist(){slots[campaigns.key(s)]=s;try{localStorage.setItem(key,JSON.stringify({version:1,active:campaigns.key(s),slots}));storageOK=true;}catch{storageOK=false;} $('savedStatus').textContent=storageOK?'✓ 本機自動存檔':'目前僅保留在此頁　請匯出存檔';}
 function edit(fn){const last=JSON.stringify(s);const ok=fn();if(ok===false)return false;history.push(last);if(history.length>35)history.shift();persist();render();return true;}
-function close(){if($modal.open)$modal.close();modal='';modalData=null;}
-function dialog(type,heading,html,data=null){tabletop.dismiss();modal=type;modalData=data;$modal.dataset.kind=type;$('modalBody').innerHTML='<div class="modalhead"><h2>'+esc(heading)+'</h2>'+button('close','×','','')+'</div><div class="modalcontent">'+html+'</div>';if(!$modal.open)$modal.showModal();$modal.scrollTop=0;}
+function campaignAddress(book){
+ const url=new URL(location.href);
+ if(book)url.searchParams.set('campaign',book);
+ else url.searchParams.delete('campaign');
+ if(url.href!==location.href)window.history.replaceState(window.history.state,'',url);
+}
+function close(){if(modal==='campaignIntro')campaignAddress(null);if($modal.open)$modal.close();modal='';modalData=null;}
+function dialog(type,heading,html,data=null){
+ if(type==='campaignIntro'||modal==='campaignIntro')campaignAddress(type==='campaignIntro'?data:null);
+ tabletop.dismiss();modal=type;modalData=data;$modal.dataset.kind=type;$('modalBody').innerHTML='<div class="modalhead"><h2>'+esc(heading)+'</h2>'+button('close','×','','')+'</div><div class="modalcontent">'+html+'</div>';if(!$modal.open)$modal.showModal();$modal.scrollTop=0;}
 function resetView(){lessons.reset();selected=null;focus=null;mode='';group=false;sideTab='play';history.length=0;origin=null;close();persist();render();}
 function activeProgress(){if(!isTable())return {v:G.atThird(s),n:7,label:'抵達第 3 列'};const gs=G.goals(s);return {v:gs.filter(g=>g.done).length,n:gs.length,label:'達成任務條件'};}
 function renderHero(){
+ const book=quick()?null:conf()?.book;
+ for(const link of document.querySelectorAll('.campaign-nav a')){
+  if(link.dataset.value===book)link.setAttribute('aria-current','true');
+  else link.removeAttribute('aria-current');
+ }
  if(course()){$('hero').innerHTML=lessons.hero();return;}
  const m=conf();
  const section=m?campaigns.labels[m.book]+'戰役・任務 '+pad(m.number):'野戰手冊・演練 01';
@@ -253,7 +266,7 @@ function renderSide(){
  $('side').innerHTML='<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('tab','行動面板',sideTab==='play'?'on':'','play')+button('tab','任務日誌',sideTab==='log'?'on':'','log')+'</div><span class="turnpill">R'+pad(s.turn)+'</span></div><div class="sidebody">'+(sideTab==='log'?logView():main)+'</div>'+lastRow()+'</section>'+goalBox();
 }
 function render(){renderHero();commandDisplay.render();renderBoard();renderPiles();renderSide();renderRoster();queueMicrotask(showPending);}
-function missionMenu(){let body='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide','1')+'<h3>野戰手冊 2</h3>'+button('courses','進階作戰・七堂逐步教學','primary wide','2')+'<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+'<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算')+campaignUI.directory();dialog('missions','任務選單',body);}
+function missionMenu(){let body='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide','1')+'<h3>野戰手冊 2</h3>'+button('courses','進階作戰・七堂逐步教學','primary wide','2')+'<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+'<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算');dialog('missions','任務選單',body);}
 function missionChoice(id,code,n,sub){return '<button class="choice" data-action="missionInfo" data-value="'+id+'"><span class="code">'+code+'</span><span><strong>'+esc(n)+'</strong><small>'+esc(sub)+(slots[id]?' ・ 已有進度':'')+'</small></span></button>';}
 function entryBrief(id,enter,back,context=''){
  const m=G.scenario(id);
@@ -280,7 +293,7 @@ function missionInfo(id,atTable=false,formation){
  }
  if(slots[id])body+='<div class="buttonrow">'+button('resume',m&&id!=='Q1'?'進入棋桌':id===s.id&&!s.series?'返回棋桌':'繼續已存進度','primary',id)+button('restart','重新設置','',id)+'</div>';
  else body+='<div class="buttonrow">'+button('start',id==='Q1'?'開始快戰':m?'進入棋桌':'使用示範牌序','primary',id)+(m?'':button('start','隨機開局','','random'))+'</div>';
- body+='<div class="buttonrow">'+(m&&id!=='Q1'?button('camMissions','返回'+campaigns.labels[m.book]+'戰役','flat tiny',m.book):'')+button('missions','任務選單','flat tiny')+'</div>';
+ body+='<div class="buttonrow">'+(m&&id!=='Q1'?button('camMissions','返回'+campaigns.labels[m.book]+'戰役','flat tiny',m.book):button('missions','任務選單','flat tiny'))+'</div>';
  dialog('missionInfo',m&&id!=='Q1'?'任務簡報・'+m.id+' '+title(id):title(id),body,id);
 }
 function quickIntro(){return '<p>以諾曼第第一項任務的 4 × 3 地圖、十回合時限與原版行動牌，進行可獨立完成的快戰改編。</p><h3>目標</h3><p>十回合結束時，肅清第 1、2 列，並讓友軍留在已肅清的 A3 和 D3。</p><h3>本模式的改編規則</h3><ul><li>六枚班算子各有三階。全連共用鋼盔命令點，每回合最多 6 點，下回合最多保留 3 點；另抽一張讀星形主動點。</li><li>移動一格、嘗試尋找掩蔽或重整各花 1 點。每個班每回合至多移動一次。掩蔽成功給予 +2，移動後失去。</li><li>雙方戰鬥時自動檢查有友軍的 PC，接敵以同格的一階敵方算子表示。每枚未壓制友軍提供 −1 敵方檢定修正，最多 −3。友軍檢定採地形值、掩蔽與暴露（−2）。</li><li>HIT 減一階並壓制，PIN 壓制，MISS 無效果。無敵軍同牌時於整理階段恢復。全體退場或回合用盡時結算。</li></ul><p class="tagline">正式任務的編制、命令鏈、事件、射界與特殊兵種另收在「諾曼第戰役」輔助棋桌。</p>';}
@@ -292,7 +305,7 @@ function quickPanel(){
  if(u)h+='<div class="selected-info"><b>'+esc(u.name)+'</b>　'+u.steps+' 階　'+(u.pinned?'壓制 ':'')+(u.covered?'掩蔽 ':'')+G.nameAt(u)+'</div><div class="actionpair">'+button('qact','尋找掩蔽','tiny','cover',!Q.canAct(s,u,'cover'))+button('qact','重整','tiny','rally',!Q.canAct(s,u,'rally'))+'</div>';
  return h+'<div class="buttonrow">'+button('advance',labels[s.phase],'primary wide')+'</div><div class="row">'+button('brief','快戰規則','flat tiny')+button('undo','復原上一步','flat tiny','',!history.length)+'</div>';
 }
-function guide(){dialog('guide','遊戲說明',button('courses','開啟手冊逐步教學','primary wide')+'<h3>第一次遊玩</h3><ol><li>點指揮顯示表上方的行動牌背，抽取啟動命令牌。</li><li>從「第 1 排編組」選擇單位，點選地圖上有金色虛線的目的牌。從集結區出發也可以斜走。</li><li>排部只能命令同牌單位。沒有合適對象時，結束排部命令，把點數留給下一回合。</li><li>使用一般主動點移動分散的單位，再結束回合。</li></ol><h3>牌堆與存檔</h3><p>抽到重洗牌時會先抽滿本次所需張數，再洗混整副牌。每點一次牌背翻一張，放在右側棄牌堆。停留在棄牌上可看完整牌面。可在「最近抽牌」翻閱最近一次操作。每次行動都會存到這個瀏覽器，也可匯出檔案帶往其他裝置。</p><h3>戰役棋桌</h3><p>開啟任務選單切換七項諾曼第任務。選地形可檢視整張牌、放置算子或檢查 PC。選算子可移動、登記狀態與兵力。在「行動牌工具」依指定修正值讀牌；「命令與紀錄」可記錄各部命令、彈藥與特殊效果。</p><p class="tagline">依《Fields of Fire Deluxe》第三版規則 §2–6、§8、§12、兩冊《野戰手冊》與諾曼第任務書改編。使用者提供之牌面與算子圖樣，原作 GMT Games。</p>');}
+function guide(){dialog('guide','遊戲說明',button('courses','開啟手冊逐步教學','primary wide')+'<h3>第一次遊玩</h3><ol><li>點指揮顯示表上方的行動牌背，抽取啟動命令牌。</li><li>從「第 1 排編組」選擇單位，點選地圖上有金色虛線的目的牌。從集結區出發也可以斜走。</li><li>排部只能命令同牌單位。沒有合適對象時，結束排部命令，把點數留給下一回合。</li><li>使用一般主動點移動分散的單位，再結束回合。</li></ol><h3>牌堆與存檔</h3><p>抽到重洗牌時會先抽滿本次所需張數，再洗混整副牌。每點一次牌背翻一張，放在右側棄牌堆。停留在棄牌上可看完整牌面。可在「最近抽牌」翻閱最近一次操作。每次行動都會存到這個瀏覽器，也可匯出檔案帶往其他裝置。</p><h3>戰役棋桌</h3><p>從棋桌上方選擇戰役名稱，閱讀歷史背景後，可開始連續戰役或選擇該戰役的獨立任務。選地形可檢視整張牌、放置算子或檢查 PC。選算子可移動、登記狀態與兵力。在「行動牌工具」依指定修正值讀牌；「命令與紀錄」可記錄各部命令、彈藥與特殊效果。</p><p class="tagline">依《Fields of Fire Deluxe》第三版規則 §2–6、§8、§12、兩冊《野戰手冊》與四本戰役任務書改編。使用者提供之牌面與算子圖樣，原作 GMT Games。</p>');}
 function cellDialog(c){
  const us=G.unitsAt(s,c),t=c.faceDown?null:G.terrain(c.t),over=s.outcome,pc=c.pc||c.pending;
  let b='<div class="tagline">'+esc(G.nameAt(c))+'　'+(c.faceDown?'':c.level?'高度 '+c.level+'　':c.h?'高度 +'+c.h+'　':'')+(c.faceDown?'未揭開地形':t?(t.cover==null?'掩蔽值見牌面':'掩蔽 +'+t.cover):'集結區')+'</div>';
@@ -354,7 +367,7 @@ function result(){
  else {const vals={...s.xpCards};for(const [k,v] of Object.entries(scoreTable()))vals[k]=Math.max(vals[k]||0,v);b+=goalLines()+'<p>地圖目標經驗　'+Object.values(vals).reduce((a,v)=>a+v,0)+' XP</p><p class="tagline">其他經驗與整補依任務紀錄結算。</p>';
   if(!quick()&&s.outcome==='loss'&&s.attempt<=m.retries)b+=button('retry','保留棋桌重試','primary');}
  if(s.series)b+=button(s.series.finished?'camStatus':'camSettle',s.series.finished?'查看戰役紀錄':s.settlement?'繼續整補':'戰役結算與整補','primary');
- b+='<div class="buttonrow">'+button('missions','任務選單')+button('close','查看棋桌')+'</div>';dialog('result',m?.mode==='patrol'?'巡邏結算':s.outcome==='win'?'任務完成':'任務結束',b);
+ b+='<div class="buttonrow">'+(m&&!quick()?button('camMissions','返回'+campaigns.labels[m.book]+'戰役','',m.book):button('missions','任務選單'))+button('close','查看棋桌')+'</div>';dialog('result',m?.mode==='patrol'?'巡邏結算':s.outcome==='win'?'任務完成':'任務結束',b);
 }
 function saveMenu(){dialog('saves','存檔管理','<p>'+esc(storageOK?'每次行動都會自動存檔。切換任務時，各自保留進度。':'瀏覽器目前無法寫入存檔。請使用匯出檔案保存進度。')+'</p><p class="tagline">目前任務　'+esc(title(s.id))+'　／　第 '+s.turn+' 回合</p><div class="buttonrow">'+button('export','匯出全部進度','primary')+button('import','匯入存檔')+'</div>');}
 function start(id,guided=true,form=$('campaignForm')?.value){
@@ -432,6 +445,10 @@ document.addEventListener('submit',ev=>{
 document.addEventListener('click',ev=>{
  const el=ev.target.closest('[data-action]');if(!el||el.disabled)return;
  const a=el.dataset.action,v=el.dataset.value||'';
+ if(el.matches('.campaign-nav a')){
+  if(ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.altKey||ev.button!==0)return;
+  ev.preventDefault();
+ }
  if(modal==='missionEntry'){
   if(a==='enterMission')modalData.enter();
   else if(a==='entryBack'||a==='close')dismissPanel();
@@ -547,8 +564,11 @@ $modal.addEventListener('cancel',e=>{e.preventDefault();dismissPanel();});
 new ResizeObserver(sizeBoard).observe($('mapViewport'));
 render();persist();
 const entry=new URL(location.href),manual=entry.searchParams.get('manual');
-if(entry.searchParams.get('campaigns')==='1'){
- dialog('campaignDirectory','戰役任務書',campaignUI.directory(false));
+const campaign=entry.searchParams.get('campaign');
+if(Object.hasOwn(campaigns.books,campaign)){
+ campaignUI.handle('camBook',campaign);
+}else if(entry.searchParams.get('campaigns')==='1'){
+ dialog('campaignDirectory','戰役目錄',campaignUI.directory());
  entry.searchParams.delete('campaigns');
  window.history.replaceState(window.history.state,'',entry);
 }else if(manual==='1'||manual==='2')lessons.menu(manual);

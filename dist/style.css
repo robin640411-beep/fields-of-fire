@@ -113,7 +113,13 @@ dialog::backdrop{background:#15241b9c}
 
 /* The board keeps the same desktop arrangement at all window sizes. */
 html{background:#e6e8da}
-body{min-width:1080px}
+body{min-width:1080px;--campaign-nav-height:42px}
+.campaign-nav{display:flex;align-items:stretch;gap:5px;height:var(--campaign-nav-height);padding:0 22px;border-top:1px solid #425749;background:#263d30}
+.campaign-nav strong{align-self:center;margin-right:10px;color:#dadfcf;font-size:.875rem}
+.campaign-nav a{display:flex;align-items:center;padding:0 17px;border-bottom:3px solid transparent;color:#f4f2e4;text-decoration:none;font-weight:650}
+.campaign-nav a:hover,.campaign-nav a:focus-visible{background:#3a5040}
+.campaign-nav a:focus-visible{outline:2px solid #edc46e;outline-offset:-3px}
+.campaign-nav a[aria-current]{border-bottom-color:#edc46e;color:#ffe2a4}
 .mast-inner{height:72px;width:100%;padding:0 22px;display:flex;align-items:center;gap:22px}
 .mast-tools{flex:none}
 #hero{flex:1;min-width:0;display:flex;align-items:center;gap:16px;padding-left:20px;border-left:1px solid #62705d}
@@ -124,7 +130,7 @@ body{min-width:1080px}
 .hero-acts{margin-left:auto;display:flex;gap:7px;flex:none}
 .hero-acts button{border-color:#737f68;color:#f0eedf;background:#354c39}
 .hero-acts .heroquick{color:#253629;background:#e9c773;border-color:#e9c773}
-.shell{padding:12px 14px;height:calc(100vh - 75px);height:calc(100dvh - 75px);min-height:510px}
+.shell{padding:12px 14px;height:calc(100vh - 75px - var(--campaign-nav-height));height:calc(100dvh - 75px - var(--campaign-nav-height));min-height:510px}
 .desk{height:100%;display:grid;grid-template-columns:minmax(0,1fr) clamp(250px,20.5vw,350px);gap:10px}
 .command-dock{min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#839378 #e3e6d9;padding:0 4px 1px 0}
 .command-dock .rostergrid{grid-template-columns:repeat(2,minmax(0,1fr));padding:9px;gap:6px}
