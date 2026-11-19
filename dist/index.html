@@ -6,7 +6,8 @@
 <meta name="theme-color" content="#26372d">
 <title>Fields of Fire｜戰火洗禮</title>
 <link rel="stylesheet" href="style.css">
-<script defer src="assets/decks.js"></script><script defer src="assets/pieces.js"></script><script defer src="scenarios.js"></script><script defer src="engine.js"></script><script defer src="quick.js"></script><script defer src="assets/mission-tables.js"></script><script defer src="app.js"></script>
+<script defer src="assets/decks.js"></script><script defer src="assets/pieces.js"></script><script defer src="scenarios.js"></script><script defer src="engine.js"></script><script defer src="quick.js"></script><script defer src="assets/mission-tables.js"></script>
+<script defer src="course.js"></script><script defer src="lessons-p12.js"></script><script defer src="lessons-c12.js"></script><script defer src="lessons-p3c3.js"></script><script defer src="lesson-ui.js"></script><script defer src="draw-view.js"></script><script defer src="app.js"></script>
 </head>
 <body>
 <header class="mast"><div class="mast-inner">
@@ -30,5 +31,11 @@
   </section>
   <aside class="command-dock" aria-label="棋桌控制"><div id="side"></div><section id="roster"></section><footer><span id="savedStatus">本機自動存檔</span></footer></aside>
 </div></main>
-<dialog id="panel"><div id="modalBody"></div></dialog><div id="toast" role="status" aria-live="polite"></div><input type="file" id="importFile" accept=".json,application/json" hidden>
+<dialog id="panel"><div id="modalBody"></div></dialog>
+<dialog id="drawViewer" aria-labelledby="drawHeading">
+ <header class="draw-head"><div><small>行動牌組</small><h2 id="drawHeading"></h2></div><span id="drawCount" aria-live="polite"></span></header>
+ <div id="drawFaces"></div><p id="drawHint"></p>
+ <footer class="draw-foot"><div><button id="drawPrev" type="button">上一頁</button><button id="drawNext" type="button">下一頁</button></div><button class="primary" id="drawFinish" type="button">讀畢，繼續</button></footer>
+</dialog>
+<div id="toast" role="status" aria-live="polite"></div><input type="file" id="importFile" accept=".json,application/json" hidden>
 </body></html>

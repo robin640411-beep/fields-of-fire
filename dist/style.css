@@ -196,3 +196,53 @@ body{min-width:1080px}
 .small-cards .cell-units{display:none}
 .small-cards .unit-total{display:inline-flex;align-items:center;gap:3px;color:#e2edcf;font-size:.72rem}
 .small-cards .unit-total:before{content:"";width:8px;height:8px;background:#a9bd82;border:1px solid #d6dbad}
+
+/* Printed faces and a reading area are separate, so annotations never obscure the cards. */
+#drawViewer{width:fit-content;min-width:min(660px,94vw);max-width:96vw;max-height:96dvh;background:#f3f3e8}
+#drawViewer::backdrop{background:#14251fe0}
+.draw-head,.draw-foot{padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.draw-head{background:var(--forest);color:#faf8ec}
+.draw-head small{font-size:.8rem;color:#d2dbc8}
+.draw-head h2{font-size:1.23rem}
+#drawCount{font:700 .95rem var(--mono);white-space:nowrap}
+#drawFaces{display:grid;grid-template-columns:repeat(var(--draw-cols),var(--draw-width));align-items:start;justify-content:center;gap:8px 12px;padding:12px 18px 8px}
+#drawFaces figure{margin:0;min-width:0;width:var(--draw-width);display:grid;gap:6px;justify-items:center}
+#drawFaces figcaption{width:100%;display:grid;line-height:1.22;color:#425a46;font-size:.88rem}
+#drawFaces figcaption span{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+#drawFaces figcaption strong{color:#233c2a}
+.draw-face,.draw-face:disabled{display:block;background:transparent;padding:0;border:0;opacity:1;cursor:zoom-in}
+.draw-face:disabled{cursor:default}
+.draw-face img{display:block;height:auto;width:var(--draw-width);object-fit:contain;box-shadow:0 2px 7px #2235264a;border-radius:3px}
+#drawHint{max-width:780px;margin:0 auto;padding:5px 20px 10px;line-height:1.45;color:#344936}
+.draw-foot{border-top:1px solid #c5ccb9;background:#e9eddf}
+.draw-foot>div{display:flex;gap:6px}
+#panel[data-kind="courseMenu"]{width:790px}
+.course-intro{margin-bottom:14px}
+.lesson-list{margin:7px 0 16px;display:grid;gap:4px}
+.lesson-list .choice{margin:0}
+.lesson-list .choice>b{margin-left:auto;color:#546849;font-size:.87rem}
+.lesson-position,.lesson-tools{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.lesson-position small,.lesson-source,.lesson-phase,.lesson-gesture,.lesson-feedback small{color:#586b53}
+.lesson-counter b{font:700 1.55rem var(--cond)}
+.lesson-phase{font-size:.86rem;font-weight:700;margin:9px 0 5px}
+.lesson-prompt{font-size:1.08rem;line-height:1.5;margin:4px 0}
+.lesson-gesture{font-size:.88rem;margin:8px 0 4px}
+.lesson-tools{margin:9px 0}
+.lesson-feedback{border-top:1px solid var(--line);padding-top:8px}
+.lesson-feedback p,.lesson-tip,.lesson-error{font-size:.92rem;line-height:1.55}
+.lesson-tip,.lesson-error{padding:7px 9px;background:#f5ebcf;margin:6px 0}
+.lesson-error{border-left:3px solid #995d3a}
+.lesson-cell-units,.answer-list{display:grid;gap:5px;margin:8px 0}
+.answer-list button{text-align:left}
+.lesson-counterpick button{width:100%;text-align:left}
+.lesson-tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin:9px 0 0}
+.lesson-tracks div{background:#e8eddd;border-radius:3px;padding:5px 8px;overflow-wrap:anywhere}
+.lesson-tracks dt{font-size:.84rem;color:#465d45}
+.lesson-tracks dd{font-size:1rem;font-weight:700;margin:2px 0}
+.lesson-finished{padding:2px 0 12px}
+.lesson-finished small{color:#496348;font-weight:700}
+.lesson-finished p{margin-top:6px}
+.lesson-position,.lesson-prompt,.lesson-gesture,.lesson-feedback,.lesson-source{overflow-wrap:anywhere}
+.turn-reference li{padding-left:3px}
+.turn-reference p{margin:2px 0 9px;font-size:.94rem}
+.lesson-finished~.wide{margin-top:6px}

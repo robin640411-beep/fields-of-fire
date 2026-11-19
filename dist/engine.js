@@ -20,9 +20,15 @@ function newDeck(guided){
   const demo = [30,25,24,27,11,16,23,13,3,18];
   return [...demo,...pack.filter(id=>!demo.includes(id))];
 }
+function recordDraw(s,ids,why){
+ (s.pendingDraws??=[]).push({why,ids:ids.slice()});
+ s.last=ids.filter(id=>id!==51);
+ s.drawCount+=s.last.length;
+ note(s,why+'　'+ids.map(id=>id===51?'重洗牌':'#'+String(id).padStart(2,'0')).join('、'));
+}
 function draw(s,n,why){
   if(!Number.isInteger(n)||n<1||n>12)throw Error('抽牌數量超出範圍');
-  let reshuffle=false, out=[];
+  let reshuffle=false, out=[], seen=[];
   while(out.length<n){
     if(!s.deck.length){
       const used=s.discard.filter(id=>!out.includes(id));
@@ -30,11 +36,11 @@ function draw(s,n,why){
       s.discard=s.discard.filter(id=>!s.deck.includes(id)); reshuffle=true;
     }
     const id=s.deck.shift();
+    seen.push(id);
     if(id===51){reshuffle=true;continue;}
     out.push(id);s.discard.push(id);
   }
-  s.last=out.slice(); s.drawCount+=out.length;
-  note(s,why+'　'+out.map(id=>'#'+String(id).padStart(2,'0')).join('、'));
+  recordDraw(s,seen,why);
   if(reshuffle){s.deck=newDeck(false);s.discard=[];note(s,'重洗牌生效，完成本次抽牌後重新洗混全副牌。');}
   return out.map(card);
 }
@@ -121,7 +127,8 @@ function tabletop(id,previous=null){
  const s=base(id,m.cols,m.rows,false);s.phase='setup';
  s.vis=m.mode==='patrol'?1+draw(s,1,'月光能見度')[0].rand[4]:0;
  s.patrolHistory=[];s.visits={way:0,primary:false,returned:false};s.xpCards={};s.attempt=1;
- let pool=shuffle(window.FOF_TERRAIN.map(t=>t.id));
+ const retained=new Set((previous?.map||[]).filter(c=>c.x<m.cols&&c.y<=m.rows&&c.y>0).flatMap(c=>[c.t,...hillLayers(c).map(id=>id??1)]));
+ let pool=shuffle(window.FOF_TERRAIN.map(t=>t.id).filter(id=>!retained.has(id)));
  for(let y=0;y<=m.rows;y++)for(let x=0;x<m.cols;x++){
   if(!y&&!m.staging)continue;
   let t=0,hills=[];
@@ -208,19 +215,60 @@ function advanceTable(s){
   s.turn++;s.phase='events';note(s,'開始新回合，已移除暴露標記。');return true;
  }
  const idx=phases.indexOf(s.phase);if(idx<0)return false;
- s.phase=phases[idx+1];note(s,'進入'+phaseNames[s.phase]+'。');return true;
+ s.phase=phases[idx+1];if(s.phase==='combat')revealPCs(s);
+ note(s,'進入'+phaseNames[s.phase]+'。');return true;
+}
+function eligiblePCs(s){
+ return s.map.filter(c=>c.pc&&unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty));
+}
+function setPC(s,c,grade,hidden,adding=false){
+ if(!c||grade!==null&&!['A','B','C'].includes(grade))return false;
+ if(adding&&c.pc&&grade){grade=[grade,c.pc].sort()[0];hidden=false;}
+ c.pc=grade;c.hidden=!!grade&&hidden;
+ if(s.phase==='setup'){c.originalPC=grade;c.hadPC=!!grade;}
+ s.pcOrder=null;
+ return true;
+}
+function revealPCs(s){for(const c of eligiblePCs(s))c.hidden=false;}
+function pcCandidates(s){
+ if(s.phase!=='combat'||s.map.some(c=>c.pending))return [];
+ const list=eligiblePCs(s).sort((a,b)=>a.pc.localeCompare(b.pc)||a.y-b.y||a.x-b.x);
+ const grade=list[0]?.pc;
+ return list.filter(c=>c.pc===grade);
+}
+function nextPC(s){
+ const list=pcCandidates(s);
+ return list.find(c=>nameAt(c)===s.pcOrder)||(list.length===1?list[0]:null);
+}
+function choosePC(s){
+ const list=pcCandidates(s);if(nextPC(s)||list.length<2)return false;
+ revealPCs(s);
+ // With more than twelve tied cards, use two printed columns and redraw unused slots.
+ let index;
+ if(list.length<=12)index=draw(s,1,'同級 PC 順序・R'+list.length)[0].rand[list.length]-1;
+ else{const groups=Math.ceil(list.length/12);
+   do{const row=draw(s,1,'同級 PC 順序・分組')[0].rand[groups]-1;
+      index=row*12+draw(s,1,'同級 PC 順序・組內')[0].rand[12]-1;
+   }while(index>=list.length);
+ }
+ s.pcOrder=nameAt(list[index]);note(s,'同級候選依序為 '+list.map(nameAt).join('、')+'。下一枚 PC 為 '+s.pcOrder+'。');return true;
+}
+function contactGroup(s,c){
+ const tabs=window.FOF_TABLES?.[s.id]?.contact;
+ const grade=c.contactGrade||c.originalPC;
+ if(!c.pending||!tabs?.[grade])return false;
+ const chosen=grade==='A'&&s.counterUntil>=s.turn&&tabs.counterA?tabs.counterA:tabs[grade];
+ const r=draw(s,1,'接敵組合 '+nameAt(c))[0].rand[chosen.rand], item=chosen.results[r-1];
+ c.contactDetail='組合 '+item.id+'・'+item.title+'（R'+chosen.rand+'＝'+r+'）';
+ note(s,nameAt(c)+' '+c.contactDetail);return true;
 }
 function pcCheck(s,c){
- if(!isTable(s)||s.phase!=='combat'||!c?.pc||!unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty))return false;
+ if(!isTable(s)||!c||nextPC(s)!==c)return false;
+ revealPCs(s);s.pcOrder=null;
  const n=({A:[0,7,5,3],B:[0,5,3,2],C:[4,3,2,1]})[c.pc]?.[s.activity];if(n===undefined)return false;
  const grade=c.pc;const cs=n?draw(s,n,'潛在接敵 '+nameAt(c)):[];
  c.pending=n===0||cs.some(a=>a.contact);c.hidden=false;c.pc=null;
- if(c.pending&&window.FOF_TABLES?.[s.id]){
-  const tabs=window.FOF_TABLES[s.id].contact;
-  const chosen=grade==='A'&&s.counterUntil>=s.turn&&tabs.counterA?tabs.counterA:tabs[grade];
-  const r=draw(s,1,'接敵組合')[0].rand[chosen.rand], item=chosen.results[r-1];
-  c.contactDetail='組合 '+item.id+'・'+item.title+'（R'+chosen.rand+'＝'+r+'）';note(s,nameAt(c)+' '+c.contactDetail);
- }else c.contactDetail='';
+ c.contactGrade=grade;c.contactDetail='';if(c.pending)contactGroup(s,c);
  note(s,nameAt(c)+(c.pending?' 觸發接敵，待依任務表放置算子。':' 未發生接敵，移除 PC。'));return true;
 }
 function hqEvent(s){
@@ -234,6 +282,8 @@ function hqEvent(s){
  }s.events[k]=detail;note(s,detail);return detail;
 }
 function validSave(s){
+ if(!s||![s.pendingDraws,s.recentDraws].every(b=>b===undefined||(Array.isArray(b)&&b.length<=2000&&b.every(g=>g&&typeof g.why==='string'&&Array.isArray(g.ids)&&g.ids.length>0&&g.ids.length<=60&&g.ids.every(id=>Number.isInteger(id)&&id>=1&&id<=51)))))return false;
+ if(window.FOF_COURSE?.has(s.id))return window.FOF_COURSE.validSave(s);
  if(!s||s.version!==1||!(s.id==='T1'||scenario(s.id))||!Array.isArray(s.map)||!Array.isArray(s.units)||!Array.isArray(s.log)||!Array.isArray(s.deck)||!Array.isArray(s.discard)||!Array.isArray(s.last)||typeof s.objectives!=='object'||!s.objectives||!s.tracks||!Number.isInteger(s.turn)||s.turn<1)return false;
  const m=scenario(s.id),cols=m?m.cols:3, rows=m?m.rows:3;
  if(s.cols!==cols||s.rows!==rows||s.map.length!==(rows+(m&&!m.staging?0:1))*cols||s.units.length>900||s.log.length>500)return false;
@@ -255,5 +305,5 @@ function validSave(s){
  if(s.id==='T1'&&(s.units.length!==7||!templates.every(t=>s.units.some(u=>u.id===t[0]))))return false;
  return ['points','saved','spent','serial','drawCount','activity'].every(k=>Number.isInteger(s[k])&&s[k]>=0)&&s.activity<=3;
 }
-Object.assign(E,{hillLayers,hqEvent,card,terrain,scenario,nameAt,same,near,at,unitsAt,shuffle,note,draw,training,tabletop,isTable,trainingStatus,atThird,movers,allowedMove,moveTraining,advanceTraining,advanceTable,placeObjective,needed,goals,pcCheck,secured,isClear,phaseNames,validSave,piece});
+Object.assign(E,{hillLayers,hqEvent,card,terrain,scenario,nameAt,same,near,at,unitsAt,shuffle,note,draw,recordDraw,training,tabletop,isTable,trainingStatus,atThird,movers,allowedMove,moveTraining,advanceTraining,advanceTable,placeObjective,needed,goals,pcCheck,pcCandidates,nextPC,choosePC,contactGroup,setPC,secured,isClear,phaseNames,validSave,piece});
 })();
