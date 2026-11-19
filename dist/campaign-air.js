@@ -48,7 +48,9 @@ function move(s,key,landing){
    const carried=s.offboard.filter(u=>ids.has(u.id));for(const u of carried)Object.assign(u,cell);
    s.units.push(...carried);s.offboard=s.offboard.filter(u=>!ids.has(u.id));craft.cargo=[];
  }
- G.note(s,craft.model+' '+key+' 移至'+stages[craft.stage]+'。');return true;
+ G.note(s,craft.model+' '+key+' 移至'+stages[craft.stage]+'。');
+ if(craft.stage===2)window.FOF_TERRAIN_VISIBILITY.refresh(s);
+ return true;
 }
 window.FOF_CAMPAIGN_AIR={fleet,proposed,commit,move,stages,armored};
 })();

@@ -322,9 +322,10 @@ function validSave(s,inDraw=false){
  if(!(s.id==='T1'?['ready','command','initiative']:s.id==='Q1'?['ready','command','initiative','review']:['setup','patrolresult',...phases]).includes(s.phase)||!['','win','loss'].includes(s.outcome))return false;
  if(!s.deck.concat(s.discard,s.last).every(n=>Number.isInteger(n)&&n>=1&&n<=51)||!s.last.every(n=>n!==51))return false;
  if(!s.map.every(c=>c&&validPos(s,c)&&(!c.y||terrain(c.t))&&Array.isArray(c.marks)&&(!c.pc||['A','B','C'].includes(c.pc))))return false;
- if(!s.map.every(c=>Number.isInteger(c.h)&&c.h>=0&&c.h<=6&&
+ if(!s.map.every(c=>Number.isInteger(c.h)&&c.h>=0&&c.h<=(Array.isArray(c.hills)?55:6)&&
      (c.hills===undefined||(Array.isArray(c.hills)&&c.hills.length===c.h&&
        c.hills.every(id=>id===null||terrain(id)?.type==='hill')))))return false;
+ if(window.FOF_TERRAIN_VISIBILITY&&!window.FOF_TERRAIN_VISIBILITY.validReserve(s,m))return false;
  if(new Set(s.map.map(nameAt)).size!==s.map.length)return false;
  if(!s.units.every(u=>u&&validPos(s,u)&&typeof u.name==='string'&&typeof u.id==='string'&&['friendly','enemy','marker'].includes(u.side)))return false;
  if(!s.log.every(e=>e&&typeof e.text==='string')||!Object.values(s.objectives).every(p=>validPos(s,p)))return false;

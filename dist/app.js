@@ -81,7 +81,7 @@ function flipAction(){
  run.shown++;
  if(run.shown>=frames.length){
   const oldPhase=s.phase;
-  s=piles.finish(run);
+  s=piles.finish(run);window.FOF_TERRAIN_VISIBILITY.refresh(s);
   if(course())lessons.reset();
   if(run.order.type==='advance')afterAdvance(oldPhase);
   if(run.order.type==='contact'||run.order.type==='group')focus=G.at(s,run.order);
@@ -101,7 +101,7 @@ function showPending(){
 }
 function tell(v){if($modal.open){let msg=$modal.querySelector('.modalmessage');if(!msg){msg=document.createElement('p');msg.className='modalmessage';msg.setAttribute('role','status');$modal.querySelector('.modalhead').after(msg);}msg.textContent=v;}$('toast').textContent=v;$('toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('on'),2600);}
 function persist(){slots[campaigns.key(s)]=s;try{localStorage.setItem(key,JSON.stringify({version:1,active:campaigns.key(s),slots}));storageOK=true;}catch{storageOK=false;} $('savedStatus').textContent=storageOK?'✓ 本機自動存檔':'目前僅保留在此頁　請匯出存檔';}
-function edit(fn){const last=JSON.stringify(s);const ok=fn();if(ok===false)return false;history.push(last);if(history.length>35)history.shift();persist();render();return true;}
+function edit(fn){const last=JSON.stringify(s);const ok=fn();if(ok===false)return false;window.FOF_TERRAIN_VISIBILITY.refresh(s);history.push(last);if(history.length>35)history.shift();persist();render();return true;}
 function campaignAddress(book){
  const url=new URL(location.href);
  if(book)url.searchParams.set('campaign',book);
@@ -129,8 +129,16 @@ function renderHero(){
 }
 function shortAbbr(u){return u.abbr||u.name.split(' · ')[0];}
 function tokenPic(u){const t=catalog.get(u.art);return t?pic(t.art,'',u.name):'<b>'+esc(shortAbbr(u).slice(0,3))+'</b>';}
-const backFace=()=>C.lessons[s.id]?.backFace||C.lessons[s.id]?.layout?.staging||(conf()?.book==='V'?'assets/fm2/terrain/VNback.webp':['H','K'].includes(conf()?.book)?'assets/staging-naktong.webp':'assets/terrain-back.webp');
-const backName=()=>C.lessons[s.id]?.backName||((campaigns.labels[conf()?.book]||'諾曼第')+'地形牌背');
+function cardBack(staging){
+ const lesson=C.lessons[s.id];
+ if(lesson||s.id==='T1')return {face:lesson?.backFace||lesson?.layout?.staging||'assets/terrain-back.webp',name:lesson?.backName||'諾曼第地形牌背'};
+ const book=conf()?.book||'N';
+ const deck=staging?(book==='N'?'K':'N'):book;
+ const faces={N:'assets/terrain-back.webp',K:'assets/staging-naktong.webp',H:'assets/campaign/HBRback.webp',V:'assets/fm2/terrain/VNback.webp'};
+ return {face:faces[deck],name:campaigns.labels[deck]+'地形牌背'};
+}
+const backFace=staging=>cardBack(staging).face;
+const backName=staging=>cardBack(staging).name;
 const tabletop=window.FOF_TERRAIN_TABLE({catalog,esc,pic,terrain:G.terrain,backFace,backName,objectiveName});
 function destination(c){
  if(course())return lessons.target(c);
@@ -165,7 +173,7 @@ function sizeBoard(){
  const port=$('mapViewport');
  if(!port.clientHeight)return;
  const rows=new Set(s.map.map(c=>c.y));
- const extra=Array.from(rows,y=>Math.max(...s.map.filter(c=>c.y===y).map(c=>c.h))).reduce((sum,n)=>sum+n,0);
+ const extra=Array.from(rows,y=>Math.max(...s.map.filter(c=>c.y===y).map(c=>c.faceDown?0:c.h))).reduce((sum,n)=>sum+n,0);
  const usableWidth=port.clientWidth-24,usableHeight=port.clientHeight-16;
  const sheetControls=$('sheetSelection').offsetHeight;
  // Both 5:7 piles sit above the sheet and scale with it.
@@ -309,7 +317,7 @@ function guide(){dialog('guide','遊戲說明',button('courses','開啟手冊逐
 function cellDialog(c){
  const us=G.unitsAt(s,c),t=c.faceDown?null:G.terrain(c.t),over=s.outcome,pc=c.pc||c.pending;
  let b='<div class="tagline">'+esc(G.nameAt(c))+'　'+(c.faceDown?'':c.level?'高度 '+c.level+'　':c.h?'高度 +'+c.h+'　':'')+(c.faceDown?'未揭開地形':t?(t.cover==null?'掩蔽值見牌面':'掩蔽 +'+t.cover):'集結區')+'</div>';
- if(c.faceDown)b+=button('camReveal','依視線翻開地形牌','primary',G.nameAt(c));
+ if(c.faceDown)b+='<p class="hint">友軍地面單位對這張牌建立視線時，棋桌會自動翻開。牌上的算子與標記仍可操作。</p>';
  if(t)b+=button('inspectStack',c.h?'查看地形與下方丘陵':'查看完整地形牌','tiny',c.x+','+c.y);
  if(c.marks.length)b+='<p class="hint">'+c.marks.map(esc).join('、')+'</p>';
  if(us.length)b+='<h3>本牌算子</h3><div class="rostergrid">'+us.map(rosterButton).join('')+'</div>';
@@ -376,6 +384,7 @@ function start(id,guided=true,form=$('campaignForm')?.value){
 function editCell(c){dialog('editcell','地圖標記・'+G.nameAt(c),'<div class="formgroup"><label for="marks">本牌標記（每行一項）</label><textarea id="marks" maxlength="800">'+esc(c.marks.join('\n'))+'</textarea><label for="pcType">潛在接敵</label><select id="pcType">'+['','A','B','C'].map(v=>'<option value="'+v+'" '+(v===(c.pc||'')?'selected':'')+'>'+esc(v||'無')+'</option>').join('')+'</select><label><input id="pcHidden" type="checkbox" '+(c.hidden?'checked':'')+'> 標記背面朝上</label></div>'+button('saveCell','套用地圖標記','primary'));}
 function addPiece(type,name,art){
  const isMark=type==='marker',data=catalog.get(art);
+ if(art==='ccp'&&conf()?.book==='K'&&s.phase==='setup'&&G.at(s,focus)?.faceDown){tell('傷亡收集點須設在已翻開的地形或集結區。');return false;}
  if(art?.startsWith('pc-')){const c=G.at(s,focus);if(art==='pc-hidden'){if(!c.pc){tell('請以「編輯圖上標記」選擇等級。');return false;}c.hidden=true;}else{G.setPC(s,c,art.slice(3).toUpperCase(),false,true);G.note(s,G.nameAt(c)+' 放置標記後為 PC '+c.pc+'。');}return true;}
  const id='u'+(++s.serial);const [cn,ab]=name.split(' · ');
  const u=G.piece(id,cn,ab||cn,1,focus.x,focus.y,type,art||'');if(['casualty','de-casualty'].includes(art))u.casualty=true;
@@ -391,7 +400,7 @@ function campaignRetry(){
   G.note(s,'重試 '+(s.attempt-1)+'：地形、敵軍、尚存 PC 與已計分牌保留。請依規則 §3.9 重新編組及配置。');});
  close();
 }
-function applyPatrolMove(u,from,p){recordPatrol(u,from,p);u.x=p.x;u.y=p.y;if(u.side==='friendly'&&s.phase!=='setup'){const cell=G.at(s,p);if(cell)cell.faceDown=false;}if(s.phase!=='setup'&&u.side!=='marker'&&(from.y||p.y))u.exposed=true;G.note(s,u.name+' 移至 '+G.nameAt(p)+'。');}
+function applyPatrolMove(u,from,p){recordPatrol(u,from,p);u.x=p.x;u.y=p.y;if(s.phase!=='setup'&&u.side!=='marker'&&(from.y||p.y))u.exposed=true;G.note(s,u.name+' 移至 '+G.nameAt(p)+'。');}
 function modalCellClick(v){
  const p=readPos(v),c=G.at(s,p);
  if(!c)return;

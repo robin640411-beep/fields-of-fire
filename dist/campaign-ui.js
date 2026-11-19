@@ -127,7 +127,13 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
   if(s.phase==='setup'&&m.book==='V')controls+=action('Deploy','編組與登場','');
   if(s.series&&m.patrol?.optionalInCampaign&&s.phase==='setup')controls+=action('Skip','略過本排巡邏','');
   if(m.book==='H'&&m.maxAdditionalRows||['K3','K4','VN5'].includes(s.id)||['N6','N7','K6','K7'].includes(s.id))controls+=action('MapTools','任務地圖調整','');
-  return '<div class="campaign-tools">'+controls+'</div>';
+  let facing='';
+  if(s.phase==='setup'){
+   const total=s.rows*s.cols,backs=s.map.filter(c=>c.faceDown).length;
+   const rule=m.revealFromStaging?'翻開集結區視線內的牌。':m.terrainSetup?.faceUp==='landingAndNeighbors'?'翻開每個著陸區及其相鄰牌。':'本任務的地形牌正面朝上。';
+   facing='<p class="hint terrain-facing"><b>地形牌</b>　'+(total-backs)+' 張正面・'+backs+' 張背面<br>'+(s.attempt>1?'重試沿用上次的牌面。':rule)+'</p>';
+  }
+  return facing+'<div class="campaign-tools">'+controls+'</div>';
  }
  function deployment(s){
   const m=G.scenario(s.id),all=s.units.filter(u=>u.side==='friendly'),cap=m.airlift?.oneLift?m.airlift.count*3:null;
@@ -212,7 +218,6 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
       s.offboard=pool.filter(u=>!deployed.includes(u));s.units=[...s.units.filter(u=>u.side!=='friendly'),...deployed];s.deploymentConfirmed=true;
     });close();break;
    }
-   case 'camReveal':{const c=G.at(s,C.coord(v));if(c?.faceDown)edit(()=>{c.faceDown=false;G.note(s,'翻開 '+v+' 地形牌。');});close();break;}
    case 'camSkip':dialog('skipPatrol','略過第 '+s.patrol+' 排巡邏','<p>本排將記錄為未出發，取得 0 XP。</p>'+action('SkipYes','確認略過','','primary')+' '+b('close','返回'));break;
    case 'camSkipYes':{const next=S.nextPatrol(s,true);if(next){switchTo(next);if(next.outcome)result();}break;}
    case 'camReport':{

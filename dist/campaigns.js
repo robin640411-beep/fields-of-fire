@@ -1,7 +1,7 @@
 /* Mission books share a physical table. Coordinates count upward from the player's edge. */
 (() => {
 'use strict';
-const G=window.FOF, books=window.FOF_BOOKS;
+const G=window.FOF, books=window.FOF_BOOKS, fog=window.FOF_TERRAIN_VISIBILITY;
 Object.assign(window.FOF_TABLES,books.V.tables);
 const clone=structuredClone, cells=(s,fn)=>s.map.filter(c=>c.y&&fn(c));
 const coord=k=>({x:k.charCodeAt(0)-65,y:Number(k.slice(1))});
@@ -75,6 +75,7 @@ function createMap(s,m,previous){
  const book=books[m.book],prefix=m.book==='V'?'VN':'K';
  let cards=G.shuffle(terrain.filter(t=>t.id.startsWith(prefix)));
  const kind=t=>t.type, terrainRules=m.terrainSetup||{}, excluded=terrainRules.exclude||[];
+ const hiddenMap=fog.usesHiddenMap(m);
  cards=cards.filter(t=>!excluded.some(v=>kind(t).toLowerCase().startsWith(v)));
  const drawCard=predicate=>{const i=cards.findIndex(predicate);if(i<0)throw Error('地形牌不足 '+m.id);return cards.splice(i,1)[0];};
  const land=t=>{const n=Number(t.id.slice(2));return n>=9&&n<=24||n>=31&&n<=36||n>=41&&n<=48;};
@@ -98,16 +99,24 @@ function createMap(s,m,previous){
    if(terrainRules.centerLanding)forced.set(terrainRules.centerLanding,drawCard(land));
    if(terrainRules.landingRows)for(const y of terrainRules.landingRows)for(let x=0;x<m.cols;x++)forced.set(G.nameAt({x,y}),drawCard(land));
    if(terrainRules.landingChoice==='randomAdjacentToCenter'){
-     const p=coord(terrainRules.centerLanding);const neighbors=G.shuffle(range(3).flatMap(i=>range(3).map(j=>({x:p.x+i-2,y:p.y+j-2})))).filter(q=>!G.same(q,p)).slice(0,2);
-     s.landing=[terrainRules.centerLanding,...neighbors.map(G.nameAt)];
-     for(const k of s.landing.slice(1))forced.set(k,drawCard(land));
+     const p=coord(terrainRules.centerLanding);
+     const neighbors=range(3).flatMap(i=>range(3).map(j=>({x:p.x+i-2,y:p.y+j-2}))).filter(q=>!G.same(q,p)).map(G.nameAt);
+     for(const k of neighbors)forced.set(k,drawCard(()=>true));
+     const candidates=G.shuffle(neighbors.filter(k=>land(forced.get(k))));
+     const replacements=G.shuffle(neighbors.filter(k=>!land(forced.get(k))));
+     while(candidates.length<2){
+       const k=replacements.pop(),old=forced.get(k);
+       forced.set(k,drawCard(land));cards.push(old);candidates.push(k);
+     }
+     s.landing=[terrainRules.centerLanding,...candidates.slice(0,2)];
+     cards=G.shuffle(cards);
    }
    const mandatory=new Map();for(const y of m.hillRows||[])for(let x=0;x<m.cols;x++)mandatory.set(G.nameAt({x,y}),drawCard(t=>t.type==='hill').id);
    for(let y=1;y<=m.rows;y++)for(let x=0;x<m.cols;x++){
      const p={x,y},k=G.nameAt(p),old=previous&&G.at(previous,p);
      if(old){prepared.set(k,{t:old.t,hills:[...(old.hills||[])],marks:(old.marks||[]).filter(a=>/掩蔽|散兵坑|雷區/.test(a)&&!(m.carryMap?.dropDiscoveredCoverRows?.includes(y)&&/掩蔽/.test(a)))});continue;}
      let hills=mandatory.has(k)?[mandatory.get(k)]:[],t=forced.get(k)||drawCard(()=>true);
-     while(t.type==='hill'){hills.push(t.id);t=drawCard(()=>true);}
+     while(!hiddenMap&&t.type==='hill'){hills.push(t.id);t=drawCard(()=>true);}
      prepared.set(k,{t:t.id,hills});
    }
  }
@@ -128,9 +137,9 @@ function createMap(s,m,previous){
  }else if(terrainRules.centerLanding&&!s.landing)s.landing=[terrainRules.centerLanding];
  for(const k of s.landing||[]){const c=G.at(s,coord(k));c.marks.push('著陸區 LZ');if(m.pcSkipLanding||m.pcOnLanding){c.pc=m.pcOnLanding||null;c.originalPC=c.pc;c.hadPC=!!c.pc;c.hidden=false;}}
  if(terrainRules.randomVillageObjective){const villages=cells(s,c=>terrain.find(t=>t.id===c.t)?.type==='Village'&&!s.landing.includes(G.nameAt(c)));const options=villages.length?villages:cells(s,c=>!s.landing.some(k=>G.same(c,coord(k))||G.near(c,coord(k))));const c=G.shuffle(options)[0];s.objectives.primary={x:c.x,y:c.y};}
- for(const c of cells(s,()=>true)){
-   if(m.revealFromStaging)c.faceDown=c.y>1;
-   if(terrainRules.faceUp==='landingAndNeighbors')c.faceDown=!s.landing.some(k=>G.same(c,coord(k))||G.near(c,coord(k)));
+ if(hiddenMap){
+   s.terrainReserve=cards.map(t=>t.id).reverse();
+   fog.setup(s,m);
  }
  for(const [k,v] of Object.entries(m.fixedObjectives||{}))s.objectives[k]=typeof v==='string'?coord(v):clone(v);
  if(m.primaryChoices?.length===1)s.objectives.primary=coord(m.primaryChoices[0]);
@@ -182,6 +191,7 @@ function create(id,options={}){
  if(options.series)s.series=options.series;return s;
 }
 function restore(s){
+ if(s){fog.restore(s);if(s.tableRun?.after)fog.restore(s.tableRun.after);}
  if(s?.settlement)window.FOF_SERIES.syncRotation(s);
  if(!s||s.id==='Q1'||s.id==='T1'||s.company||G.scenario(s.id)?.book!=='N')return s;
  const m=G.scenario(s.id);s.company=roster('N');s.startingForm='mortar81';
@@ -240,6 +250,7 @@ function afterPhase(s,old){
  }
  if(old==='cleanup'&&m.restorePC)for(const c of cells(s,c=>!G.unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty))){c.pc=c.originalPC;c.hidden=false;}
  if(!moon(s)&&!m.weather)s.vis=light(s);
+ fog.refresh(s);
 }
 function adjustMap(s,request){
  const m=G.scenario(s.id),mlr=s.mlr??2;
@@ -277,7 +288,9 @@ function adjustMap(s,request){
 }
 function Cbook(m){return books[m.book];}
 function canMove(s,u,c){
- const m=G.scenario(s.id);if(!m||!u||u.side==='marker')return true;
+ const m=G.scenario(s.id);
+ if(u?.art==='ccp'&&m?.book==='K'&&s.phase==='setup'&&c.faceDown)return false;
+ if(!m||!u||u.side==='marker')return true;
  if(u.side==='friendly'&&m.movementCells&&!m.movementCells.includes(G.nameAt(c)))return false;
  if(s.phase==='setup'||u.side==='enemy')return true;
  if(m.orthogonal)return Math.abs(c.x-u.x)+Math.abs(c.y-u.y)===1;
