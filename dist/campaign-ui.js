@@ -8,10 +8,20 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
  const labels={patrol:'三排巡邏',offensive:'進攻',assault:'進攻',defense:'防禦'};
  const action=(a,label,v,cls='tiny')=>b('cam'+a,label,cls,v);
  function directory(withTitle=true){return (withTitle?'<h3>戰役任務書</h3>':'')+'<div class="book-list">'+['N','K','H','V'].map(k=>{const book=C.books[k],save=slots()['campaign-'+k];return '<button class="choice" data-action="camBook" data-value="'+k+'"><span class="code">'+k+'</span><span><strong>'+book.label+'</strong><small>'+book.missions.length+' 個獨立任務・'+book.order.length+' 場連續戰役'+(save?'・已存至任務 '+G.scenario(save.id).number:'')+'</small></span></button>';}).join('')+'</div>';}
+ function historyArticle(bookKey, missionId){
+  const book=window.FOF_HISTORY[bookKey];
+  const article=missionId ? book.missions[missionId] : book;
+  const heading=missionId ? '任務背景' : article.headline;
+  const date=missionId ? article.date : article.period;
+  const paragraphs=article.paragraphs.map(p=>'<p>'+h(p)+'</p>').join('');
+  const table=missionId ? '<div class="history-table"><strong>本場棋局</strong><p>'+h(article.table)+'</p></div>' : '';
+  return '<article class="history-article" data-history="'+h(missionId||bookKey)+'"><header><span class="history-date">'+h(date)+'</span><h3>'+h(heading)+'</h3></header>'+
+    paragraphs+table+'<footer>依《'+h(C.books[bookKey].label)+'戰役任務書》第 '+h(article.pages)+' 頁整理。'+(article.sourceNote?' '+h(article.sourceNote):'')+'</footer></article>';
+ }
  function bookPage(k){
   const book=C.books[k];if(!book)return;
   const save=slots()['campaign-'+k];
-  let html='<h3>連續戰役</h3>';
+  let html=historyArticle(k)+'<h3>連續戰役</h3>';
   if(save)html+='<p>'+h(C.rules[save.series.rule])+'　'+h(G.scenario(save.id).title)+'　'+h(save.series.finished||('第 '+save.turn+' 回合'))+'</p>'+action('Resume','繼續戰役',k,'primary')+' '+action('New','重新開始戰役',k);
   else html+=action('New','建立戰役',k,'primary');
   html+='<h3>獨立任務</h3>'+book.missions.map(m=>missionChoice(m.id,m.id,m.title,labels[m.mode]+'・'+m.cols+' × '+m.rows+'・'+m.turns+' 回合')).join('');
@@ -116,6 +126,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
   if(!a.startsWith('cam'))return false;const s=state(),m=G.scenario(s.id);
   switch(a){
    case 'camBook':bookPage(v);break;
+   case 'camHistory':dialog('campaignHistory',C.books[v].label+'戰役背景',historyArticle(v)+b('brief','返回本場簡報','secondary'));break;
    case 'camNew':newSeries(v);break;
    case 'camLaunch':switchTo(C.launch(v,$('campaignRule').value,$('campaignForm')?.value));break;
    case 'camResume':{const saved=slots()['campaign-'+v];if(saved){switchTo(saved);if(saved.settlement)settle();}break;}
@@ -190,6 +201,6 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
    if(['K6','K7','N6','N7'].includes(s.id))html+=action('MapApply','新增左側縱欄','left')+action('MapApply','新增右側縱欄','right');
    dialog('mapTools','任務地圖',html);
  }
- return {directory,bookPage,reader,setupPanel,status,handle,form};
+ return {directory,bookPage,historyArticle,reader,setupPanel,status,handle,form};
 };
 })();

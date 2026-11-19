@@ -340,3 +340,20 @@ body{min-width:1080px}
 .series-table button{margin:2px}.series-steps{color:#696e60}.series-steps strong{color:#253c26;border-bottom:2px solid currentColor}
 .series-inputs,.formation-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:1rem 0}.series-inputs label,.formation-grid label{display:flex;align-items:center;gap:.4rem}
 .series-inputs input{width:5rem}.series-metrics{background:#e7eade;padding:.65rem;color:#273c2c}
+
+#panel[data-kind="campaignBook"], #panel[data-kind="campaignHistory"], #panel[data-kind="missionInfo"] {
+  width: min(750px, calc(100% - 32px));
+}
+.history-article {
+  padding: 4px 0 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.history-article header { margin-bottom: 14px; }
+.history-date { display: block; color: var(--muted); font-size: .88rem; font-variant-numeric: tabular-nums; }
+.modalcontent .history-article header h3 { margin: 4px 0 0; font-size: 1.3rem; line-height: 1.45; }
+.modalcontent .history-article > p { margin: 0 0 .75em; line-height: 1.85; }
+.history-table { border-left: 3px solid #a48342; padding: 8px 14px; background: #eaede1; }
+.history-table strong { font-size: .9rem; }
+.modalcontent .history-table p { margin: 3px 0 0; line-height: 1.65; }
+.history-article footer { margin-top: 12px; font-size: .81rem; color: var(--muted); }
