@@ -7,7 +7,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
  const opts=o=>Object.entries(o).map(([k,v])=>opt(k,v)).join('');
  const labels={patrol:'三排巡邏',offensive:'進攻',assault:'進攻',defense:'防禦'};
  const action=(a,label,v,cls='tiny')=>b('cam'+a,label,cls,v);
- function directory(){return '<h3>戰役任務書</h3><div class="book-list">'+['N','K','H','V'].map(k=>{const book=C.books[k],save=slots()['campaign-'+k];return '<button class="choice" data-action="camBook" data-value="'+k+'"><span class="code">'+k+'</span><span><strong>'+book.label+'</strong><small>'+book.missions.length+' 個獨立任務・'+book.order.length+' 場連續戰役'+(save?'・已存至任務 '+G.scenario(save.id).number:'')+'</small></span></button>';}).join('')+'</div>';}
+ function directory(withTitle=true){return (withTitle?'<h3>戰役任務書</h3>':'')+'<div class="book-list">'+['N','K','H','V'].map(k=>{const book=C.books[k],save=slots()['campaign-'+k];return '<button class="choice" data-action="camBook" data-value="'+k+'"><span class="code">'+k+'</span><span><strong>'+book.label+'</strong><small>'+book.missions.length+' 個獨立任務・'+book.order.length+' 場連續戰役'+(save?'・已存至任務 '+G.scenario(save.id).number:'')+'</small></span></button>';}).join('')+'</div>';}
  function bookPage(k){
   const book=C.books[k];if(!book)return;
   const save=slots()['campaign-'+k];
@@ -62,7 +62,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
   }else{
    html+='<div class="series-metrics"><b>剩餘 '+(t.xp+t.extra-t.spent)+' XP</b><span>小組 '+(t.lat+t.transfers.length)+'</span><span>新兵 '+t.green+'　歸隊老兵 '+t.veteran+(t.katusa?'　韓籍補充 '+t.katusa:'')+'</span></div>';
    if(m.mode==='patrol')html+='<p>'+[1,2,3].map(p=>'第'+p+'排 '+((t.perPlatoon[p]||0)-(t.spentBy[p]||0))+' XP').join('　')+'</p>';
-   if(t.rotation||t.hqRotation||t.tour)html+='<p>輪調　'+(t.rotation?'先移除 '+t.rotation+' 階老兵。':'')+(t.hqRotation?'選一個有經驗的排部換為新兵。':'')+(t.tour?'任務 4 前另有 '+t.tour+' 階須換為新兵。':'')+'</p>';
+   if(t.rotation||t.hqRotation||t.tour)html+='<p>輪調　'+(t.rotation?'先移除 '+t.rotation+' 階老兵。':'')+(t.hqRotation?'選一個有經驗的排部換為新兵。':'')+(t.tour?'任務 4 前另有 '+t.tour+' 階須換為新兵。'+(t.tourNeedsHQ&&!t.hqRotation?'若仍有符合條件的指揮部，至少選一個。':''):'')+'</p>';
    if(t.phase==='rebuild')html+='<p>點兵力階提升一次經驗。新兵升一般花 1 XP，一般升老兵花 3 XP。可拆出兵力階，或用剩餘小組重新編組。</p>';
    if(t.phase==='skills')html+='<label class="formgroup">要購買的技能<select id="seriesSkill">'+Object.entries(S.skills).map(([k,c])=>opt(k,k+'　'+c+' XP')).join('')+'</select></label>';
    html+='<table class="series-table"><thead><tr><th>連隊單位</th><th>兵力階</th><th>整補</th></tr></thead><tbody>'+t.rows.map((r,i)=>{
@@ -74,7 +74,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
     }else if(t.phase==='replace'&&r.ranks.length<r.max)controls=(t.green?ctrl('fill','＋新兵','green'):'')+(t.veteran?ctrl('fill','＋老兵','veteran'):'')+(t.katusa&&r.rifle?ctrl('fill','＋韓籍','katusa'):'');
     else if(t.phase==='skills'){
      if(t.hqRotation&&r.platoon&&/排部|指揮部/.test(r.name)&&r.ranks[0]?.grade!=='green'&&r.ranks.length)controls+=ctrl('rotateHQ','排部換防');
-     if(t.tour&&r.ranks.some(z=>z.grade!=='green'))controls+=ctrl('tour','換為新兵');
+     if(S.canTour(t,r))controls+=ctrl('tour','換為新兵');
      if(/排部|指揮部|副官|士官長/.test(r.name)&&r.ranks.length)controls+=ctrl('skill','購買技能');
     }
     const marks=r.ranks.map((z,j)=>t.phase==='rebuild'&&!t.rotation&&!z.locked&&z.grade!=='veteran'?ctrl('promote',C.gradeNames[z.grade]+' ↑',j):h(C.gradeNames[z.grade]));

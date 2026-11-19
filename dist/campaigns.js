@@ -182,6 +182,7 @@ function create(id,options={}){
  if(options.series)s.series=options.series;return s;
 }
 function restore(s){
+ if(s?.settlement)window.FOF_SERIES.syncRotation(s);
  if(!s||s.id==='Q1'||s.id==='T1'||s.company||G.scenario(s.id)?.book!=='N')return s;
  const m=G.scenario(s.id);s.company=roster('N');s.startingForm='mortar81';
  const active=s.company.filter(u=>m.mode!=='patrol'||u.platoon===s.patrol),assigned=new Set();

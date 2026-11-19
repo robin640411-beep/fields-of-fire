@@ -46,6 +46,25 @@ function maxRecruits(s,loss){
  return m.reinforcements==='full'?loss:(m.reinforcements||0);
 }
 function eligibleNext(s){return C.books[s.series.book].order[s.series.index+1]||[];}
+const experienced=rank=>rank.grade==='line'||rank.grade==='veteran';
+const headquarters=row=>/指揮部|排部/.test(row.name);
+const platoonHQ=row=>row.platoon&&headquarters(row)&&row.ranks.some(experienced);
+function syncRotation(s){
+ const t=s.settlement;
+ if(s.series?.book!=='V'||t?.phase!=='skills')return;
+ t.hqRotation=!!t.hqRotation&&t.rows.some(platoonHQ);
+ if(s.id!=='VN3')return;
+ const available=t.rows.reduce((n,row)=>n+row.ranks.filter(experienced).length,0);
+ // Older saves may already have spent the last eligible rank on ordinary HQ rotation.
+ t.tour=Math.min(t.tour||0,Math.max(0,available-Number(t.hqRotation)));
+ const hasHQ=t.rows.some(row=>headquarters(row)&&row.ranks.some(experienced));
+ if(t.tourNeedsHQ===undefined)t.tourNeedsHQ=t.tour===10;
+ t.tourNeedsHQ=!!t.tour&&t.tourNeedsHQ&&hasHQ;
+}
+function canTour(t,row){
+ return t.phase==='skills'&&t.tour>0&&!t.hqRotation&&row?.ranks.some(experienced)
+   &&(!t.tourNeedsHQ||t.tour>1||headquarters(row));
+}
 function openSettlement(s){
  if(!s.series||!s.outcome||s.series.finished||s.settlement)return false;
  const m=G.scenario(s.id);
@@ -118,13 +137,19 @@ function ledger(s,action,value){
      for(const u of t.rows)while(u.ranks.length<u.max)u.ranks.push({grade:'green',locked:true});
    }
    if(m.book==='V'){
-    t.hqRotation=t.rows.some(r=>r.platoon&&/指揮部|排部/.test(r.name)&&r.ranks.some(z=>z.grade!=='green'));
-    t.tour=next.includes('VN4')?Math.min(10,t.rows.flatMap(r=>r.ranks).filter(z=>z.grade!=='green').length):0;
+    t.hqRotation=t.rows.some(platoonHQ);
+    t.tour=next.includes('VN4')?10:0;
+    t.tourNeedsHQ=t.tour>0;
    }
-   t.phase='skills';return true;
+   t.phase='skills';syncRotation(s);return true;
  }
- if(action==='rotateHQ'&&t.phase==='skills'&&t.hqRotation&&r&&r.platoon&&/排部|指揮部/.test(r.name)&&r.ranks[0]?.grade!=='green'&&r.ranks.length){r.ranks[0].grade='green';t.hqRotation=false;return true;}
- if(action==='tour'&&t.phase==='skills'&&t.tour&&r){const rank=r.ranks.find(z=>z.grade!=='green');if(!rank)return false;rank.grade='green';t.tour--;return true;}
+ if(action==='rotateHQ'&&t.phase==='skills'&&t.hqRotation&&r&&platoonHQ(r)){
+   r.ranks.find(experienced).grade='green';t.hqRotation=false;syncRotation(s);return true;
+ }
+ if(action==='tour'&&canTour(t,r)){
+   r.ranks.find(experienced).grade='green';t.tour--;if(headquarters(r))t.tourNeedsHQ=false;
+   syncRotation(s);return true;
+ }
  if(action==='skill'&&t.phase==='skills'&&r&&r.ranks.length&&/指揮部|排部|士官長|副官/.test(r.name)&&r.skills.length<3&&Object.hasOwn(skills,value.skill)&&reserve(skills[value.skill])){
    r.skills.push(value.skill);return true;
  }
@@ -160,5 +185,5 @@ function valid(s){
  if(s.settlement){const t=s.settlement;if(!t.record||t.record.id!==s.id||!Array.isArray(t.transfers)||!t.spentBy||!t.perPlatoon||!['xp','extra','lat','lost','spent','green','veteran','rotation'].every(k=>Number.isInteger(t[k])&&t[k]>=0)||!s.outcome||!['report','rebuild','replace','skills'].includes(t.phase)||!Array.isArray(t.rows)||t.rows.length!==s.company.length||!t.rows.every((r,i)=>r.id===s.company[i].id&&Array.isArray(r.ranks)&&r.ranks.length<=r.max&&r.ranks.every(z=>grades.includes(z.grade))&&Array.isArray(r.skills)&&r.skills.every(x=>Object.hasOwn(skills,x))))return false;}
  return true;
 }
-window.FOF_SERIES={score,total,survivors,openSettlement,ledger,advance,nextPatrol,eligibleNext,valid,skills};
+window.FOF_SERIES={score,total,survivors,openSettlement,ledger,advance,nextPatrol,eligibleNext,valid,skills,syncRotation,canTour};
 })();

@@ -516,6 +516,10 @@ $modal.addEventListener('click',e=>{if(e.target!==$modal)return;const r=$modal.g
 $modal.addEventListener('cancel',()=>{modal='';modalData=null;});
 new ResizeObserver(sizeBoard).observe($('mapViewport'));
 render();persist();
-const manual=new URLSearchParams(location.search).get('manual');
-if(manual==='1'||manual==='2')lessons.menu(manual);
+const entry=new URL(location.href),manual=entry.searchParams.get('manual');
+if(entry.searchParams.get('campaigns')==='1'){
+ dialog('campaignDirectory','戰役任務書',campaignUI.directory(false));
+ entry.searchParams.delete('campaigns');
+ window.history.replaceState(window.history.state,'',entry);
+}else if(manual==='1'||manual==='2')lessons.menu(manual);
 })();
