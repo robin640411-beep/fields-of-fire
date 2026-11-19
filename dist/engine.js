@@ -3,7 +3,7 @@
 "use strict";
 const E = window.FOF = {};
 const card = id => window.FOF_CARDS.find(c => c.id === id);
-const terrain = id => typeof id==='string'?window.FOF_COURSE_TERRAIN?.find(c=>c.id===id):window.FOF_TERRAIN.find(c => c.id === id);
+const terrain = id => typeof id==='string'?(window.FOF_COURSE_TERRAIN?.find(c=>c.id===id)||window.FOF_CAMPAIGN_TERRAIN?.find(c=>c.id===id)):window.FOF_TERRAIN.find(c => c.id === id);
 E.terrainCode=t=>t.code??(typeof t.id==='number'?'N'+String(t.id).padStart(2,'0'):t.id);
 const scenario = id => window.FOF_SCENARIOS.find(s => s.id === (id==='Q1'?'N1':id));
 const nameAt = p => String.fromCharCode(65 + p.x) + p.y;
@@ -126,11 +126,15 @@ function advanceTraining(s){
 const phases=['events','orders','enemy','retreat','vehicles','combat','cleanup'];
 const phaseNames={review:'回合報告',setup:'任務設置',ready:'等待啟動',command:'排部命令',initiative:'一般主動',events:'上級事件',orders:'友軍命令',enemy:'敵軍活動',retreat:'俘虜與撤退',vehicles:'車輛階段',combat:'雙方戰鬥',cleanup:'整理階段'};
 function pcFor(raw){if(!raw)return null;const values=String(raw).replace('?','').split('/');return values[Math.floor(Math.random()*values.length)];}
-function tabletop(id,previous=null,deferMoonlight=false){
+function tabletop(id,previous=null,deferMoonlight=false,options={}){
  const m=scenario(id);if(!m)throw Error('未知任務');
  const s=base(id,m.cols,m.rows,false);s.phase='setup';
- s.vis=m.mode==='patrol'&&!deferMoonlight?1+draw(s,1,'月光能見度')[0].rand[4]:0;
+ s.vis=m.mode==='patrol'&&(!m.book||m.book==='N')&&!deferMoonlight?1+draw(s,1,'月光能見度')[0].rand[4]:0;
  s.patrolHistory=[];s.visits={way:0,primary:false,returned:false};s.xpCards={};s.attempt=1;
+ const campaign=window.FOF_CAMPAIGNS;
+ if(campaign&&m.book!=='N'){
+   campaign.init(s,m,previous,options);note(s,'已依任務書設置地形與起始編組。');return s;
+ }
  const retained=new Set((previous?.map||[]).filter(c=>c.x<m.cols&&c.y<=m.rows&&c.y>0).flatMap(c=>[c.t,...hillLayers(c).map(id=>id??1)]));
  let pool=shuffle(window.FOF_TERRAIN.map(t=>t.id).filter(id=>!retained.has(id)));
  for(let y=0;y<=m.rows;y++)for(let x=0;x<m.cols;x++){
@@ -167,11 +171,13 @@ function tabletop(id,previous=null,deferMoonlight=false){
   }
  }else{s.units=templates.slice(0,4).map(([key,n,a,hp])=>piece(key,n,a,hp,0,initialY));}
  if(previous){for(const u of previous.units.filter(u=>u.side==='marker'&&['cover','mines','foxhole','trench','bunker','pillbox'].includes(u.art))){s.units.push({...u,id:'u'+(++s.serial)});}}
+ if(campaign&&id!=='Q1')campaign.init(s,m,previous,options);
  note(s,previous?'沿用前次任務的重疊地形。':'已設置地形。');
  note(s,'依任務書確認編組、配屬與起點，再放置目標。');return s;
 }
 function placeObjective(s,key,p){
  const m=scenario(s.id);if(!m||s.phase!=='setup'||!validPos(s,p)||p.y<1)return false;
+ if(window.FOF_CAMPAIGNS&&!window.FOF_CAMPAIGNS.canPlace(m,key,p))return false;
  const obj=m.objectives;
  const wanted={primary:obj.primaryRow,secondary:obj.secondaryRow,position:obj.positionRow};
  if(key==='outpost'){if(!m.outpost||p.y!==m.outpost.row)return false;}
@@ -198,6 +204,7 @@ function needed(s){
 }
 function goals(s){
  const m=scenario(s.id),o=m.objectives, result=[];
+ const bookGoals=window.FOF_CAMPAIGNS?.goals(s);if(bookGoals)return bookGoals;
  if(m.mode==='patrol')return [{name:'走訪主要目標',done:s.visits.primary},{name:'路線點 '+s.visits.way+' / 4',done:s.visits.way===4},{name:'由第二列返回第一列',done:s.visits.returned}];
  for(const k of ['primary','secondary'])if(o[k+'Row']){const p=s.objectives[k];result.push({name:k==='primary'?'確保主要目標':'確保次要目標',done:!!p&&secured(s,at(s,p))});}
  for(const y of o.clearRows||[]){const row=s.map.filter(c=>c.y===y);result.push({name:'肅清第 '+y+' 列',done:row.every(c=>isClear(s,c))});}
@@ -211,7 +218,7 @@ function advanceTable(s){
   s.phase='orders';note(s,'設置完成，開始第一回合。');return true;
  }
  if(s.phase==='cleanup'){
-  if(s.turn>=m.turns){
+  if(s.turn>=(window.FOF_CAMPAIGNS?.turnLimit(s)||m.turns)){
    if(m.mode==='patrol'){s.phase='patrolresult';note(s,'請依任務書登錄本次巡邏結果。');return true;}
    const gs=goals(s);s.outcome=gs.length&&gs.every(g=>g.done)?'win':'loss';note(s,s.outcome==='win'?'任務目標全部達成。':'回合用盡，尚有未達成的目標。');return true;
   }
@@ -260,8 +267,11 @@ function choosePC(s){
 function contactGroup(s,c){
  const tabs=window.FOF_TABLES?.[s.id]?.contact;
  const grade=c.contactGrade||c.originalPC;
- if(!c.pending||!tabs?.[grade])return false;
- const chosen=grade==='A'&&s.counterUntil>=s.turn&&tabs.counterA?tabs.counterA:tabs[grade];
+ if(!c.pending||!tabs)return false;
+ const book=window.FOF_BOOKS?.[scenario(s.id).book];
+ const chosen=book?.selectContact?book.selectContact(s,c,grade):window.FOF_CAMPAIGNS?.selectTab(s,c,tabs)||tabs[grade];
+ if(!chosen)return false;
+ if(chosen.fixed||chosen.automatic){const item=chosen.fixed||chosen.results[0];c.contactDetail='組合 '+item.id+'・'+item.title;note(s,c.contactDetail);return true;}
  const r=draw(s,1,'接敵組合 '+nameAt(c))[0].rand[chosen.rand], item=chosen.results[r-1];
  c.contactDetail='組合 '+item.id+'・'+item.title+'（R'+chosen.rand+'＝'+r+'）';
  note(s,nameAt(c)+' '+c.contactDetail);return true;
@@ -282,11 +292,12 @@ function hqEvent(s){
  const first=draw(s,1,side==='friendly'?'友軍 HQ 檢查':'敵軍 HQ 檢查')[0];
  let detail='未出現 HQ 圖示，本階段沒有事件。';
  if(first.hq){const tab=window.FOF_TABLES[s.id][side].find(t=>t.from<=s.turn&&t.to>=s.turn);const n=draw(s,1,'上級事件表')[0].rand[tab.rand],e=tab.results[n-1];
-  detail=e.title+'（R'+tab.rand+'＝'+n+'）。'+e.text+(e.xp?' 達成後可另記 '+e.xp+' XP。':'');if(e.title==='反攻')s.counterUntil=s.turn+2;
+  detail=e.title+'（R'+tab.rand+'＝'+n+'）。'+e.text+(e.xp?' 達成後可另記 '+e.xp+' XP。':'');if(['反攻','反擊'].includes(e.title))s.counterUntil=s.turn+2;
  }s.events[k]=detail;note(s,detail);return detail;
 }
 function validSave(s,inDraw=false){
  if(!s)return false;
+ if(s.series&&!window.FOF_SERIES?.valid(s))return false;
  if(s.drawOrder&&!window.FOF_TABLE_DRAW?.validForState(s,s.drawOrder))return false;
  if(s.tableRun){
   const run=s.tableRun;
@@ -306,7 +317,8 @@ function validSave(s,inDraw=false){
  if(window.FOF_COURSE?.has(s.id))return window.FOF_COURSE.validSave(s);
  if(!s||s.version!==1||!(s.id==='T1'||scenario(s.id))||!Array.isArray(s.map)||!Array.isArray(s.units)||!Array.isArray(s.log)||!Array.isArray(s.deck)||!Array.isArray(s.discard)||!Array.isArray(s.last)||typeof s.objectives!=='object'||!s.objectives||!s.tracks||!Number.isInteger(s.turn)||s.turn<1)return false;
  const m=scenario(s.id),cols=m?m.cols:3, rows=m?m.rows:3;
- if(s.cols!==cols||s.rows!==rows||s.map.length!==(rows+(m&&!m.staging?0:1))*cols||s.units.length>900||s.log.length>500)return false;
+ const extendX=m&&['N6','N7','K6','K7'].includes(s.id)?2:0,extendY=m?.maxAdditionalRows||Number(s.id==='VN5');
+ if(!Number.isInteger(s.cols)||!Number.isInteger(s.rows)||s.cols<cols||s.cols>cols+extendX||s.rows<rows||s.rows>rows+extendY||s.map.length!==(s.rows+(m&&!m.staging?0:1))*s.cols||s.units.length>900||s.log.length>500)return false;
  if(!(s.id==='T1'?['ready','command','initiative']:s.id==='Q1'?['ready','command','initiative','review']:['setup','patrolresult',...phases]).includes(s.phase)||!['','win','loss'].includes(s.outcome))return false;
  if(!s.deck.concat(s.discard,s.last).every(n=>Number.isInteger(n)&&n>=1&&n<=51)||!s.last.every(n=>n!==51))return false;
  if(!s.map.every(c=>c&&validPos(s,c)&&(!c.y||terrain(c.t))&&Array.isArray(c.marks)&&(!c.pc||['A','B','C'].includes(c.pc))))return false;
@@ -325,5 +337,5 @@ function validSave(s,inDraw=false){
  if(s.id==='T1'&&(s.units.length!==7||!templates.every(t=>s.units.some(u=>u.id===t[0]))))return false;
  return ['points','saved','spent','serial','drawCount','activity'].every(k=>Number.isInteger(s[k])&&s[k]>=0)&&s.activity<=3;
 }
-Object.assign(E,{hillLayers,hqEvent,card,terrain,scenario,nameAt,same,near,at,unitsAt,shuffle,note,draw,recordDraw,training,tabletop,isTable,trainingStatus,atThird,movers,allowedMove,moveTraining,advanceTraining,advanceTable,placeObjective,needed,goals,pcCheck,pcCandidates,nextPC,choosePC,contactGroup,setPC,secured,isClear,phaseNames,validSave,piece});
+Object.assign(E,{hillLayers,hqEvent,card,terrain,scenario,nameAt,same,near,at,unitsAt,shuffle,note,draw,recordDraw,training,tabletop,isTable,trainingStatus,atThird,movers,allowedMove,moveTraining,advanceTraining,advanceTable(s){const old=s.phase,ok=advanceTable(s);if(ok&&window.FOF_CAMPAIGNS&&s.id!=='Q1')window.FOF_CAMPAIGNS.afterPhase(s,old);return ok;},placeObjective,needed,goals,pcCheck,pcCandidates,nextPC,choosePC,contactGroup,setPC,secured,isClear,phaseNames,validSave,piece});
 })();

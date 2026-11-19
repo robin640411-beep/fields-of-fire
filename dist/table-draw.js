@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const G=window.FOF,C=window.FOF_COURSE,Q=window.FOF_QUICK;
-const names={lesson:'教學抽牌',advance:'回合抽牌',moonlight:'月光能見度',event:'上級事件',order:'同級 PC 順序',contact:'接敵檢查',group:'接敵組合',batch:'手動抽牌',combat:'戰鬥效果',cover:'尋找掩蔽',rally:'重整'};
+const names={weather:'天候檢定',lesson:'教學抽牌',advance:'回合抽牌',moonlight:'月光能見度',event:'上級事件',order:'同級 PC 順序',contact:'接敵檢查',group:'接敵組合',batch:'手動抽牌',combat:'戰鬥效果',cover:'尋找掩蔽',rally:'重整'};
 function validOrder(o){
  if(!o||!Object.hasOwn(names,o.type))return false;
  switch(o.type){
@@ -24,7 +24,8 @@ function defaultOrder(s){
  if(s.outcome)return null;
  if(C.has(s.id))return C.current(s)?.kind==='draw'?{type:'lesson'}:null;
  if(s.id==='T1'||s.id==='Q1')return ['ready','command'].includes(s.phase)||(s.id==='Q1'&&s.phase==='initiative')?{type:'advance'}:null;
- if(G.scenario(s.id).mode==='patrol'&&!s.vis&&s.phase==='setup')return {type:'moonlight'};
+ if(s.weatherDue)return {type:'weather'};
+ if((window.FOF_CAMPAIGNS?window.FOF_CAMPAIGNS.moon(s):G.scenario(s.id).mode==='patrol')&&!s.vis&&s.phase==='setup')return {type:'moonlight'};
  if(s.turn>=2&&['events','enemy'].includes(s.phase)&&!s.events?.[s.turn+'-'+(s.phase==='events'?'friendly':'enemy')])return {type:'event'};
  if(s.phase==='combat'&&!s.map.some(c=>c.pending)){
   const cell=G.nextPC(s);
@@ -46,6 +47,8 @@ function resolve(s,o){
  if(C.has(s.id))return o.type==='lesson'&&C.beginDraw(s);
  switch(o.type){
  case 'advance':return s.id==='Q1'?Q.advance(s):s.id==='T1'&&G.advanceTraining(s);
+ case 'weather':{if(!s.weatherDue)return false;const m=G.scenario(s.id);if(!m?.weather)return false;
+   const die=G.draw(s,1,'天候・R4')[0].rand[4],n=die+(s.raining?1:0);s.vis=m.weather.outcomes[n-1];s.raining=n>=3;s.weatherDue=false;G.note(s,'天候表結果 '+n+'，能見度 +'+s.vis+'。');return true;}
  case 'moonlight':if(G.scenario(s.id)?.mode!=='patrol'||s.vis)return false;
   s.vis=1+G.draw(s,1,'月光能見度')[0].rand[4];return true;
  case 'event':return G.hqEvent(s);
@@ -63,7 +66,7 @@ function resolve(s,o){
  return false;
 }
 function frames(run){
- return run.after.pendingDraws.flatMap(g=>{
+ return (run.after.pendingDraws||[]).flatMap(g=>{
   const list=g.ids.map((id,i)=>({id,remaining:g.remaining[i],why:g.why}));
   if(g.reshuffle)list.push({id:null,remaining:51,why:'重洗整副牌'});
   return list;
@@ -76,7 +79,7 @@ function prepare(s,order){
 }
 function finish(run){
  const s=run.after;
- s.recentDraws=s.pendingDraws.splice(0).map(({ids,why})=>({ids,why}));
+ s.recentDraws=(s.pendingDraws||[]).splice(0).map(({ids,why})=>({ids,why}));
  if(C.has(s.id)&&s.reading)C.complete(s);
  return s;
 }

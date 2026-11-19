@@ -54,9 +54,9 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
    (overflow?'<button type="button" class="map-chit pile-count" data-action="boardPile" aria-label="展開本牌全部算子與標記">+'+(items.length-shown)+'</button>':'')+'</div>';
  }
  function tile(s,c,dest,focused,selected){
-  const t=terrain(c.t),name=t?.name||'集結區',coord=G.nameAt(c),layers=G.hillLayers(c);
+  const t=terrain(c.t),name=c.faceDown?'未揭開地形':t?.name||'集結區',coord=G.nameAt(c),layers=c.faceDown?[]:G.hillLayers(c);
   const {units,markers}=contents(s,c),key=c.x+','+c.y;
-  const code=t?G.terrainCode(t):'',face=t?t.face:backFace(),title=[coord,name,code].filter(Boolean).join(' ');
+  const code=t&&!c.faceDown?G.terrainCode(t):'',face=t&&!c.faceDown?t.face:backFace(),title=[coord,name,code].filter(Boolean).join(' ');
   const faces=layers.map((id,i)=>'<img class="hill-face" style="--layer:'+i+'" src="'+terrain(id??1).face+'" data-code="'+esc(G.terrainCode(terrain(id??1)))+'" alt="" draggable="false">').join('');
   return '<div class="card-location'+(dest&&!window.FOF_COURSE.has(s.id)?' move-target':'')+'" '+(t?'':'data-staging')+' data-coord="'+key+'" style="--layers:'+layers.length+'">'+
    '<button type="button" class="tile'+(dest?' can':'')+(focused?' focused':'')+'" data-action="cell" data-value="'+key+'" aria-label="'+esc(title+'，'+units.length+' 枚算子，'+markers.length+' 枚標記'+(dest?'，可移入':''))+'">'+

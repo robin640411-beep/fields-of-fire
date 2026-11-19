@@ -4,7 +4,7 @@ const G=window.FOF,$=id=>document.getElementById(id);
 const Q=window.FOF_QUICK;const quick=()=>s.id==='Q1';
 const C=window.FOF_COURSE, draws=window.FOF_DRAW_VIEW, piles=window.FOF_TABLE_DRAW;
 const key='fields-of-fire.table.v1', $modal=$('panel');
-const catalog=new Map([...window.FOF_PIECES,...window.FOF_COURSE_PIECES||[]].map(p=>[p.id,p]));
+const catalog=new Map([...window.FOF_PIECES,...(window.FOF_COURSE_PIECES||[]),...window.FOF_CAMPAIGN_PIECES].map(p=>[p.id,p]));
 const actLabels=['未接敵','接敵','交戰','激烈交戰'];
 const objectiveName=k=>({primary:'主要目標',secondary:'次要目標',position:'攻擊陣地',outpost:'戰鬥前哨'})[k]||'路線點 '+k.slice(3);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -13,9 +13,10 @@ const button=(action,label,cl='',value='',dis=false)=>'<button type="button" dat
 const box=(title,body)=>'<section class="cardbox sidebox"><h3>'+esc(title)+'</h3>'+body+'</section>';
 const title=id=>C.has(id)?C.lessons[id].title:id==='T1'?'啟動與移動':id==='Q1'?'特雷維耶爾快戰':G.scenario(id).title;
 const readPos=v=>{const [x,y]=String(v).split(',').map(Number);return {x,y};};
+const campaigns=window.FOF_CAMPAIGNS,series=window.FOF_SERIES;
 let slots={},s,storageOK=true;
-try{const b=JSON.parse(localStorage.getItem(key)||'null');if(b?.slots){for(const [id,st] of Object.entries(b.slots)){if(id===st.id&&G.validSave(st))slots[id]=C.has(id)?C.restore(st):st;}s=slots[b.active];}}catch{storageOK=false;}
-s=s||C.start('P1');slots[s.id]=s;
+try{const b=JSON.parse(localStorage.getItem(key)||'null');if(b?.slots){for(const [id,st] of Object.entries(b.slots)){if(id===campaigns.key(st)&&G.validSave(st))slots[id]=C.has(id)?C.restore(st):campaigns.restore(st);}s=slots[b.active];}}catch{storageOK=false;}
+s=s||C.start('P1');slots[campaigns.key(s)]=s;
 let selected=null,focus=null,mode='',group=false,sideTab='play',modal='',modalData=null,toastTimer,origin=null;
 const history=[];
 const selectedUnit=()=>s.units.find(u=>u.id===selected);
@@ -24,6 +25,7 @@ const course=()=>C.has(s.id);
 const isTable=()=>!course()&&G.isTable(s);
 const lessons=window.FOF_LESSON_UI({state:()=>s,slots:()=>slots,switchState:st=>{s=st;resetView();},edit,render,dialog,close,tell,button,esc,box,tokenPic,logView,lastRow});
 const commandDisplay=window.FOF_COMMAND_DISPLAY.create({state:()=>s,esc,button,edit});
+const campaignUI=window.FOF_CAMPAIGN_UI({state:()=>s,slots:()=>slots,switchTo:st=>{s=st;resetView();},edit,dialog,button,close,tell,esc,missionChoice,result,render,cellDialog});
 function drawGroups(){
  if(s.tableRun){
   const read=piles.frames(s.tableRun).slice(0,s.tableRun.shown).filter(f=>f.id);
@@ -98,7 +100,7 @@ function showPending(){
  });
 }
 function tell(v){if($modal.open){let msg=$modal.querySelector('.modalmessage');if(!msg){msg=document.createElement('p');msg.className='modalmessage';msg.setAttribute('role','status');$modal.querySelector('.modalhead').after(msg);}msg.textContent=v;}$('toast').textContent=v;$('toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('on'),2600);}
-function persist(){slots[s.id]=s;try{localStorage.setItem(key,JSON.stringify({version:1,active:s.id,slots}));storageOK=true;}catch{storageOK=false;} $('savedStatus').textContent=storageOK?'✓ 本機自動存檔':'目前僅保留在此頁　請匯出存檔';}
+function persist(){slots[campaigns.key(s)]=s;try{localStorage.setItem(key,JSON.stringify({version:1,active:campaigns.key(s),slots}));storageOK=true;}catch{storageOK=false;} $('savedStatus').textContent=storageOK?'✓ 本機自動存檔':'目前僅保留在此頁　請匯出存檔';}
 function edit(fn){const last=JSON.stringify(s);const ok=fn();if(ok===false)return false;history.push(last);if(history.length>35)history.shift();persist();render();return true;}
 function close(){if($modal.open)$modal.close();modal='';modalData=null;}
 function dialog(type,heading,html,data=null){tabletop.dismiss();modal=type;modalData=data;$modal.dataset.kind=type;$('modalBody').innerHTML='<div class="modalhead"><h2>'+esc(heading)+'</h2>'+button('close','×','','')+'</div><div class="modalcontent">'+html+'</div>';if(!$modal.open)$modal.showModal();$modal.scrollTop=0;}
@@ -107,18 +109,19 @@ function activeProgress(){if(!isTable())return {v:G.atThird(s),n:7,label:'抵達
 function renderHero(){
  if(course()){$('hero').innerHTML=lessons.hero();return;}
  const m=conf();
- const section=m?'諾曼第戰役・任務 '+pad(m.number):'野戰手冊・演練 01';
- const kind=quick()?'單人快戰':m?'輔助棋桌':'基礎演練';
- const light=m?.mode==='patrol'?((s.vis?'月光 +'+s.vis:'待抽月光牌')+'・第 '+s.patrol+' 次巡邏'):'日間';
+ const section=m?campaigns.labels[m.book]+'戰役・任務 '+pad(m.number):'野戰手冊・演練 01';
+ const kind=quick()?'單人快戰':m?(s.series?'連續戰役':'獨立任務'):'基礎演練';
+ const light=m?((s.vis?'能見度 +'+s.vis:campaigns.moon(s)?'待抽月光牌':'日間')+(m.mode==='patrol'?'・第 '+s.patrol+' 排巡邏':'')):'日間';
  $('hero').innerHTML='<div class="mission-name"><small>'+esc(section)+'</small><h1>'+esc(title(s.id))+'</h1></div><span class="mission-context">'+esc(kind+' ／ '+light)+'</span><div class="hero-acts">'+button('courses','教學目錄','heroquick')+button('missions','任務選單')+'</div>';
 }
 function shortAbbr(u){return u.abbr||u.name.split(' · ')[0];}
 function tokenPic(u){const t=catalog.get(u.art);return t?pic(t.art,'',u.name):'<b>'+esc(shortAbbr(u).slice(0,3))+'</b>';}
-const backFace=()=>C.lessons[s.id]?.backFace||C.lessons[s.id]?.layout?.staging||(isTable()?'assets/staging-naktong.webp':'assets/terrain-back.webp');
-const backName=()=>C.lessons[s.id]?.backName||(backFace().includes('naktong')?'洛東江地形牌背':'諾曼第地形牌背');
+const backFace=()=>C.lessons[s.id]?.backFace||C.lessons[s.id]?.layout?.staging||(conf()?.book==='V'?'assets/fm2/terrain/VNback.webp':['H','K'].includes(conf()?.book)?'assets/staging-naktong.webp':'assets/terrain-back.webp');
+const backName=()=>C.lessons[s.id]?.backName||((campaigns.labels[conf()?.book]||'諾曼第')+'地形牌背');
 const tabletop=window.FOF_TERRAIN_TABLE({catalog,esc,pic,terrain:G.terrain,backFace,backName,objectiveName});
 function destination(c){
  if(course())return lessons.target(c);
+ if(isTable()&&!quick()&&mode==='move'&&selectedUnit())return !G.same(selectedUnit(),c)&&campaigns.canMove(s,selectedUnit(),c);
  if(quick())return Q.canMove(s,selectedUnit(),c);
  return !isTable()&&selected&&G.allowedMove(s,selected,c,group);
 }
@@ -183,7 +186,7 @@ function revealCell(c){
  $('board').querySelector('[data-action="cell"][data-value="'+c.x+','+c.y+'"]')?.scrollIntoView({block:'nearest',inline:'nearest'});
 }
 function inspectStack(c){
- if(!c.t)return;
+ if(!c.t||c.faceDown)return;
  const t=G.terrain(c.t),layers=G.hillLayers(c);
  const surfaces=[{face:t?t.face:backFace(),name:t?[t.name,G.terrainCode(t)].filter(Boolean).join('　'):backName(),desc:layers.length?'上層地形':''}];
  layers.slice().reverse().forEach((id,i)=>surfaces.push({face:G.terrain(id??1).face,name:id?'丘陵　'+G.terrainCode(G.terrain(id)):'丘陵（示意牌）',desc:'下方第 '+(i+1)+' 張'+(id?'':'・舊存檔僅記錄層數')}));
@@ -219,7 +222,7 @@ function tablePanel(){
  let h='<p class="hint">'+esc(mode==='move'?'請選擇所選算子的目的地。':info[s.phase])+'</p>';
  if(next)h+='<div class="selected-info">'+esc(positionHint(next))+'</div>';
  if(selectedUnit())h+='<div class="selected-info"><b>'+esc(selectedUnit().name)+'</b>　'+G.nameAt(selectedUnit())+' '+button('editUnit','管理','flat tiny',selected)+'</div>';
- if(s.turn>=2&&['events','enemy'].includes(s.phase)){
+ if(s.turn>=2&&['events','enemy'].includes(s.phase)&&!s.outcome){
   const detail=s.events?.[s.turn+'-'+(s.phase==='events'?'friendly':'enemy')];
   h+=detail?'<div class="selected-info">'+esc(detail)+'</div>':button('hqEvent','檢查上級事件','secondary wide');
  }
@@ -231,9 +234,9 @@ function tablePanel(){
  }
  if(!setup)h+='<div class="table-controls">'+button('tableDraw','行動牌工具')+button('ledger','命令與紀錄')+'</div>';
  h+='<div class="buttonrow">'+button(s.phase==='patrolresult'?'patrolFinish':'advance',setup?'完成設置':s.phase==='patrolresult'?'結算本次巡邏':s.phase==='cleanup'?'結束回合':'完成此階段','primary wide','',!!next)+'</div>';
- return h+'<div class="row">'+button('brief','任務簡報','flat tiny')+button('undo','復原上一步','flat tiny','',!history.length)+'</div>';
+ return h+campaignUI.setupPanel(s)+'<div class="row">'+button('brief','任務簡報','flat tiny')+button('undo','復原上一步','flat tiny','',!history.length)+'</div>';
 }
-function positionHint(k){const o=conf().objectives;if(k==='outpost')return '在第 2 列選擇前哨。';if(k.startsWith('way'))return '在第 2 至 4 列選擇尚未使用的路線點。';const r=o[k+'Row'];return '在第 '+r+' 列放置'+objectiveName(k)+(k==='position'?'，須鄰接指定目標。':'。');}
+function positionHint(k){const o=conf().objectives;if(k==='outpost')return '在第 2 列選擇前哨。';if(k.startsWith('way'))return '在第 '+o.waypointRows.join('、')+' 列選擇尚未使用的路線點。';const r=o[k+'Row'];return '在第 '+r+' 列放置'+objectiveName(k)+(k==='position'?'，須鄰接指定目標。':'。');}
 function renderSide(){
  if(course()){$('side').innerHTML=lessons.side(s.tableRun?drawProgress():'');return;}
  if(s.tableRun||s.drawOrder){
@@ -243,19 +246,20 @@ function renderSide(){
    (s.tableRun?button('last','檢視已翻的牌','tiny'):button('cancelDraw','取消待抽操作','tiny'))+'</section>';
   return;
  }
- const stages=quick()?['ready','command','initiative','review']:isTable()?['setup','events','orders','enemy','retreat','vehicles','combat','cleanup']:['ready','command','initiative'];
- let main='<div class="turn-line"><b class="round-num">'+pad(s.turn)+'</b><div><span class="turn-label">回合'+(isTable()?' / '+conf().turns:'')+'</span><span class="phase-label">'+esc(s.outcome?'已結算':G.phaseNames[s.phase]||'巡邏結算')+'</span></div></div><div class="phase-track">'+stages.map((p,i)=>'<i class="'+(p===s.phase?'on':i<stages.indexOf(s.phase)?'past':'')+'"></i>').join('')+'</div>';
+ const stages=quick()?['ready','command','initiative','review']:isTable()?['setup','events',...(conf().mode==='defense'?['enemy','orders']:['orders','enemy']),'retreat','vehicles','combat','cleanup']:['ready','command','initiative'];
+ let main='<div class="turn-line"><b class="round-num">'+pad(s.turn)+'</b><div><span class="turn-label">回合'+(isTable()?' / '+campaigns.turnLimit(s):'')+'</span><span class="phase-label">'+esc(s.outcome?'已結算':G.phaseNames[s.phase]||'巡邏結算')+'</span></div></div><div class="phase-track">'+stages.map((p,i)=>'<i class="'+(p===s.phase?'on':i<stages.indexOf(s.phase)?'past':'')+'"></i>').join('')+'</div>';
  if(s.outcome)main+='<h3>'+(isTable()&&conf().mode==='patrol'?'三次巡邏已結算':s.outcome==='win'?'任務完成':'任務結束')+'</h3><p class="hint">'+esc(s.log.at(-1)?.text)+'</p>'+button('result','查看結算','primary wide')+' '+button('undo','復原上一步','flat tiny','',!history.length);
  else main+=quick()?quickPanel():isTable()?tablePanel():trainingPanel();
  $('side').innerHTML='<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('tab','行動面板',sideTab==='play'?'on':'','play')+button('tab','任務日誌',sideTab==='log'?'on':'','log')+'</div><span class="turnpill">R'+pad(s.turn)+'</span></div><div class="sidebody">'+(sideTab==='log'?logView():main)+'</div>'+lastRow()+'</section>'+goalBox();
 }
 function render(){renderHero();commandDisplay.render();renderBoard();renderPiles();renderSide();renderRoster();queueMicrotask(showPending);}
-function missionMenu(){let body='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide','1')+'<h3>野戰手冊 2</h3>'+button('courses','進階作戰・七堂逐步教學','primary wide','2')+'<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+'<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算')+'<h3>諾曼第戰役</h3><p class="tagline">輔助棋桌處理抽牌、地圖與任務目標。戰役的敵軍活動、特殊行動與編組由玩家依任務書裁定。</p>'+window.FOF_SCENARIOS.map(m=>missionChoice(m.id,'N'+pad(m.number),m.title,m.cols+' × '+m.rows+' 地形・'+(m.mode==='patrol'?'三次十回合巡邏':'十回合進攻'))).join('');dialog('missions','任務選單',body);}
+function missionMenu(){let body='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide','1')+'<h3>野戰手冊 2</h3>'+button('courses','進階作戰・七堂逐步教學','primary wide','2')+'<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+'<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算')+campaignUI.directory();dialog('missions','任務選單',body);}
 function missionChoice(id,code,n,sub){return '<button class="choice" data-action="missionInfo" data-value="'+id+'"><span class="code">'+code+'</span><span><strong>'+esc(n)+'</strong><small>'+esc(sub)+(slots[id]?' ・ 已有進度':'')+'</small></span></button>';}
 function missionInfo(id){
- const m=G.scenario(id);let body=m?'<p>'+esc(m.brief)+'</p><h3>勝利條件</h3><p>'+esc(m.objective)+'</p><h3>設置</h3><ul>'+m.setupNotes.map(v=>'<li>'+esc(v)+'</li>').join('')+'</ul><p class="tagline">諾曼第任務書，第 '+m.page+'–'+m.lastPage+' 頁。特殊配屬、敵軍組合與額外效果請依任務書處理。</p>':'<p>全體七枚算子從 B0 出發。全部抵達第 3 列即完成演練，沒有回合上限。</p><ol><li>抽取命令牌，依大數字取得排部命令。</li><li>點選編組中的單位，再點選相鄰地形。單位移動耗 1 點，同牌全排移動耗 2 點。</li><li>結束排部命令後，讀取下一張牌的小數字，折半捨去，作為一般主動點。</li></ol><p class="tagline">《野戰手冊 1》頁 7–14。手冊牌序重現前五回合，另可選擇隨機開局。</p>';
+ const m=G.scenario(id);let body=m?'<p>'+esc(m.brief)+'</p><h3>勝利條件</h3><p>'+esc(m.objective)+'</p><h3>設置</h3><ul>'+m.setupNotes.map(v=>'<li>'+esc(v)+'</li>').join('')+'</ul><p class="tagline">'+campaigns.labels[m.book]+'任務書，第 '+m.page+'–'+m.lastPage+' 頁。特殊配屬、敵軍組合與額外效果請依任務書處理。</p>':'<p>全體七枚算子從 B0 出發。全部抵達第 3 列即完成演練，沒有回合上限。</p><ol><li>抽取命令牌，依大數字取得排部命令。</li><li>點選編組中的單位，再點選相鄰地形。單位移動耗 1 點，同牌全排移動耗 2 點。</li><li>結束排部命令後，讀取下一張牌的小數字，折半捨去，作為一般主動點。</li></ol><p class="tagline">《野戰手冊 1》頁 7–14。手冊牌序重現前五回合，另可選擇隨機開局。</p>';
  if(id==='Q1')body=quickIntro();
- if(slots[id])body+='<div class="buttonrow">'+button('resume',id===s.id?'返回棋桌':'繼續已存進度','primary',id)+button('restart','重新設置','',id)+'</div>';
+ else if(m)body+=button('camRef','查看任務書設置圖','secondary',m.id+'|'+m.mapPage)+campaignUI.form(m.book);
+ if(slots[id])body+='<div class="buttonrow">'+button('resume',id===s.id&&!s.series?'返回棋桌':'繼續已存進度','primary',id)+button('restart','重新設置','',id)+'</div>';
  else body+='<div class="buttonrow">'+button('start',id==='Q1'?'開始快戰':m?'建立棋桌':'使用示範牌序','primary',id)+(m?'':button('start','隨機開局','','random'))+'</div>';
  body+='<div class="buttonrow">'+button('missions','任務選單','flat tiny')+'</div>';
  dialog('missionInfo',title(id),body,id);
@@ -271,8 +275,9 @@ function quickPanel(){
 }
 function guide(){dialog('guide','遊戲說明',button('courses','開啟手冊逐步教學','primary wide')+'<h3>第一次遊玩</h3><ol><li>點指揮顯示表上方的行動牌背，抽取啟動命令牌。</li><li>從「第 1 排編組」選擇單位，點選地圖上有金色虛線的目的牌。從集結區出發也可以斜走。</li><li>排部只能命令同牌單位。沒有合適對象時，結束排部命令，把點數留給下一回合。</li><li>使用一般主動點移動分散的單位，再結束回合。</li></ol><h3>牌堆與存檔</h3><p>抽到重洗牌時會先抽滿本次所需張數，再洗混整副牌。每點一次牌背翻一張，放在右側棄牌堆。停留在棄牌上可看完整牌面。可在「最近抽牌」翻閱最近一次操作。每次行動都會存到這個瀏覽器，也可匯出檔案帶往其他裝置。</p><h3>戰役棋桌</h3><p>開啟任務選單切換七項諾曼第任務。選地形可檢視整張牌、放置算子或檢查 PC。選算子可移動、登記狀態與兵力。在「行動牌工具」依指定修正值讀牌；「命令與紀錄」可記錄各部命令、彈藥與特殊效果。</p><p class="tagline">依《Fields of Fire Deluxe》第三版規則 §2–6、§8、§12、兩冊《野戰手冊》與諾曼第任務書改編。使用者提供之牌面與算子圖樣，原作 GMT Games。</p>');}
 function cellDialog(c){
- const us=G.unitsAt(s,c),t=G.terrain(c.t),over=s.outcome,pc=c.pc||c.pending;
- let b='<div class="tagline">'+esc(G.nameAt(c))+'　'+(c.h?'高度 +'+c.h+'　':'')+(t?'掩蔽 +'+t.cover:'集結區')+'</div>';
+ const us=G.unitsAt(s,c),t=c.faceDown?null:G.terrain(c.t),over=s.outcome,pc=c.pc||c.pending;
+ let b='<div class="tagline">'+esc(G.nameAt(c))+'　'+(c.faceDown?'':c.level?'高度 '+c.level+'　':c.h?'高度 +'+c.h+'　':'')+(c.faceDown?'未揭開地形':t?(t.cover==null?'掩蔽值見牌面':'掩蔽 +'+t.cover):'集結區')+'</div>';
+ if(c.faceDown)b+=button('camReveal','依視線翻開地形牌','primary',G.nameAt(c));
  if(t)b+=button('inspectStack',c.h?'查看地形與下方丘陵':'查看完整地形牌','tiny',c.x+','+c.y);
  if(c.marks.length)b+='<p class="hint">'+c.marks.map(esc).join('、')+'</p>';
  if(us.length)b+='<h3>本牌算子</h3><div class="rostergrid">'+us.map(rosterButton).join('')+'</div>';
@@ -294,13 +299,15 @@ function unitDialog(id){
  const u=s.units.find(q=>q.id===id);if(!u)return;
  const art=catalog.get(u.art);
  let b='<div class="unitrow" data-piece-name="'+esc(u.name)+'" data-piece-info="'+G.nameAt(u)+'" tabindex="0">'+(art?pic(art.art,'piece-icon','算子'):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
+ if(u.experience)b+='<p>'+esc(campaigns.gradeNames[u.experience])+(u.ammo!=null?'　彈藥 '+u.ammo:'')+(u.skills?.length?'　技能 '+u.skills.map(esc).join('、'):'')+'</p>';
  if(isTable()&&!quick()&&!s.outcome){
+  if(u.skills?.length)b+=u.skills.map((skill,i)=>button('useUnitSkill','使用「'+skill+'」','tiny',String(i))).join('');
   b+='<div class="buttonrow">'+button('moveMode','選擇移動目的地','primary',id)+'</div><div class="formgroup"><label for="steps">兵力階</label><input type="number" id="steps" min="0" max="16" value="'+Number(u.steps)+'"><label><input id="exposed" type="checkbox" '+(u.exposed?'checked':'')+'> 暴露</label><label><input id="pinned" type="checkbox" '+(u.pinned?'checked':'')+'> 受壓制</label><label><input id="casualty" type="checkbox" '+(u.casualty?'checked':'')+'> 傷亡算子（不計佔領）</label><label for="unitNote">算子紀錄</label><textarea id="unitNote" maxlength="2000">'+esc(u.notes)+'</textarea></div><div class="buttonrow">'+button('unitApply','套用變更','primary',id)+button('removeAsk','移出棋桌','',id)+'</div>';
  }
  dialog('unit',u.name,b,id);
 }
 function library(cat='friendly',q=''){
- const pool=window.FOF_PIECES.filter(t=>t.category===cat&&(t.name+' '+t.id).toLowerCase().includes(q.toLowerCase()));
+ const pool=[...catalog.values()].filter(t=>(!t.army||({K:['NKPA','KATUSA'],H:['NKPA','CCF'],V:['VC','NVA']}[conf()?.book]||[]).includes(t.army))&&t.category===cat&&(t.name+' '+t.id).toLowerCase().includes(q.toLowerCase()));
  const list=pool.map(t=>'<button data-action="placePiece" data-value="'+esc(t.id)+'" data-piece-name="'+esc(t.name)+'">'+pic(t.art,'','')+'<span>'+esc(t.name.split(' · ')[0])+'</span></button>').join('');
  if(modal==='library'&&document.getElementById('pieceList')){$('pieceList').innerHTML=list;return;}
  dialog('library','放置算子・'+G.nameAt(focus),'<div class="formgroup"><select id="pieceCat"><option value="friendly">友軍</option><option value="enemy">敵軍</option><option value="marker">遊戲標記</option></select><input id="pieceQuery" type="search" placeholder="搜尋名稱或代號" aria-label="搜尋算子"></div><div id="pieceList" class="gallery">'+list+'</div><p class="tagline">找不到所需算子時，可以名稱建立自訂棋子。</p><div class="buttonrow"><input id="customName" class="control" maxlength="40" placeholder="自訂名稱" aria-label="自訂名稱">'+button('customPiece','放置')+'</div>');
@@ -315,17 +322,11 @@ function recordPatrol(u,from,to){
  if(conf()?.mode!=='patrol'||s.phase==='setup'||u.side!=='friendly'||u.casualty)return;
  if(G.same(s.objectives.primary,to)&&!s.visits.primary){s.visits.primary=true;G.note(s,'巡邏單位走訪主要目標。');}
  if(s.visits.way<4&&G.same(s.objectives['way'+(s.visits.way+1)],to)){s.visits.way++;G.note(s,'依序走訪路線點 '+s.visits.way+'。');}
- if(from.y===2&&to.y===1&&s.visits.primary&&s.visits.way===4)s.visits.returned=true;
+ if(from.y===(conf().objectives.returnFromRow||2)&&to.y===(conf().objectives.returnToRow||1)&&s.visits.primary&&s.visits.way===4)s.visits.returned=true;
 }
 function goalLines(){return G.goals(s).map(g=>'<p class="mini-check">'+(g.done?'✓':'□')+'　'+esc(g.name)+'</p>').join('');}
 function scoreTable(){
- const m=conf(),paid={};
- for(const c of s.map){if(!c.hadPC)continue;const code=G.nameAt(c),obj=Object.entries(s.objectives).find(([,p])=>G.same(c,p))?.[0];
-  if(m.mode==='patrol'){if(obj==='primary'&&G.isClear(s,c))paid[code]=4;}
-  else if(obj){if(G.secured(s,c))paid[code]=({primary:5,secondary:4,position:3})[obj]||0;}
-  else if(G.isClear(s,c))paid[code]=c.originalPC==='A'?2:1;
- }
- return paid;
+ return series.score(s);
 }
 function result(){
  const m=conf();let b='<p>完成回合　<b>'+s.turn+'</b>　｜　累計抽牌　<b>'+s.drawCount+'</b></p>';
@@ -333,11 +334,12 @@ function result(){
  else if(m.mode==='patrol')b+='<h3>巡邏記錄</h3>'+s.patrolHistory.map((r,i)=>'<p>第 '+(i+1)+' 次　'+(r.ok?'成功':'未完成')+'　'+r.xp+' XP</p>').join('');
  else {const vals={...s.xpCards};for(const [k,v] of Object.entries(scoreTable()))vals[k]=Math.max(vals[k]||0,v);b+=goalLines()+'<p>地圖目標經驗　'+Object.values(vals).reduce((a,v)=>a+v,0)+' XP</p><p class="tagline">其他經驗與整補依任務紀錄結算。</p>';
   if(!quick()&&s.outcome==='loss'&&s.attempt<=m.retries)b+=button('retry','保留棋桌重試','primary');}
+ if(s.series)b+=button(s.series.finished?'camStatus':'camSettle',s.series.finished?'查看戰役紀錄':s.settlement?'繼續整補':'戰役結算與整補','primary');
  b+='<div class="buttonrow">'+button('missions','任務選單')+button('close','查看棋桌')+'</div>';dialog('result',m?.mode==='patrol'?'巡邏結算':s.outcome==='win'?'任務完成':'任務結束',b);
 }
 function saveMenu(){dialog('saves','存檔管理','<p>'+esc(storageOK?'每次行動都會自動存檔。切換任務時，各自保留進度。':'瀏覽器目前無法寫入存檔。請使用匯出檔案保存進度。')+'</p><p class="tagline">目前任務　'+esc(title(s.id))+'　／　第 '+s.turn+' 回合</p><div class="buttonrow">'+button('export','匯出全部進度','primary')+button('import','匯入存檔')+'</div>');}
 function start(id,guided=true){
- const m=G.scenario(id);s=id==='T1'?G.training(guided):id==='Q1'?Q.start():G.tabletop(id,m?.carryMapFrom?slots['N'+m.carryMapFrom]:null,true);resetView();
+ const m=G.scenario(id);s=id==='T1'?G.training(guided):id==='Q1'?Q.start():campaigns.create(id,{form:$('campaignForm')?.value});resetView();
 }
 function editCell(c){dialog('editcell','地圖標記・'+G.nameAt(c),'<div class="formgroup"><label for="marks">本牌標記（每行一項）</label><textarea id="marks" maxlength="800">'+esc(c.marks.join('\n'))+'</textarea><label for="pcType">潛在接敵</label><select id="pcType">'+['','A','B','C'].map(v=>'<option value="'+v+'" '+(v===(c.pc||'')?'selected':'')+'>'+esc(v||'無')+'</option>').join('')+'</select><label><input id="pcHidden" type="checkbox" '+(c.hidden?'checked':'')+'> 標記背面朝上</label></div>'+button('saveCell','套用地圖標記','primary'));}
 function addPiece(type,name,art){
@@ -348,26 +350,16 @@ function addPiece(type,name,art){
  s.units.push(u);G.note(s,'在 '+G.nameAt(focus)+' 放置'+(isMark?'標記':'算子')+'「'+cn+'」。');return true;
 }
 function patrolFinish(){
- const m=conf(),ok=G.goals(s).every(g=>g.done),xp=Object.values(scoreTable()).reduce((a,v)=>a+v,0)+s.visits.way+(ok?5:0);
- edit(()=>{
-  s.patrolHistory.push({ok,xp});G.note(s,'第 '+s.patrol+' 次巡邏'+(ok?'成功':'未完成')+'，記錄 '+xp+' XP。');
-  if(s.patrol===3){s.outcome=s.patrolHistory.every(r=>r.ok)?'win':'loss';G.note(s,'三次巡邏全部完成，成功 '+s.patrolHistory.filter(r=>r.ok).length+' 次。');return;}
-  const next=s.patrol+1,other=G.tabletop(s.id,s,true);
-  const marksToKeep=s.units.filter(u=>u.side==='marker'&&['cover','mines','foxhole','trench','bunker','pillbox'].includes(u.art));
-  for(const c of s.map){const fresh=G.at(other,c);if(c.pc){fresh.pc=c.pc;fresh.hidden=c.hidden;} fresh.marks=c.marks.slice();}
-  other.units=other.units.filter(u=>u.side==='friendly').map((u,i)=>{u.art=i===0?'hq'+next:'p'+next+'s'+i;u.abbr=i===0?next+' HQ':i+'/'+next;u.name=i===0?'第 '+next+' 排部':'第 '+next+' 排第 '+i+' 班';return u;});
-  other.units.push(...marksToKeep);other.serial=s.serial;other.patrol=next;other.patrolHistory=s.patrolHistory;other.log=[...s.log,...other.log];other.notes=s.notes;
-  if(s.objectives.outpost)G.placeObjective(other,'outpost',s.objectives.outpost);
-  s=other;G.note(s,'第 '+next+' 排開始新的巡邏設置。');
- });selected=null;focus=null;mode='';close();render();if(s.outcome)result();
+ campaigns.restore(s);
+ edit(()=>{const next=series.nextPatrol(s);if(!next)return false;s=next;});selected=null;focus=null;mode='';close();render();if(s.outcome)result();
 }
 function campaignRetry(){
- edit(()=>{for(const [k,v] of Object.entries(scoreTable()))s.xpCards[k]=Math.max(s.xpCards[k]||0,v);s.attempt++;s.outcome='';s.turn=1;s.phase='setup';s.tracks={};s.commandAreas={};s.activity=0;s.events={};s.counterUntil=0;
+ edit(()=>{for(const [k,v] of Object.entries(scoreTable()))s.xpCards[k]=Math.max(s.xpCards[k]||0,v);s.attempt++;s.outcome='';s.turn=1;s.phase='setup';s.vis=campaigns.light(s);s.tracks={};s.commandAreas={};s.activity=0;s.events={};s.counterUntil=0;
   for(const u of s.units){u.exposed=false;u.pinned=false;u.moved='';}
   G.note(s,'重試 '+(s.attempt-1)+'：地形、敵軍、尚存 PC 與已計分牌保留。請依規則 §3.9 重新編組及配置。');});
  close();
 }
-function applyPatrolMove(u,from,p){recordPatrol(u,from,p);u.x=p.x;u.y=p.y;if(s.phase!=='setup'&&u.side!=='marker'&&(from.y||p.y))u.exposed=true;G.note(s,u.name+' 移至 '+G.nameAt(p)+'。');}
+function applyPatrolMove(u,from,p){recordPatrol(u,from,p);u.x=p.x;u.y=p.y;if(u.side==='friendly'&&s.phase!=='setup'){const cell=G.at(s,p);if(cell)cell.faceDown=false;}if(s.phase!=='setup'&&u.side!=='marker'&&(from.y||p.y))u.exposed=true;G.note(s,u.name+' 移至 '+G.nameAt(p)+'。');}
 function modalCellClick(v){
  const p=readPos(v),c=G.at(s,p);
  if(!c)return;
@@ -380,6 +372,7 @@ function modalCellClick(v){
  }
  if(isTable()&&mode==='move'&&selectedUnit()&&!s.outcome){
   const u=selectedUnit();if(G.same(u,c)){tell('請選擇另一張地形牌。');return;}
+  if(!campaigns.canMove(s,u,c)){tell('此任務的地圖移動限制不允許這個目的地。');return;}
   edit(()=>applyPatrolMove(u,{x:u.x,y:u.y},p));focus=c;mode='';selected=null;render();tell('已移至 '+G.nameAt(c));return;
  }
  focus=c;render();cellDialog(c);
@@ -391,8 +384,9 @@ function pickUnit(id){const u=s.units.find(x=>x.id===id);if(!u)return;close();se
 function scrollBoard(){if(focus&&fixedWidth!==null)revealCell(focus);}
 function step(){
  if(s.outcome)return;
+ if(s.phase==='setup'&&!s.deploymentConfirmed&&(conf()?.airlift||conf()?.detachedSquads)){campaignUI.handle('camDeploy','');return;}
  const next=piles.defaultOrder(s);
- if(next&&['advance','moonlight','event'].includes(next.type)){armDraw(next);return;}
+ if(next&&['advance','moonlight','event','weather'].includes(next.type)){armDraw(next);return;}
  if(isTable()&&!quick()&&s.phase==='combat'&&s.map.some(c=>c.pending||c.pc&&G.unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty))){tell('請先完成地圖上待處理的接敵檢查與配置。');return;}
  const old=s.phase,previousTurn=s.turn;
  edit(()=>{
@@ -423,7 +417,8 @@ document.addEventListener('click',ev=>{
  if(a==='focusDraw'){focusDraw();return;}
  if(a==='cancelDraw'){delete s.drawOrder;persist();render();return;}
  if(a==='inspectDiscard'){const id=visiblePiles().top;if(id)draws.show([{why:'棄牌堆頂',ids:[id]}],'棄牌堆','');return;}
- if((s.tableRun||s.drawOrder)&&!['zoomIn','zoomOut','fitBoard','last','saves','export','import','acceptImport','close','missions','missionInfo','courses','courseInfo','courseStart','courseRestart','courseResume','resume','start','restart','guide','lessonTurnGuide','lessonCardKey','lessonFigure','deck'].includes(a)){tell('請先完成桌上的抽牌。');return;}
+ if((s.tableRun||s.drawOrder)&&!['zoomIn','zoomOut','fitBoard','last','saves','export','import','acceptImport','close','missions','missionInfo','courses','courseInfo','courseStart','courseRestart','courseResume','resume','start','restart','guide','lessonTurnGuide','lessonCardKey','lessonFigure','deck','camBook','camNew','camLaunch','camResume','camRef','camStatus'].includes(a)){tell('請先完成桌上的抽牌。');return;}
+ if(campaignUI.handle(a,v))return;
  if(commandDisplay.handle(a,v))return;
  if(a==='boardPiece'||a==='boardPile'){
   const key=el.closest('.card-location')?.dataset.coord;
@@ -435,7 +430,7 @@ document.addEventListener('click',ev=>{
    }
    if(a==='boardPile'){
     focus=c;
-    dialog('pile',G.nameAt(c)+'・'+(G.terrain(c.t)?.name||'集結區'),tabletop.pile(s,c,course()?lessons.chosen():selected)+
+    dialog('pile',G.nameAt(c)+'・'+(c.faceDown?'未揭開地形':G.terrain(c.t)?.name||'集結區'),tabletop.pile(s,c,course()?lessons.chosen():selected)+
      button('pileCell','查看本牌','secondary',key));
     return;
    }
@@ -459,7 +454,7 @@ document.addEventListener('click',ev=>{
  case 'guide':guide();break;
  case 'saves':saveMenu();break;
  case 'missions':missionMenu();break;
- case 'brief':missionInfo(s.id);break;
+ case 'brief':if(s.series)campaignUI.reader(s.id,conf().page);else missionInfo(s.id);break;
  case 'missionInfo':missionInfo(v);break;
  case 'resume':s=slots[v];resetView();break;
  case 'restart':dialog('restart','重新設置任務','<p>將取代「'+esc(title(v))+'」的現有進度。可以先到存檔管理匯出備份。</p><div class="buttonrow">'+button('start',v==='T1'?'使用示範牌序':'建立新棋桌','primary',v)+(v==='T1'?button('start','隨機開局','','random'):'')+button('close','取消')+'</div>');break;
@@ -485,10 +480,11 @@ document.addEventListener('click',ev=>{
  case 'editCell':editCell(G.at(s,focus));break;
  case 'saveCell':{const c=G.at(s,focus);edit(()=>{c.marks=$('marks').value.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,35);if(c.pc!==($('pcType').value||null)||!!c.hidden!==$('pcHidden').checked)G.setPC(s,c,$('pcType').value||null,$('pcHidden').checked);G.note(s,'更新 '+G.nameAt(c)+' 的地圖標記。');});close();break;}
  case 'editUnit':unitDialog(v);break;
- case 'unitApply':{const u=selectedUnit(),n=Number($('steps').value);if(!Number.isInteger(n)||n<0||n>16)return tell('兵力階須介於 0 至 16');edit(()=>{u.steps=n;u.notes=$('unitNote').value;u.exposed=$('exposed').checked;u.pinned=$('pinned').checked;u.casualty=$('casualty').checked;G.note(s,'更新「'+u.name+'」的算子狀態。');});close();break;}
+ case 'useUnitSkill':{const u=selectedUnit(),i=Number(v);if(u?.skills?.[i]){edit(()=>G.note(s,u.name+' 使用技能「'+u.skills.splice(i,1)[0]+'」。'));unitDialog(u.id);}break;}
+ case 'unitApply':{const u=selectedUnit(),n=Number($('steps').value);if(!Number.isInteger(n)||n<0||n>16)return tell('兵力階須介於 0 至 16');edit(()=>{u.steps=n;u.notes=$('unitNote').value;u.exposed=$('exposed').checked;u.pinned=$('pinned').checked;u.casualty=$('casualty').checked;if(s.series&&u.art==='co-hq'&&(u.casualty||!u.steps))s.series.coLost=true;G.note(s,'更新「'+u.name+'」的算子狀態。');});close();break;}
  case 'moveMode':selected=v;mode='move';close();render();tell('點選目的地形牌');break;
  case 'removeAsk':dialog('remove','移出棋桌','<p>移出「'+esc(selectedUnit()?.name)+'」？此步驟可復原。</p>'+button('removeUnit','移出','primary',v)+' '+button('close','取消'));break;
- case 'removeUnit':edit(()=>{const u=s.units.find(q=>q.id===v);if(!u)return false;G.note(s,'移出「'+u.name+'」。');s.units=s.units.filter(q=>q.id!==v);});selected=null;close();render();break;
+ case 'removeUnit':edit(()=>{const u=s.units.find(q=>q.id===v);if(!u)return false;if(s.series&&u.art==='co-hq')s.series.coLost=true;G.note(s,'移出「'+u.name+'」。');s.units=s.units.filter(q=>q.id!==v);});selected=null;close();render();break;
  case 'hqEvent':armDraw({type:'event'});break;
  case 'choosePC':armDraw({type:'order'});break;
  case 'rerollContact':case 'checkPC':if(focus)armDraw({type:a==='checkPC'?'contact':'group',x:focus.x,y:focus.y});break;
@@ -501,7 +497,7 @@ document.addEventListener('click',ev=>{
  case 'openLedgerSheet':case 'saveLedger':edit(()=>{s.activity=Number($('activity').value);s.notes=$('notes').value;G.note(s,'更新命令與任務紀錄。');});close();if(a==='openLedgerSheet'){$('command-display').focus({preventScroll:true});$('command-display').scrollIntoView({block:'nearest',inline:'start'});}break;
  case 'patrolFinish':patrolFinish();break;
  case 'retry':campaignRetry();break;
- case 'export':{const obj={version:1,active:s.id,slots};const url=URL.createObjectURL(new Blob([JSON.stringify(obj)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='Fields-of-Fire-存檔.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break;}
+ case 'export':{const obj={version:1,active:campaigns.key(s),slots};const url=URL.createObjectURL(new Blob([JSON.stringify(obj)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='Fields-of-Fire-存檔.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break;}
  case 'import':$('importFile').click();break;
  case 'acceptImport':{const imported=modalData;slots=Object.assign({},slots,imported.slots);s=slots[imported.active];resetView();tell('存檔已匯入');break;}
  }
@@ -511,8 +507,8 @@ document.addEventListener('change',e=>{if(e.target.id==='pieceCat')library(e.tar
 $('importFile').addEventListener('change',async e=>{
  const f=e.target.files[0];e.target.value='';if(!f)return;
  try{if(f.size>5e6)throw Error();const raw=JSON.parse(await f.text());
-  if(raw.version!==1||!raw.slots||!raw.slots[raw.active]||Object.entries(raw.slots).length>9+C.ids.length||!Object.entries(raw.slots).every(([id,st])=>id===st.id&&G.validSave(st)))throw Error();
-  for(const id of Object.keys(raw.slots))if(C.has(id))raw.slots[id]=C.restore(raw.slots[id]);
+  if(raw.version!==1||!raw.slots||!raw.slots[raw.active]||Object.entries(raw.slots).length>6+window.FOF_SCENARIOS.length+C.ids.length||!Object.entries(raw.slots).every(([id,st])=>id===campaigns.key(st)&&G.validSave(st)))throw Error();
+  for(const [id,entry] of Object.entries(raw.slots))raw.slots[id]=C.has(id)?C.restore(entry):campaigns.restore(entry);
   dialog('importConfirm','確認匯入','<p>匯入 '+Object.keys(raw.slots).length+' 個任務進度。相同任務會以檔案中的進度取代。</p>'+button('acceptImport','匯入','primary')+' '+button('close','取消'),raw);
  }catch{tell('無法讀取此存檔，原有進度仍保留。');}
 });
@@ -520,4 +516,6 @@ $modal.addEventListener('click',e=>{if(e.target!==$modal)return;const r=$modal.g
 $modal.addEventListener('cancel',()=>{modal='';modalData=null;});
 new ResizeObserver(sizeBoard).observe($('mapViewport'));
 render();persist();
+const manual=new URLSearchParams(location.search).get('manual');
+if(manual==='1'||manual==='2')lessons.menu(manual);
 })();

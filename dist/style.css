@@ -331,3 +331,12 @@ body{min-width:1080px}
 .sheet-ledger small{grid-column:1/-1;color:#586b54;font-size:.78rem}
 
 .sheet-edit{margin-bottom:12px}.sheet-adjust output{font:700 1.15rem var(--mono)}
+.campaign-tools,.ref-tabs,.ref-navigation,.series-metrics{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin:.7rem 0}
+.book-list{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+#panel[data-kind="bookReader"],#panel[data-kind="campaignSettlement"]{width:min(92vw,1020px);max-width:1020px}
+.book-page{display:block;width:100%;height:auto;background:#eee9de;margin:1rem auto}
+.ref-navigation{justify-content:space-between}.ref-navigation select{width:auto}
+.series-table{width:100%;border-collapse:collapse;font-size:.9rem}.series-table th,.series-table td{border-bottom:1px solid #b6b4a7;text-align:left;padding:.5rem}.series-table small{display:block;font-weight:400}
+.series-table button{margin:2px}.series-steps{color:#696e60}.series-steps strong{color:#253c26;border-bottom:2px solid currentColor}
+.series-inputs,.formation-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:1rem 0}.series-inputs label,.formation-grid label{display:flex;align-items:center;gap:.4rem}
+.series-inputs input{width:5rem}.series-metrics{background:#e7eade;padding:.65rem;color:#273c2c}
