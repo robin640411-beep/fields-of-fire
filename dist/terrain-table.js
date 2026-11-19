@@ -33,7 +33,7 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
   }
   return {markers,units};
  }
- function chit(item,selected,inList=false){
+ function chit(item,selected,inList=false,slot=0){
   const label=item.label+(item.condition?'・'+item.condition:'');
   const entry=catalog.get(item.art);
   const info=[entry?.name!==item.label&&entry?.name,item.condition].filter(Boolean).join('　');
@@ -43,15 +43,17 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
   if(inList&&!item.id)return '<li '+previewAttrs+' tabindex="0"><span class="chit-icon">'+face+'</span><span>'+esc(label)+'</span></li>';
   const statusArt=item.condition&&Object.entries({'受壓制':'pinned','暴露':'exposed','掩蔽':'cover','傷亡':'casualty'}).find(([name])=>item.condition.startsWith(name));
   const statusAttrs=statusArt?' data-piece-name="'+esc(statusArt[0])+'" data-piece-info="'+esc(label)+'" data-piece-art="'+statusArt[1]+'"':'';
-  const btn='<button type="button" '+attr+' '+previewAttrs+' class="'+(inList?'pile-choice':'map-chit')+(selected&&selected===item.id?' chosen':'')+'" aria-label="'+esc(label)+'">'+
+  const placement=slot?' style="grid-area:p'+slot+'"':'';
+  const btn='<button type="button" '+attr+' '+previewAttrs+placement+' class="'+(inList?'pile-choice':'map-chit')+(selected&&selected===item.id?' chosen':'')+'" aria-label="'+esc(label)+'">'+
    (inList?'<span class="chit-icon">'+face+'</span><span>'+esc(label)+'</span>':face+((item.condition||item.quantity)?'<i class="condition-tab"'+statusAttrs+'>'+esc(item.condition?item.condition.slice(0,2):'×'+item.quantity)+'</i>':''))+'</button>';
   return inList?'<li>'+btn+'</li>':btn;
  }
- function bank(items,name,limit,selected){
+ const unitLimit=8;
+ function bank(items,name,limit,selected,offset=0){
   if(!items.length)return '';
   const overflow=items.length>limit,shown=overflow?limit-1:items.length;
-  return '<div class="chit-bank '+name+'">'+items.slice(0,shown).map(i=>chit(i,selected)).join('')+
-   (overflow?'<button type="button" class="map-chit pile-count" data-action="boardPile" aria-label="展開本牌全部算子與標記">+'+(items.length-shown)+'</button>':'')+'</div>';
+  return '<div class="chit-bank '+name+'">'+items.slice(0,shown).map((item,i)=>chit(item,selected,false,offset+i+1)).join('')+
+   (overflow?'<button type="button" class="map-chit pile-count" style="grid-area:p'+(offset+limit)+'" data-action="boardPile" aria-label="展開本牌全部算子與標記">+'+(items.length-shown)+'</button>':'')+'</div>';
  }
  function tile(s,c,dest,focused,selected){
   const t=terrain(c.t),name=c.faceDown?'未揭開地形':t?.name||'集結區',coord=G.nameAt(c),layers=c.faceDown?[]:G.hillLayers(c);
@@ -62,7 +64,7 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
    '<button type="button" class="tile'+(dest?' can':'')+(focused?' focused':'')+'" data-action="cell" data-value="'+key+'" aria-label="'+esc(title+'，'+units.length+' 枚算子，'+markers.length+' 枚標記'+(dest?'，可移入':''))+'">'+
    '<span class="cell-caption"><span class="cell-ref"><b>'+coord+'</b>'+(code?'<small>'+esc(code)+'</small>':'')+'</span><span class="cell-name">'+esc(name)+'</span></span>'+
    '<span class="card-stack">'+faces+'<img class="board-face" src="'+face+'" alt="'+esc(t?name:backName(true))+'" draggable="false"></span></button>'+
-   '<div class="chit-mat">'+bank(markers,'map-markers',6,selected)+bank(units,'map-units',8,selected)+'</div></div>';
+   '<div class="chit-mat">'+bank(units,'map-units',unitLimit,selected)+bank(markers,'map-markers',6,selected,Math.min(units.length,unitLimit))+'</div></div>';
  }
  function pile(s,c,selected){
   const {units,markers}=contents(s,c);
