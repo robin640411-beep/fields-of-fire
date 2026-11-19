@@ -95,7 +95,7 @@ function arrange(markers){
  }
  return out;
 }
-function create({state,esc,button,edit,dialog}){
+function create({state,esc,button,edit}){
  const by=id=>document.getElementById(id);
  let selected='';
  const manual=s=>!window.FOF_COURSE.has(s.id)&&s.id!=='T1'&&s.id!=='Q1';
@@ -136,35 +136,29 @@ function create({state,esc,button,edit,dialog}){
   const phase=phases[data.phase];if(phase!==undefined)marks+=chit(674,441+phase*63.7,29,'phase',phaseLabels[phase],'timing-token');
   return '<span class="sheet-paper"><img class="printed-sheet" width="1836" height="2376" src="'+boardImage+'" alt="美國陸軍二戰與韓戰指揮顯示表，第 1 頁全表" draggable="false">'+marks+'</span>';
  }
- function editor(s,markers){
-  const current=markers.find(m=>m.id===selected);if(!current)return '';
-  return '<div class="sheet-edit"><label for="commandUnit">登記指揮部</label><select id="commandUnit">'+markers.map(m=>'<option value="'+esc(m.id)+'" '+(m.id===selected?'selected':'')+'>'+esc(m.label)+'</option>').join('')+'</select>'+
-   '<p>點選表上方的點數格，即可放置這枚命令標記。</p><div class="sheet-adjust">'+button('sheetDelta','−','',-1,current.points<=0)+'<output>'+current.points+' 點</output>'+button('sheetDelta','＋','',1,current.points>=99)+'</div>'+
+ function editor(current){
+  return '<div class="sheet-edit"><h3>'+esc(current.label)+'</h3><div class="sheet-adjust">'+button('sheetDelta','−','',-1,current.points<=0)+'<output>'+current.points+' 點</output>'+button('sheetDelta','＋','',1,current.points>=99)+'</div>'+
    '<div class="sheet-area-actions">'+button('sheetArea','待用','', 'ready')+button('sheetArea','可用','', 'available',!current.points)+button('sheetArea','保留','', 'saved',!current.points)+button('sheetArea','完成（0）','','done')+'</div></div>';
  }
  function render(){
   const s=state(),data=snapshot(s),markers=data.markers;
   if(!markers.some(m=>m.id===selected))selected=markers.find(m=>m.id!=='general')?.id||'';
   const cmds=markers.filter(m=>m.id!=='general');
-  const sheet=paper(s,data,manual(s)&&!s.outcome);
-  by('commandPaper').innerHTML=sheet;
-  const expanded=document.querySelector('#panel[open][data-kind="sheet"] .modalcontent');
-  if(expanded)expanded.innerHTML=sheet;
+  const current=cmds.find(m=>m.id===selected),editable=manual(s)&&!s.outcome&&!!current;
+  by('commandPaper').innerHTML=paper(s,data,editable);
+  by('sheetSelection').hidden=!editable;
+  by('commandUnit').innerHTML=editable?cmds.map(m=>'<option value="'+esc(m.id)+'" '+(m.id===selected?'selected':'')+'>'+esc(m.label)+'</option>').join(''):'';
   const info=by('commandState');
   const rows=markers.map(m=>{
    const points=m.id==='general'?m.points+' 點':areas[m.area]+(['available','saved'].includes(m.area)?'・'+m.points+' 點':'');
    const face=m.id==='general'||m.id==='shared'?'':m.face==='commands'?'可用命令面':'啟動完成面';
    return '<li><strong>'+esc(m.label)+'</strong><span>'+esc(points)+'</span>'+(face?'<small>'+face+'</small>':'')+'</li>';
   }).join('');
-  info.innerHTML=((manual(s)&&!s.outcome)?editor(s,cmds):'')+'<h3>命令標記</h3><ul class="sheet-ledger">'+rows+'</ul>'+(data.note?'<p>'+esc(data.note)+'</p>':'')+
+  info.innerHTML=(editable?editor(current):'')+'<ul class="sheet-ledger">'+rows+'</ul>'+(data.note?'<p>'+esc(data.note)+'</p>':'')+
     (cmds.some(m=>m.points>10)?'<p>超過 10 點的標記放在最右格，角標顯示實際點數。</p>':'');
  }
  function handle(action,value){
   const s=state();
-  if(action==='readSheet'){
-   dialog('sheet','指揮顯示表',paper(s,snapshot(s),manual(s)&&!s.outcome));
-   return true;
-  }
   if(!manual(s)||s.outcome)return false;
   if(action==='sheetPlace'||action==='sheetArea'||action==='sheetDelta'){
    edit(()=>{
@@ -176,7 +170,7 @@ function create({state,esc,button,edit,dialog}){
   }
   return false;
  }
- by('commandState').addEventListener('change',event=>{if(event.target.id==='commandUnit'){selected=event.target.value;render();by('commandUnit')?.focus();}});
+ by('commandUnit').addEventListener('change',event=>{selected=event.target.value;render();});
  return {render,handle};
 }
 window.FOF_COMMAND_DISPLAY={create,adjust,newRound};

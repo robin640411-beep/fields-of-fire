@@ -125,7 +125,7 @@ body{min-width:1080px}
 .hero-acts button{border-color:#737f68;color:#f0eedf;background:#354c39}
 .hero-acts .heroquick{color:#253629;background:#e9c773;border-color:#e9c773}
 .shell{padding:12px 14px;height:calc(100vh - 75px);height:calc(100dvh - 75px);min-height:510px}
-.desk{height:100%;display:grid;grid-template-columns:clamp(236px,21vw,365px) minmax(0,1fr) clamp(250px,20.5vw,350px);gap:10px}
+.desk{height:100%;display:grid;grid-template-columns:minmax(0,1fr) clamp(250px,20.5vw,350px);gap:10px}
 .command-dock{min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#839378 #e3e6d9;padding:0 4px 1px 0}
 .command-dock .rostergrid{grid-template-columns:repeat(2,minmax(0,1fr));padding:9px;gap:6px}
 .command-dock .rosterbox{margin-top:12px}
@@ -143,7 +143,7 @@ body{min-width:1080px}
 .zoom-controls button{border:none;border-radius:0;font-size:1rem;padding:3px 9px}
 #boardScale{display:block;text-align:center;min-width:47px;font: .83rem var(--mono);color:#e6ebd3}
 .map-pad{min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;scrollbar-color:#809176 #324637;scrollbar-width:thin;background-color:#354a39;background-image:linear-gradient(90deg,#263f3080,#324a3670),url("assets/contours.png"),linear-gradient(#91a28518 1px,transparent 1px),linear-gradient(90deg,#91a28518 1px,transparent 1px);background-size: auto,550px auto,24px 24px,24px 24px}
-#board{--face-w:120px;--slot-w:126px;--caption-h:20px;min-width:100%;width:max-content;min-height:100%;padding:8px 12px;display:grid;place-items:center}
+#board{--face-w:120px;--sheet-w:340px;--slot-w:126px;--caption-h:20px;min-width:100%;width:max-content;min-height:100%;padding:8px 12px;display:flex;gap:16px;align-items:center;justify-content:center}
 .mapgrid{display:grid;grid-template-columns:repeat(var(--cols),var(--slot-w));gap:6px 12px;align-items:end}
 .card-location{position:relative;width:var(--slot-w);display:grid;justify-items:center}
 .tile{position:relative;display:grid;justify-items:center;width:100%;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0;color:#f4f4e6}
@@ -244,13 +244,12 @@ body{min-width:1080px}
 
 /* The face and counters share one coordinate plane at every zoom level. */
 [hidden]{display:none!important}
-.sheet-pane{min-height:0;min-width:0;display:grid;grid-template-rows:48px auto minmax(0,1fr);align-content:start;border:1px solid #42573e;border-radius:5px;overflow:hidden;background:#eef0e4}
-.sheet-pane h2{font-size:1.02rem;letter-spacing:.06em;color:#f0f1da}
-.sheet-read{padding:3px 8px;background:transparent;color:#f1eacb;border:1px solid #82907a;font-size:.8rem}
-#commandStage{background:#4a5947;padding:8px;display:grid;justify-items:center}
-#commandPaper{width:min(100%,calc((100dvh - 315px)*612/792));box-shadow:0 2px 6px #1d2a2880}
-#panel[data-kind="sheet"]{width:min(760px,88vw);max-height:94vh}
-#panel[data-kind="sheet"] .modalcontent{padding:8px;background:#d2d6c5}
+#command-display{width:var(--sheet-w);margin:0;flex:none}
+#command-display:focus-visible{outline:2px solid #f4d88f;outline-offset:3px}
+#commandPaper{box-shadow:1px 3px 5px #15241d88}
+#sheetSelection{height:36px;display:flex;align-items:end;gap:8px;color:#f3f3df}
+#sheetSelection label{flex:none;font-size:.86rem}
+#commandUnit{min-width:0;max-width:100%;font:inherit;font-size:.86rem;padding:3px 6px;background:#f6f6e9;color:#263b2b;border:1px solid #8b987e;border-radius:3px}
 .sheet-paper{display:block;position:relative;width:100%;aspect-ratio:612/792}
 .printed-sheet{width:100%;display:block;height:auto;pointer-events:none}
 .sheet-chit{position:absolute;aspect-ratio:1;display:grid;place-items:center;transform:translate(-50%,-50%);pointer-events:none;border-radius:2px;box-shadow:0 1px 3px #15271c88}
@@ -261,13 +260,13 @@ body{min-width:1080px}
 .sheet-custom{display:grid;align-content:center;width:100%;height:100%;background:#617346;color:white;border:1px solid #efe7d2;font-size:clamp(8px,.8vw,13px);line-height:1.15;overflow:hidden}
 .sheet-target{position:absolute;border:none;padding:0;border-radius:0;background:transparent;z-index:1}
 .sheet-target:hover,.sheet-target:focus-visible{outline:2px solid #926922;outline-offset:-2px;background:#e8c77442}
-#commandState{min-width:0;min-height:0;overflow:auto;background:#eef0e4;color:#283b2f;padding:14px 12px;border-top:1px solid #acb5a0}
+.command-record{margin-top:10px;border:1px solid var(--line);border-radius:5px;background:var(--light)}
+.command-record summary{padding:8px 12px;cursor:pointer;font-size:.92rem;font-weight:650}
+#commandState{color:#283b2f;padding:0 12px 10px}
 #commandState h3{font-size:1.05rem}
 .sheet-ledger{list-style:none;padding:0;margin:6px 0 13px}
 .sheet-ledger li{display:grid;grid-template-columns:1fr auto;align-items:baseline;padding:6px 0;border-bottom:1px solid #cbd2bd;overflow-wrap:anywhere}
 .sheet-ledger strong{font-size:.94rem}.sheet-ledger span,#commandState p{color:#4b604a;font-size:.87rem}
-.sheet-edit label{display:block;font-size:.94rem;font-weight:700}
-.sheet-edit select{font:inherit;width:100%;padding:5px;margin:5px 0;background:#fafaf4;border:1px solid #aeb9a3}
 .sheet-adjust{display:flex;align-items:center;justify-content:space-between;margin:8px 0}
 .sheet-adjust button,.sheet-area-actions button{padding:4px 8px}
 .sheet-area-actions{display:grid;grid-template-columns:1fr 1fr;gap:4px}
