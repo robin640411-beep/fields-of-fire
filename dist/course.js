@@ -12,6 +12,7 @@ const unitBy=(s,id)=>s.units.find(u=>u.id===id);
 const has=id=>Object.hasOwn(lessons,id);
 const current=s=>lessons[s.id].steps[s.cursor];
 const arts=new Map(window.FOF_PIECES.map(p=>[p.id,p]));
+const fullDeck=()=>[...window.FOF_CARDS.map(c=>c.id),51];
 function addUnit(s,v){
  const p=position(v.at), art=arts.get(v.art);
  const squad=/^(s[123]|p[23]s[123]|de-gr[123]|mtr)$/.test(v.art);
@@ -22,7 +23,7 @@ function addUnit(s,v){
 function start(id){
  const lesson=lessons[id],layout=layouts[lesson.group];
  const s={version:1,id,cols:layout.rows[0].length,rows:3,map:[],units:[],log:[],tracks:{...lesson.tracks},objectives:{},
-  cursor:0,turn:lesson.steps[0].turn,outcome:'',last:[],recentDraws:[],pendingDraws:[],drawCount:0,reading:false};
+  cursor:0,turn:lesson.steps[0].turn,outcome:'',deck:fullDeck(),discard:[],last:[],recentDraws:[],pendingDraws:[],drawCount:0,reading:false};
  layout.rows.forEach((row,y)=>row.forEach((t,x)=>{
   const key=G.nameAt({x,y}),h=layout.hills[key];s.map.push({x,y,t,h:h?1:0,hills:h?[h]:[],marks:(lesson.marks?.[key]||[]).slice()});
  }));
@@ -47,7 +48,15 @@ function apply(s,step){
 function beginDraw(s){
  const step=current(s);
  if(!step||step.kind!=='draw'||s.reading)return false;
- G.recordDraw(s,step.cards,step.phase);
+ const remaining=[];
+ for(const id of step.cards){
+  const index=s.deck.indexOf(id);
+  if(index<0)throw Error('教學牌序與牌堆不符：'+id);
+  s.deck.splice(index,1);s.discard.push(id);remaining.push(s.deck.length);
+ }
+ const reshuffle=step.cards.includes(51);
+ G.recordDraw(s,step.cards,step.phase,remaining,reshuffle);
+ if(reshuffle){s.deck=fullDeck();s.discard=[];}
  s.reading=true;return true;
 }
 function complete(s){
@@ -78,6 +87,10 @@ function restore(saved){
   complete(s);
  }
  if(saved.reading)beginDraw(s);
+ if(saved.tableRun){
+  const after=restore({id:s.id,cursor:s.cursor,reading:true});
+  s.tableRun={order:{type:'lesson'},shown:saved.tableRun.shown,after};
+ }
  return s;
 }
 function validSave(s){

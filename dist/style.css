@@ -244,7 +244,18 @@ body{min-width:1080px}
 
 /* The face and counters share one coordinate plane at every zoom level. */
 [hidden]{display:none!important}
-#command-display{width:var(--sheet-w);margin:0;flex:none}
+.table-supply{width:var(--sheet-w);flex:none}
+.table-piles{display:flex;align-items:end;justify-content:center;gap:8%}
+.action-pile{width:29%;min-width:0;display:grid;grid-template-columns:minmax(0,1fr);justify-items:center}
+.pile-label{height:22px;display:flex;align-items:baseline;gap:5px;white-space:nowrap;color:#eef1de;font-weight:650;font-size:13px}
+#deckRemaining{color:#ffe3a6;font-variant-numeric:tabular-nums}
+#drawPile,#discardPile{display:grid;place-items:center;min-width:0;width:100%;aspect-ratio:5/7;padding:0;border:0;background:transparent;box-shadow:1px 2px 0 #d9d2b7,2px 4px 1px #20291d;border-radius:2px}
+#drawPile img,#discardPile img{width:100%;height:100%;aspect-ratio:5/7;object-fit:contain;display:block}
+#drawPile:disabled{opacity:1}#drawPile.ready{outline:2px solid #f4c96e;outline-offset:2px}
+#discardPile:disabled{border:1px dashed #a0ad90;box-shadow:none;opacity:.65}
+#pilePrompt{height:32px;display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1.15;text-align:center;color:#ffe3a6}
+#command-display{width:100%;margin:0}
+.draw-guidance{display:grid;gap:8px;background:var(--light);border:1px solid var(--line);border-radius:4px;padding:14px}
 #command-display:focus-visible{outline:2px solid #f4d88f;outline-offset:3px}
 #commandPaper{box-shadow:1px 3px 5px #15241d88}
 #sheetSelection{height:36px;display:flex;align-items:end;gap:8px;color:#f3f3df}

@@ -7,7 +7,7 @@
 <title>Fields of Fire｜戰火洗禮</title>
 <link rel="stylesheet" href="style.css">
 <script defer src="assets/decks.js"></script><script defer src="assets/pieces.js"></script><script defer src="scenarios.js"></script><script defer src="engine.js"></script><script defer src="quick.js"></script><script defer src="assets/mission-tables.js"></script>
-<script defer src="course.js"></script><script defer src="lessons-p12.js"></script><script defer src="lessons-c12.js"></script><script defer src="lessons-p3c3.js"></script><script defer src="lesson-ui.js"></script><script defer src="draw-view.js"></script><script defer src="lesson-commands.js"></script><script defer src="command-display.js"></script><script defer src="terrain-table.js"></script><script defer src="app.js"></script>
+<script defer src="course.js"></script><script defer src="lessons-p12.js"></script><script defer src="lessons-c12.js"></script><script defer src="lessons-p3c3.js"></script><script defer src="lesson-ui.js"></script><script defer src="draw-view.js"></script><script defer src="lesson-commands.js"></script><script defer src="command-display.js"></script><script defer src="terrain-table.js"></script><script defer src="table-draw.js"></script><script defer src="app.js"></script>
 </head>
 <body>
 <header class="mast"><div class="mast-inner">
@@ -28,10 +28,19 @@
     </div>
     <div class="map-pad" id="mapViewport" tabindex="0" role="region" aria-label="地形棋桌，可捲動">
       <div id="board">
-        <figure id="command-display" tabindex="-1" aria-label="指揮顯示表">
+        <div class="table-supply">
+          <section class="table-piles" aria-label="行動牌">
+            <div class="action-pile"><div class="pile-label">行動牌組 <output id="deckRemaining" aria-live="polite"></output></div>
+              <button type="button" id="drawPile" data-action="flipAction"><img src="assets/action-back.webp" alt="行動牌背面" draggable="false"></button></div>
+            <div class="action-pile"><div class="pile-label">棄牌堆</div>
+              <button type="button" id="discardPile" data-action="inspectDiscard" disabled><img id="discardFace" alt="" hidden draggable="false"></button></div>
+          </section>
+          <div id="pilePrompt" aria-live="polite"></div>
+          <figure id="command-display" tabindex="-1" aria-label="指揮顯示表">
           <div id="commandPaper"></div>
           <figcaption id="sheetSelection" hidden><label for="commandUnit">登記指揮部</label><select id="commandUnit"></select></figcaption>
-        </figure>
+          </figure>
+        </div>
         <div id="terrainGrid" class="mapgrid"></div>
       </div>
     </div>

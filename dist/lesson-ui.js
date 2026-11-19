@@ -60,11 +60,11 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
     (next?button('courseInfo','進入下一課','primary wide',next):button('missions','開啟任務選單','primary wide'))+
     (s.id==='P1'?button(slots().T1?'resume':'start',slots().T1?'繼續已存的自由演練':'用隨機牌序練習移動','secondary wide',slots().T1?'T1':'random'):'')+button('courses','查看六課進度','flat tiny');
   }
-  const rule=({draw:'抽取行動牌',unit:'選取算子',cell:'點選地形牌',choice:'選擇判讀結果',move:picked===t.unit?'點選目的地':'先選取算子'})[t.kind];
+  const rule=({draw:'點桌上的行動牌組，每點一次翻一張',unit:'選取算子',cell:'點選地形牌',choice:'選擇判讀結果',move:picked===t.unit?'點選目的地':'先選取算子'})[t.kind];
   let body='<div class="lesson-position">'+numbered(s.cursor+1)+'<small>手冊第 '+esc(t.page)+' 頁</small></div>'+
    '<div class="progressline"><i style="width:'+100*s.cursor/l.steps.length+'%"></i></div><p class="lesson-phase">第 '+t.turn+' 回合　／　'+esc(t.phase)+'</p>'+
    '<h2 class="lesson-prompt">'+esc(t.text)+'</h2><p class="lesson-gesture">'+esc(rule)+'</p>';
-  if(t.kind==='draw')body+=button('lessonDraw','抽 '+t.cards.filter(id=>id!==51).length+' 張行動牌','primary wide');
+  if(t.kind==='draw')body+=button('focusDraw','前往行動牌組','secondary wide');
   if(t.kind==='choice')body+='<div class="answer-list">'+t.options.map((v,i)=>button('lessonAnswer',v,'',i)).join('')+'</div>';
   if(t.kind==='move'||t.kind==='unit'){
    const u=unit(t.unit);if(u)body+='<div class="lesson-counterpick">'+button('lessonPick',u.name+'　'+G.nameAt(u),picked===u.id?'highlight':'',u.id)+'</div>';
@@ -104,7 +104,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   if(t?.kind==='move'&&picked===t.unit){if(C.accepts(s,'move',coord))success();else fail('目的地是 '+t.at+'，算子仍在 '+G.nameAt(unit(t.unit))+'。');return;}
   const here=G.unitsAt(s,c);
   const marks=c.marks.length?'<p>'+c.marks.map(esc).join('、')+'</p>':'';
-  dialog('lessonCell',coord+'・'+(G.terrain(c.t)?.name||'集結區'),marks+'<div class="lesson-cell-units">'+here.map(u=>button('lessonPick',u.name+(u.lessonStatus?'・'+u.lessonStatus:''),'',u.id)).join('')+'</div>'+button('inspectStack','查看完整地形牌','tiny',c.x+','+c.y));
+  dialog('lessonCell',coord+'・'+(G.terrain(c.t)?.name||'集結區'),marks+'<div class="lesson-cell-units">'+here.map(u=>button('lessonPick',u.name+(u.lessonStatus?'・'+u.lessonStatus:''),'',u.id)).join('')+'</div>'+(c.t?button('inspectStack','查看完整地形牌','tiny',c.x+','+c.y):''));
  }
  function handle(a,v){
   const s=state();
@@ -122,7 +122,6 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   case 'lessonTab':tab=v;render();break;
   case 'lessonHint':hint=!hint;render();break;
   case 'lessonBack':if(s.cursor){reset();switchState(C.restore({id:s.id,cursor:s.cursor-1,reading:false}));}break;
-  case 'lessonDraw':error='';edit(()=>C.beginDraw(s));break;
   case 'lessonAnswer':if(C.accepts(s,'choice',v))success();else fail('這個選項與本步的規則不符。請再對照提示或查看最近抽牌。');break;
   case 'lessonPick':pick(v);break;
   case 'cell':{const [x,y]=v.split(',').map(Number);const c=G.at(s,{x,y});if(c)cell(c);break;}

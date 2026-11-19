@@ -20,15 +20,17 @@ function newDeck(guided){
   const demo = [30,25,24,27,11,16,23,13,3,18];
   return [...demo,...pack.filter(id=>!demo.includes(id))];
 }
-function recordDraw(s,ids,why){
- (s.pendingDraws??=[]).push({why,ids:ids.slice()});
+function recordDraw(s,ids,why,remaining,reshuffle=false){
+ const group={why,ids:ids.slice()};
+ if(remaining)Object.assign(group,{remaining,reshuffle});
+ (s.pendingDraws??=[]).push(group);
  s.last=ids.filter(id=>id!==51);
  s.drawCount+=s.last.length;
  note(s,why+'　'+ids.map(id=>id===51?'重洗牌':'#'+String(id).padStart(2,'0')).join('、'));
 }
 function draw(s,n,why){
   if(!Number.isInteger(n)||n<1||n>12)throw Error('抽牌數量超出範圍');
-  let reshuffle=false, out=[], seen=[];
+  let reshuffle=false, out=[], seen=[], remaining=[];
   while(out.length<n){
     if(!s.deck.length){
       const used=s.discard.filter(id=>!out.includes(id));
@@ -36,11 +38,12 @@ function draw(s,n,why){
       s.discard=s.discard.filter(id=>!s.deck.includes(id)); reshuffle=true;
     }
     const id=s.deck.shift();
+    remaining.push(s.deck.length);
     seen.push(id);
     if(id===51){reshuffle=true;continue;}
     out.push(id);s.discard.push(id);
   }
-  recordDraw(s,seen,why);
+  recordDraw(s,seen,why,remaining,reshuffle);
   if(reshuffle){s.deck=newDeck(false);s.discard=[];note(s,'重洗牌生效，完成本次抽牌後重新洗混全副牌。');}
   return out.map(card);
 }
@@ -122,10 +125,10 @@ function advanceTraining(s){
 const phases=['events','orders','enemy','retreat','vehicles','combat','cleanup'];
 const phaseNames={review:'回合報告',setup:'任務設置',ready:'等待啟動',command:'排部命令',initiative:'一般主動',events:'上級事件',orders:'友軍命令',enemy:'敵軍活動',retreat:'俘虜與撤退',vehicles:'車輛階段',combat:'雙方戰鬥',cleanup:'整理階段'};
 function pcFor(raw){if(!raw)return null;const values=String(raw).replace('?','').split('/');return values[Math.floor(Math.random()*values.length)];}
-function tabletop(id,previous=null){
+function tabletop(id,previous=null,deferMoonlight=false){
  const m=scenario(id);if(!m)throw Error('未知任務');
  const s=base(id,m.cols,m.rows,false);s.phase='setup';
- s.vis=m.mode==='patrol'?1+draw(s,1,'月光能見度')[0].rand[4]:0;
+ s.vis=m.mode==='patrol'&&!deferMoonlight?1+draw(s,1,'月光能見度')[0].rand[4]:0;
  s.patrolHistory=[];s.visits={way:0,primary:false,returned:false};s.xpCards={};s.attempt=1;
  const retained=new Set((previous?.map||[]).filter(c=>c.x<m.cols&&c.y<=m.rows&&c.y>0).flatMap(c=>[c.t,...hillLayers(c).map(id=>id??1)]));
  let pool=shuffle(window.FOF_TERRAIN.map(t=>t.id).filter(id=>!retained.has(id)));
@@ -281,7 +284,22 @@ function hqEvent(s){
   detail=e.title+'（R'+tab.rand+'＝'+n+'）。'+e.text+(e.xp?' 達成後可另記 '+e.xp+' XP。':'');if(e.title==='反攻')s.counterUntil=s.turn+2;
  }s.events[k]=detail;note(s,detail);return detail;
 }
-function validSave(s){
+function validSave(s,inDraw=false){
+ if(!s)return false;
+ if(s.drawOrder&&!window.FOF_TABLE_DRAW?.validForState(s,s.drawOrder))return false;
+ if(s.tableRun){
+  const run=s.tableRun;
+  if(inDraw||s.drawOrder||!run.after||run.after.id!==s.id||run.after.drawOrder||!window.FOF_TABLE_DRAW?.validForState(s,run.order)||!validSave(run.after,true))return false;
+  const groups=run.after.pendingDraws;
+  if(!groups?.length||!groups.every(g=>Array.isArray(g.remaining)&&g.remaining.length===g.ids.length&&g.remaining.every(n=>Number.isInteger(n)&&n>=0&&n<=51)))return false;
+  if(window.FOF_COURSE?.has(s.id)){
+   const cards=window.FOF_COURSE.current(s)?.cards;
+   if(s.reading||!run.after.reading||run.after.cursor!==s.cursor||groups.length!==1||groups[0].ids.length!==cards?.length||
+      !cards.every((id,i)=>id===groups[0].ids[i])||!!groups[0].reshuffle!==cards.includes(51))return false;
+  }
+  const total=groups.reduce((n,g)=>n+g.ids.length+Number(!!g.reshuffle),0);
+  if(!Number.isInteger(run.shown)||run.shown<1||run.shown>=total)return false;
+ }
  if(s?.commandAreas!==undefined&&(!s.commandAreas||typeof s.commandAreas!=='object'||Array.isArray(s.commandAreas)||!Object.values(s.commandAreas).every(area=>['ready','available','saved','done','carried'].includes(area))))return false;
  if(!s||![s.pendingDraws,s.recentDraws].every(b=>b===undefined||(Array.isArray(b)&&b.length<=2000&&b.every(g=>g&&typeof g.why==='string'&&Array.isArray(g.ids)&&g.ids.length>0&&g.ids.length<=60&&g.ids.every(id=>Number.isInteger(id)&&id>=1&&id<=51)))))return false;
  if(window.FOF_COURSE?.has(s.id))return window.FOF_COURSE.validSave(s);

@@ -53,7 +53,7 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
   const {units,markers}=contents(s,c),key=c.x+','+c.y;
   const face=t?t.face:backFace(),title=coord+' '+name+(t?' N'+String(t.id).padStart(2,'0'):'');
   const faces=layers.map((id,i)=>'<img class="hill-face" style="--layer:'+i+'" src="'+terrain(id??1).face+'" alt="" draggable="false">').join('');
-  return '<div class="card-location'+(dest&&!window.FOF_COURSE.has(s.id)?' move-target':'')+'" data-coord="'+key+'" style="--layers:'+layers.length+'">'+
+  return '<div class="card-location'+(dest&&!window.FOF_COURSE.has(s.id)?' move-target':'')+'" '+(t?'':'data-staging')+' data-coord="'+key+'" style="--layers:'+layers.length+'">'+
    '<button type="button" class="tile'+(dest?' can':'')+(focused?' focused':'')+'" data-action="cell" data-value="'+key+'" aria-label="'+esc(title+'，'+units.length+' 枚算子，'+markers.length+' 枚標記'+(dest?'，可移入':''))+'">'+
    '<span class="cell-caption"><span class="cell-ref"><b>'+coord+'</b>'+(t?'<small>N'+String(t.id).padStart(2,'0')+'</small>':'')+'</span><span class="cell-name">'+esc(name)+'</span></span>'+
    '<span class="card-stack">'+faces+'<img class="board-face" src="'+face+'" alt="'+esc(t?name:backName())+'" draggable="false"></span></button>'+
@@ -68,7 +68,7 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
  let timer,active,face;
  function dismiss(){clearTimeout(timer);active=null;face=null;preview.hidden=true;}
  function schedule(card,img,chit){
-  if(!card||!img){dismiss();return;}
+  if(!card||!img||img.hidden||card.hasAttribute('data-staging')){dismiss();return;}
   const badge=preview.querySelector('small');
   badge.textContent=chit?.getAttribute('aria-label')||'';
   badge.hidden=!badge.textContent;
@@ -80,7 +80,7 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
   timer=setTimeout(()=>{
    if(!card.isConnected||document.querySelector('dialog[open]'))return;
    const hill=img.classList.contains('hill-face');
-   preview.querySelector('figcaption').textContent=card.querySelector('.cell-ref b').textContent+'　'+(hill?'下層丘陵　N'+img.getAttribute('src').split('/').pop().split('.')[0]:card.querySelector('.cell-name').textContent+'　'+(card.querySelector('.cell-ref small')?.textContent||''));
+   preview.querySelector('figcaption').textContent=card.id==='discardPile'?img.alt:card.querySelector('.cell-ref b').textContent+'　'+(hill?'下層丘陵　N'+img.getAttribute('src').split('/').pop().split('.')[0]:card.querySelector('.cell-name').textContent+'　'+(card.querySelector('.cell-ref small')?.textContent||''));
    const view=preview.querySelector('img');view.src=img.currentSrc||img.src;
    preview.hidden=false;
    const r=card.getBoundingClientRect(),p=preview.getBoundingClientRect(),margin=10;
@@ -91,8 +91,10 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
  }
  board.addEventListener('pointermove',e=>{
   if(e.pointerType==='touch'||e.buttons)return;
+  const discard=e.target.closest('#discardPile');
+  if(discard){schedule(discard,discard.querySelector('img'));return;}
   const card=e.target.closest('.card-location');
-  if(!card){dismiss();return;}
+  if(!card||card.hasAttribute('data-staging')){dismiss();return;}
   let img=card.querySelector('.board-face');
   if(e.clientY<img.getBoundingClientRect().top){
    const hills=[...card.querySelectorAll('.hill-face')].reverse();
@@ -101,8 +103,9 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
   schedule(card,img,e.target.closest('.map-chit'));
  });
  board.addEventListener('focusin',e=>{
-  const card=e.target.closest('.card-location');
-  if(card&&e.target.matches(':focus-visible'))schedule(card,card.querySelector('.board-face'),e.target.closest('.map-chit'));
+  if(!e.target.matches(':focus-visible'))return;
+  const card=e.target.closest('.card-location,#discardPile');
+  schedule(card,card?.querySelector('.board-face,#discardFace'),e.target.closest('.map-chit'));
  });
  board.addEventListener('focusout',dismiss);
  board.addEventListener('pointerleave',dismiss);
