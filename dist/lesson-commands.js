@@ -4,10 +4,10 @@
    saved lower track and completed zero-command box. */
 (() => {
   'use strict';
-  const labels = {co:'連部',pl1:'第 1 排',pl2:'第 2 排',general:'一般主動'};
+  const labels = {co:'連部',pl1:'第 1 排',pl2:'第 2 排',sgt:'連士官長',tank1:'第 1 戰車排部',general:'一般主動'};
   const trackKeys = {
     co:['連部命令'], pl1:['排部命令','排部可用命令','第 1 排命令'],
-    pl2:['第 2 排命令'], general:['一般主動','一般主動命令']
+    pl2:['第 2 排命令'],sgt:['士官長命令'],tank1:['戰車指揮部命令'], general:['一般主動','一般主動命令']
   };
   // Each window records the actual draw total, including carried points and modifiers,
   // independently of an acknowledgement that also spends/discards points.
@@ -19,6 +19,10 @@
   const co = (i,j,n,s=0) => windowOf('co',i,j,n,s);
   const pl2 = (i,j,n,s=0) => windowOf('pl2',i,j,n,s);
   const courseWindows = {
+    E1:[co(5,8,6,3),windowOf('sgt',9,16,6),pl2(17,20,6,3),general(21,23,2),
+        co(39,45,6),pl2(46,47,6,3),windowOf('sgt',48,49,1),general(50,53,2)],
+    V1:[co(5,7,5,3),pl(8,15,6),windowOf('tank1',16,20,5,1),general(21,23,2),
+        co(33,35,7,5),pl(36,41,6,1),windowOf('tank1',42,46,5,1),general(47,49,2)],
     P1: [
       pl(1,4,3),general(5,6,1), pl(8,12,4),general(13,14,1),
       pl(16,20,4),general(21,22,1), pl(24,27,4,1),general(28,29,1),
@@ -46,6 +50,8 @@
 
   // Payment for activation flips subordinate markers BEFORE their own draws.
   const activated = {
+    E1:{4:['co'],6:['sgt'],7:['pl2'],38:['co'],40:['pl2']},
+    V1:{4:['co'],6:['pl1'],7:['tank1'],32:['co'],34:['pl1'],35:['tank1']},
     P3:{0:['pl1']}, C1:{3:['pl1'],14:['pl1','pl2']},
     C2:{2:['pl1','pl2'],20:['pl1','pl2']}
   };
@@ -58,6 +64,8 @@
   // The map marks the phase of the current, unconfirmed activity. A skipped phase
   // has no step of its own. Checks of PC/VOF belong to Combat, never Enemy Activity.
   const phaseStarts = {
+    E1:{0:null,3:'friendly',4:'orders',24:'combat',37:'cleanup',38:'friendly',39:'orders',55:'enemy',59:'combat',64:'cleanup',65:null},
+    V1:{0:null,4:'orders',24:'enemy',26:'vehicles',31:'combat',32:'cleanup',33:'orders',50:'enemy',54:'vehicles',63:'combat',67:'cleanup'},
     P1:{0:null,1:'orders',7:'cleanup',8:'orders',15:'cleanup',16:'orders',23:'cleanup',24:'orders',30:'cleanup',31:'orders',37:'cleanup',38:'orders'},
     P2:{0:null,1:'orders',7:'enemy',8:'cleanup',9:'orders',14:'enemy',15:'combat',18:'cleanup',19:'orders',26:'enemy',27:'combat',31:'cleanup',32:'orders',37:'enemy',38:'combat',39:'cleanup',40:'orders'},
     P3:{0:'orders',7:'combat',16:'cleanup',17:'orders',24:'combat',27:'orders',32:'combat',36:null},
@@ -76,7 +84,7 @@
   const marker = (id,area,points,face) => ({id,label:labels[id],area,points,face});
 
   function resetForNextTurn(markers) {
-    for (const id of ['co','pl1','pl2']) {
+    for (const id of ['co','pl1','pl2','sgt','tank1']) {
       const m=markers[id];
       if (!m) continue;
       if (m.area==='saved') markers[id]=marker(id,'available',m.points,'complete');
@@ -144,7 +152,8 @@
     const steps=lessons[source].steps;
     const markers={};
     const company=source.startsWith('C');
-    for (const actor of company?['co','pl1','pl2']:['pl1'])
+    const actors=source==='E1'?['co','sgt','pl2']:source==='V1'?['co','pl1','tank1']:company?['co','pl1','pl2']:['pl1'];
+    for (const actor of actors)
       markers[actor]=marker(actor,'ready',0,'complete');
     for (let index=0;index<local;index++) applyCheckpoint(markers,source,steps,index,false);
     // The unactivated 2nd platoon flips at the start of its own initiative impulse.

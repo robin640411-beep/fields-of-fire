@@ -7,7 +7,7 @@
 <title>Fields of Fire｜戰火洗禮</title>
 <link rel="stylesheet" href="style.css">
 <script defer src="assets/decks.js"></script><script defer src="assets/pieces.js"></script><script defer src="scenarios.js"></script><script defer src="engine.js"></script><script defer src="quick.js"></script><script defer src="assets/mission-tables.js"></script>
-<script defer src="course.js"></script><script defer src="lessons-p12.js"></script><script defer src="lessons-c12.js"></script><script defer src="lessons-p3c3.js"></script><script defer src="lesson-ui.js"></script><script defer src="draw-view.js"></script><script defer src="lesson-commands.js"></script><script defer src="command-display.js"></script><script defer src="terrain-table.js"></script><script defer src="table-draw.js"></script><script defer src="app.js"></script>
+<script defer src="assets/fm2-catalog.js"></script><script defer src="course.js"></script><script defer src="lessons-p12.js"></script><script defer src="lessons-c12.js"></script><script defer src="lessons-p3c3.js"></script><script defer src="fm2-example.js"></script><script defer src="fm2-vehicles.js"></script><script defer src="fm2-air-aid.js"></script><script defer src="fm2-setup.js"></script><script defer src="fm2-reorganization.js"></script><script defer src="lesson-ui.js"></script><script defer src="draw-view.js"></script><script defer src="lesson-commands.js"></script><script defer src="command-display.js"></script><script defer src="terrain-table.js"></script><script defer src="table-draw.js"></script><script defer src="app.js"></script>
 </head>
 <body>
 <header class="mast"><div class="mast-inner">
@@ -20,6 +20,7 @@
     <div class="boardbar">
       <div class="board-title"><span class="tiny-grid" aria-hidden="true"></span><h2 id="boardTitle">地形棋桌</h2><span id="mapSize"></span></div>
       <div class="board-tools" id="terrainTools">
+        <button data-action="airPlan" id="airPlanButton" hidden>裝載與管制卡</button>
         <button data-action="fitBoard" id="fitBoard" aria-pressed="true" title="顯示整張棋桌">全圖</button>
         <div class="zoom-controls" role="group" aria-label="棋桌大小">
           <button data-action="zoomOut" aria-label="縮小棋桌">−</button><output id="boardScale" aria-label="棋桌比例"></output><button data-action="zoomIn" aria-label="放大棋桌">＋</button>

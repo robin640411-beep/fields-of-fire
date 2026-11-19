@@ -8,33 +8,48 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
  const unit=id=>state().units.find(u=>u.id===id);
  function reset(){picked='';error='';hint=false;tab='play';}
  const groupTitle=id=>id[0]==='P'?'排突擊課程':'連突擊課程';
- function menu(){
-  let html='<p class="course-intro">從第一課開始，跟著《野戰手冊 1》實際抽牌、移動算子和結算標記。每一課都可單獨開始或接續。</p>';
-  for(const group of ['P','C']){
-   html+='<h3>'+groupTitle(group)+'</h3><div class="lesson-list">';
-   for(const id of C.ids.filter(v=>v[0]===group)){
+ const advanced=id=>C.advanced.includes(id);
+ const source=id=>advanced(id)?'野戰手冊 2・進階作戰':'野戰手冊 1・'+groupTitle(id);
+ function menu(book){
+  const higher=book?book==='2':advanced(state().id);
+  let html='<div class="book-tabs">'+button('courses','手冊 1・基礎訓練',higher?'':'on','1')+button('courses','手冊 2・進階作戰',higher?'on':'','2')+'</div>';
+  const groups=higher?[C.advanced]:[C.basic.slice(0,3),C.basic.slice(3)];
+  for(const group of groups){
+   if(!higher)html+='<h3>'+groupTitle(group[0])+'</h3>';
+   html+='<div class="lesson-list">';
+   for(const [index,id] of group.entries()){
     const l=C.lessons[id],saved=slots()[id];
     const label=!saved?'開始':saved.outcome?'已完成':'繼續・'+saved.cursor+' / '+l.steps.length;
-    html+='<button class="choice" data-action="courseInfo" data-value="'+id+'"><span class="code">'+id[1]+'</span><span><strong>'+esc(l.title)+'</strong><small>手冊第 '+l.pages+' 頁</small></span><b>'+label+'</b></button>';
+    html+='<button class="choice" data-action="courseInfo" data-value="'+id+'"><span class="code">'+(index+1)+'</span><span><strong>'+esc(l.title)+'</strong><small>手冊第 '+l.pages+' 頁</small></span><b>'+label+'</b></button>';
    }
    html+='</div>';
   }
-  dialog('courseMenu','基礎訓練',html);
+  dialog('courseMenu','野戰手冊教學',html);
  }
  function info(id){
   const l=C.lessons[id],saved=slots()[id];
-  let body='<p class="lesson-source">'+groupTitle(id)+'・第 '+id[1]+' 次演練　／　手冊第 '+l.pages+' 頁</p><h3>演練目標</h3><p>'+esc(l.goal)+'</p>';
+  let body='<p class="lesson-source">'+source(id)+'　／　第 '+l.pages+' 頁</p><h3>演練目標</h3><p>'+esc(l.goal)+'</p>';
   if(l.brief)body+='<p>'+esc(l.brief)+'</p>';
   body+='<div class="buttonrow">';
   if(!saved)body+=button('courseStart','開始演練','primary',id);
   else{body+=button('courseResume',saved.outcome?'查看完成棋桌':'繼續上次進度','primary',id);body+=button('courseRestart','重新演練','',id);}
-  dialog('courseInfo',l.title,body+'</div>'+button('courses','返回課程目錄','flat tiny'));
+  dialog('courseInfo',l.title,body+'</div>'+button('courses','返回課程目錄','flat tiny',advanced(id)?'2':'1'));
  }
  function hero(){
   const s=state();
-  return '<div class="mission-name"><small>野戰手冊 1・'+groupTitle(s.id)+' '+s.id[1]+'</small><h1>'+esc(lesson().title)+'</h1></div><div class="hero-acts">'+button('courses','基礎訓練','heroquick')+button('missions','任務選單')+'</div>';
+  return '<div class="mission-name"><small>'+source(s.id)+'</small><h1>'+esc(lesson().title)+'</h1></div><div class="hero-acts">'+button('courses','教學目錄','heroquick')+button('missions','任務選單')+'</div>';
  }
  function turnGuide(){
+  if(advanced(state().id)){
+   const l=lesson(),sections=[];
+   for(const [index,t] of l.steps.entries()){
+    const name=(t.roundLabel||(t.turn?'第 '+t.turn+' 回合':'任務設置'))+'・'+t.phase;
+    if(sections.at(-1)?.name!==name)sections.push({name,page:t.page,first:index,last:index});
+    else sections.at(-1).last=index;
+   }
+   const at=state().cursor;
+   dialog('turnGuide',l.title+'・本課流程','<ol class="course-outline">'+sections.map(g=>'<li'+(at>=g.first&&at<=g.last?' aria-current="step"':'')+'><b>'+esc(g.name)+'</b><small>步驟 '+(g.first+1)+(g.last===g.first?'':'–'+(g.last+1))+'　／　第 '+esc(g.page)+' 頁</small></li>').join('')+'</ol>'+button('close','返回教學','primary'));return;
+  }
   const phases=[
    ['友軍上級事件','正式任務從第 2 回合起檢查。基礎演練依各課設置省略事件。'],
    ['友軍指揮','先做啟動，再做主動。營部、連部、排部按層級啟動；未啟動的指揮部有自己的主動時段。最後才抽一般主動點。'],
@@ -74,7 +89,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   }
   case 'cell':{
    const c=state().map.find(c=>G.nameAt(c)===t.at),terrain=G.terrain(c.t);
-   art='<img class="cue-card" src="'+esc(terrain?.face||'assets/terrain-back.webp')+'" alt="'+esc(terrain?.name||'集結區')+'">';
+   art='<img class="cue-card" src="'+esc(terrain?.face||lesson().backFace||lesson().layout?.staging||'assets/terrain-back.webp')+'" alt="'+esc(terrain?.name||'集結區')+'">';
    caption=t.at;
    gesture='點選棋桌上的'+(terrain?'地形牌。':'集結區。');
    break;
@@ -85,9 +100,12 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
    break;
   case 'choice':
    art='<span class="cue-options" role="img" aria-label="選擇答案">'+t.options.map(()=>'<i></i>').join('')+'</span>';
-   gesture='點選下方的判讀結果。';
+   gesture=t.gesture||'點選下方的判讀結果。';
    break;
+  case 'amount':
+   art='<span class="cue-number" aria-hidden="true">#</span>';gesture='輸入算出的數字，再登記到表上。';break;
   }
+  if(t.cueArt){const piece=C.art(t.cueArt);if(piece)art='<span class="cue-counter" tabindex="0" data-piece-name="'+esc(t.cueName||piece.name)+'"><img src="'+esc(piece.art)+'" alt="'+esc(t.cueName||piece.name)+'"></span>';}
   return '<div class="lesson-instruction" data-kind="'+esc(t.kind)+'"><div class="lesson-art">'+art+
    (caption?'<span class="cue-coordinate">'+esc(caption)+'</span>':'')+'</div><div><h2 class="lesson-prompt">'+esc(t.text)+'</h2><p class="lesson-gesture">'+esc(gesture)+'</p></div></div>';
  }
@@ -97,13 +115,16 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
    const next=C.ids[C.ids.indexOf(s.id)+1];
    return '<div class="lesson-finished"><small>演練完成</small><h2>'+esc(l.title)+'</h2><p>'+esc(s.log.at(-1)?.text||l.goal)+'</p></div>'+
     (next?button('courseInfo','進入下一課','primary wide',next):button('missions','開啟任務選單','primary wide'))+
-    (s.id==='P1'?button(slots().T1?'resume':'start',slots().T1?'繼續已存的自由演練':'用隨機牌序練習移動','secondary wide',slots().T1?'T1':'random'):'')+button('courses','查看六課進度','flat tiny');
+    (s.id==='P1'?button(slots().T1?'resume':'start',slots().T1?'繼續已存的自由演練':'用隨機牌序練習移動','secondary wide',slots().T1?'T1':'random'):'')+button('courses','查看課程進度','flat tiny',advanced(s.id)?'2':'1');
   }
   let body='<div class="lesson-position">'+numbered(s.cursor+1)+'<small>手冊第 '+esc(t.page)+' 頁</small></div>'+
-   '<div class="progressline"><i style="width:'+100*s.cursor/l.steps.length+'%"></i></div><p class="lesson-phase">第 '+t.turn+' 回合　／　'+esc(t.phase)+'</p>'+
+   '<div class="progressline"><i style="width:'+100*s.cursor/l.steps.length+'%"></i></div><p class="lesson-phase">'+esc(t.roundLabel||(t.turn?'第 '+t.turn+' 回合':'任務設置'))+'　／　'+esc(t.phase)+'</p>'+
    instruction(t,drawInstruction);
   if(t.kind==='draw')body+=button('focusDraw','前往行動牌組','secondary wide');
   if(t.kind==='choice')body+='<div class="answer-list">'+t.options.map((v,i)=>button('lessonAnswer',v,'',i)).join('')+'</div>';
+  if(t.kind==='amount')body+='<form id="lessonAmount" class="lesson-amount"><label for="lessonNumber">'+esc(t.label||'數量')+'</label><div><input id="lessonNumber" name="amount" type="number" min="0" step="1" required><button type="submit" class="primary">登記</button></div></form>';
+  if(t.figure)body+='<button type="button" class="lesson-figure" data-action="lessonFigure"><img src="'+esc(t.figure.src)+'" alt=""><span>'+esc(t.figure.alt)+'</span></button>';
+  if(s.id==='H1'&&t.page>=38)body+=button('airPlan','查看我的裝載與管制卡','secondary wide');
   if(error)body+='<p role="alert" class="lesson-error">'+esc(error)+'</p>';
   if(hint&&t.kind!=='choice'&&t.kind!=='draw')body+='<p class="lesson-tip">'+(t.unit?'算子位於 '+G.nameAt(unit(t.unit))+'。':'')+(t.at?'請找 '+esc(t.at)+'。':'')+'</p>';
   body+='<div class="lesson-tools">'+button('lessonBack','上一步','flat tiny','',!s.cursor||!!drawInstruction)+(t.kind==='move'||t.kind==='cell'||t.kind==='unit'?button('lessonHint',hint?'收起提示':'指出位置','flat tiny'):'')+'</div>';
@@ -115,8 +136,8 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   const s=state(),l=lesson();
   const ledger=Object.entries(s.tracks);
   const showPlay=tab==='play'||!!drawInstruction;
-  return '<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('lessonTab','教學步驟',showPlay?'on':'','play',!!drawInstruction)+button('lessonTab','演練紀錄',showPlay?'':'on','log',!!drawInstruction)+'</div>'+button('lessonTurnGuide','流程表','tiny')+'</div><div class="sidebody">'+(showPlay?play(drawInstruction):logView())+'</div>'+lastRow()+'</section>'+
-   (ledger.length?box('演練紀錄值','<dl class="lesson-tracks">'+ledger.map(([label,v])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>'):'')+box('演練目標','<p class="hint">'+esc(l.goal)+'</p>');
+  return '<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('lessonTab','教學步驟',showPlay?'on':'','play',!!drawInstruction)+button('lessonTab','演練紀錄',showPlay?'':'on','log',!!drawInstruction)+'</div>'+button('lessonTurnGuide','流程表','tiny')+'</div><div class="sidebody">'+(showPlay?play(drawInstruction):logView())+'</div>'+(l.worksheet?'':lastRow())+'</section>'+
+   (ledger.length&&!l.worksheet?box('演練紀錄值','<dl class="lesson-tracks">'+ledger.map(([label,v])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>'):'')+box('演練目標','<p class="hint">'+esc(l.goal)+'</p>');
  }
  function roster(){
   const s=state();
@@ -147,7 +168,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   switch(a){
   case 'lessonTurnGuide':turnGuide();return true;
   case 'lessonCardKey':window.FOF_DRAW_VIEW.show([{why:'牌面示例',ids:[30]}],'判讀行動牌','左上鋼盔內的大數字是啟動命令，右下的小數字是主動命令。左欄按淨修正查 HIT、PIN 或 MISS。若命中，再抽牌查經驗欄。牌底的 RAND 是隨機數。');return true;
-  case 'courses':menu();return true;
+  case 'courses':menu(v);return true;
   case 'courseInfo':info(v);return true;
   case 'courseRestart':dialog('courseRestart','重新演練','<p>要將這一課的進度回到第一步嗎？</p><div class="buttonrow">'+button('courseStart','從頭開始','primary',v)+button('courseInfo','繼續保留進度','',v)+'</div>');return true;
   case 'courseStart':reset();switchState(C.start(v));return true;
@@ -155,6 +176,9 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   }
   if(!C.has(s.id))return false;
   switch(a){
+  case 'airPlan':if(s.id==='H1')dialog('airPlan','我的裝載與管制卡',window.FOF_AIR_AID(s)+button('close','返回教學','secondary'));break;
+  case 'lessonFigure':{const f=step()?.figure||lesson().worksheet&&worksheetFigure();if(f)dialog('lessonFigure',f.alt,'<img class="manual-figure" src="'+esc(f.src)+'" alt="'+esc(f.alt)+'">'+button('close','返回教學','secondary'));break;}
+  case 'lessonAmount':if(C.accepts(s,'amount',v))success();else fail(step().hint||'這個數字和本步的紀錄不符，請再算一次。');break;
   case 'lessonTab':tab=v;render();break;
   case 'lessonHint':hint=!hint;render();break;
   case 'lessonBack':if(s.cursor){reset();switchState(C.restore({id:s.id,cursor:s.cursor-1,reading:false}));}break;
@@ -165,7 +189,15 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   }
   return true;
  }
- return {menu,hero,side,roster,target,handle,reset,chosen:()=>picked,
+ function worksheetFigure(){
+  const s=state(),page=s.outcome?44:step().page>41?42:40;
+  return {src:'assets/fm2/figure-'+page+'.webp',alt:({40:'任務開始時的編制',42:'第十回合結束時的編制',44:'完成重組與補充的編制'})[page]+'（第 '+page+' 頁）'};
+ }
+ function worksheet(){
+  const s=state(),f=worksheetFigure(),rows=Object.entries(s.entries||{});
+  return '<section class="reorg-sheet"><h2>連隊重組紀錄表</h2><div class="reorg-columns"><div><button type="button" class="reorg-figure" data-action="lessonFigure"><img src="'+f.src+'" alt=""><span>'+f.alt+'</span></button></div><div><dl class="lesson-tracks">'+Object.entries(s.tracks).map(([k,v])=>'<div><dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl><h3>已登記的編制</h3>'+(rows.length?'<table><tbody>'+rows.map(([k,v])=>'<tr><th>'+esc(k)+'</th><td>'+esc(v)+'</td></tr>').join('')+'</tbody></table>':'<p>完成各步驟後，兵力與經驗等級會登記在這裡。</p>')+'</div></div></section>';
+ }
+ return {menu,hero,side,roster,worksheet,target,handle,reset,chosen:()=>picked,
   awaitingCell:()=>step()?.kind==='cell'||step()?.kind==='move'&&picked===step().unit};
 };
 })();

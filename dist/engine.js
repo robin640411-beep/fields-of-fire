@@ -3,7 +3,8 @@
 "use strict";
 const E = window.FOF = {};
 const card = id => window.FOF_CARDS.find(c => c.id === id);
-const terrain = id => window.FOF_TERRAIN.find(c => c.id === id);
+const terrain = id => typeof id==='string'?window.FOF_COURSE_TERRAIN?.find(c=>c.id===id):window.FOF_TERRAIN.find(c => c.id === id);
+E.terrainCode=t=>t.code??(typeof t.id==='number'?'N'+String(t.id).padStart(2,'0'):t.id);
 const scenario = id => window.FOF_SCENARIOS.find(s => s.id === (id==='Q1'?'N1':id));
 const nameAt = p => String.fromCharCode(65 + p.x) + p.y;
 const same = (a,b) => a && b && a.x === b.x && a.y === b.y;

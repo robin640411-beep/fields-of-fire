@@ -131,10 +131,11 @@ function create({state,esc,button,edit}){
    for(const [key,asset,x,y] of gear)if(s.tracks[key])
     marks+=chit(x,y,38,asset,key+'・'+s.tracks[key],asset==='bn-radio'?'營無線電':'連無線電','equipment-token');
   }
-  const turn=Math.max(1,s.turn);
-  marks+=chit(81+54*clamp(turn-1,0,11),350,34,'turn','第 '+turn+' 回合','回合標記','timing-token','',turn>12?String(turn):'');
+  const turn=s.turn;
+  if(turn>0&&!['I1','V2','R1'].includes(s.id))marks+=chit(81+54*clamp(turn-1,0,11),350,34,'turn','第 '+turn+' 回合','回合標記','timing-token','',turn>12?String(turn):'');
   const phase=phases[data.phase];if(phase!==undefined)marks+=chit(674,441+phase*63.7,29,'phase',phaseLabels[phase],'階段標記','timing-token');
-  return '<span class="sheet-paper"><img class="printed-sheet" width="1836" height="2376" src="'+boardImage+'" alt="美國陸軍二戰與韓戰指揮顯示表，第 1 頁全表" draggable="false">'+marks+'</span>';
+  const vietnam=s.id==='H1'||s.id==='R1';
+  return '<span class="sheet-paper"><img class="printed-sheet" width="1836" height="2376" src="'+(vietnam?'assets/fm2/us-vietnam.webp':boardImage)+'" alt="美國陸軍'+(vietnam?'越戰':'二戰與韓戰')+'指揮顯示表" draggable="false">'+marks+'</span>';
  }
  function editor(current){
   return '<div class="sheet-edit"><h3>'+esc(current.label)+'</h3><div class="sheet-adjust">'+button('sheetDelta','−','',-1,current.points<=0)+'<output>'+current.points+' 點</output>'+button('sheetDelta','＋','',1,current.points>=99)+'</div>'+

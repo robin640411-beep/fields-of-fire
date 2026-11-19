@@ -4,7 +4,7 @@ const G=window.FOF,$=id=>document.getElementById(id);
 const Q=window.FOF_QUICK;const quick=()=>s.id==='Q1';
 const C=window.FOF_COURSE, draws=window.FOF_DRAW_VIEW, piles=window.FOF_TABLE_DRAW;
 const key='fields-of-fire.table.v1', $modal=$('panel');
-const catalog=new Map(window.FOF_PIECES.map(p=>[p.id,p]));
+const catalog=new Map([...window.FOF_PIECES,...window.FOF_COURSE_PIECES||[]].map(p=>[p.id,p]));
 const actLabels=['未接敵','接敵','交戰','激烈交戰'];
 const objectiveName=k=>({primary:'主要目標',secondary:'次要目標',position:'攻擊陣地',outpost:'戰鬥前哨'})[k]||'路線點 '+k.slice(3);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -110,12 +110,12 @@ function renderHero(){
  const section=m?'諾曼第戰役・任務 '+pad(m.number):'野戰手冊・演練 01';
  const kind=quick()?'單人快戰':m?'輔助棋桌':'基礎演練';
  const light=m?.mode==='patrol'?((s.vis?'月光 +'+s.vis:'待抽月光牌')+'・第 '+s.patrol+' 次巡邏'):'日間';
- $('hero').innerHTML='<div class="mission-name"><small>'+esc(section)+'</small><h1>'+esc(title(s.id))+'</h1></div><span class="mission-context">'+esc(kind+' ／ '+light)+'</span><div class="hero-acts">'+button('courses','基礎訓練','heroquick')+button('missions','任務選單')+'</div>';
+ $('hero').innerHTML='<div class="mission-name"><small>'+esc(section)+'</small><h1>'+esc(title(s.id))+'</h1></div><span class="mission-context">'+esc(kind+' ／ '+light)+'</span><div class="hero-acts">'+button('courses','教學目錄','heroquick')+button('missions','任務選單')+'</div>';
 }
 function shortAbbr(u){return u.abbr||u.name.split(' · ')[0];}
 function tokenPic(u){const t=catalog.get(u.art);return t?pic(t.art,'',u.name):'<b>'+esc(shortAbbr(u).slice(0,3))+'</b>';}
-const backFace=()=>isTable()?'assets/staging-naktong.webp':'assets/terrain-back.webp';
-const backName=()=>isTable()?'洛東江地形牌背':'諾曼第地形牌背';
+const backFace=()=>C.lessons[s.id]?.backFace||C.lessons[s.id]?.layout?.staging||(isTable()?'assets/staging-naktong.webp':'assets/terrain-back.webp');
+const backName=()=>C.lessons[s.id]?.backName||(backFace().includes('naktong')?'洛東江地形牌背':'諾曼第地形牌背');
 const tabletop=window.FOF_TERRAIN_TABLE({catalog,esc,pic,terrain:G.terrain,backFace,backName,objectiveName});
 function destination(c){
  if(course())return lessons.target(c);
@@ -124,6 +124,15 @@ function destination(c){
 }
 function renderBoard(){
  tabletop.dismiss();
+ const sheet=!!C.lessons[s.id]?.worksheet;
+ $('board').classList.toggle('worksheet-mode',sheet);
+ $('boardTitle').textContent=sheet?'連隊編制':'地形棋桌';
+ $('airPlanButton').hidden=s.id!=='H1';
+ document.querySelector('.command-record').hidden=sheet;
+ $('roster').hidden=course()&&!s.units.length;
+ $('terrainTools').hidden=sheet;$('mapKey').hidden=sheet;
+ $('board').closest('.board-pane').classList.toggle('worksheet-pane',sheet);
+ if(sheet){$('mapSize').textContent='任務間';$('terrainGrid').innerHTML=lessons.worksheet();return;}
  $('mapSize').textContent=s.cols+' × '+s.rows;
  const cells=s.map.slice().sort((a,b)=>b.y-a.y||a.x-b.x);
  const chosen=course()?lessons.chosen():selected;
@@ -136,6 +145,7 @@ function renderBoard(){
 const scaleSteps=[46,60,72,88,104,128,152,180,220,268,325];
 let fixedWidth=null,faceWidth=152;
 function sizeBoard(){
+ if(C.lessons[s.id]?.worksheet)return;
  const port=$('mapViewport');
  if(!port.clientHeight)return;
  const rows=new Set(s.map.map(c=>c.y));
@@ -175,8 +185,8 @@ function revealCell(c){
 function inspectStack(c){
  if(!c.t)return;
  const t=G.terrain(c.t),layers=G.hillLayers(c);
- const surfaces=[{face:t?t.face:backFace(),name:t?t.name+'　N'+pad(t.id):backName(),desc:layers.length?'上層地形':''}];
- layers.slice().reverse().forEach((id,i)=>surfaces.push({face:G.terrain(id??1).face,name:id?'丘陵　N'+pad(id):'丘陵（示意牌）',desc:'下方第 '+(i+1)+' 張'+(id?'':'・舊存檔僅記錄層數')}));
+ const surfaces=[{face:t?t.face:backFace(),name:t?[t.name,G.terrainCode(t)].filter(Boolean).join('　'):backName(),desc:layers.length?'上層地形':''}];
+ layers.slice().reverse().forEach((id,i)=>surfaces.push({face:G.terrain(id??1).face,name:id?'丘陵　'+G.terrainCode(G.terrain(id)):'丘陵（示意牌）',desc:'下方第 '+(i+1)+' 張'+(id?'':'・舊存檔僅記錄層數')}));
  const figures=surfaces.map(v=>'<figure><figcaption><strong>'+esc(v.name)+'</strong><small>'+esc(v.desc)+'</small></figcaption>'+pic(v.face,'inspected-face',v.name)+'</figure>').join('');
  dialog('faces',G.nameAt(c)+'・'+(t?t.name:'集結區'),'<div class="stack-gallery" data-count="'+surfaces.length+'">'+figures+'</div>'+(course()&&c.marks.length?'<p>'+c.marks.map(esc).join('、')+'</p>':''));
 }
@@ -240,7 +250,7 @@ function renderSide(){
  $('side').innerHTML='<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('tab','行動面板',sideTab==='play'?'on':'','play')+button('tab','任務日誌',sideTab==='log'?'on':'','log')+'</div><span class="turnpill">R'+pad(s.turn)+'</span></div><div class="sidebody">'+(sideTab==='log'?logView():main)+'</div>'+lastRow()+'</section>'+goalBox();
 }
 function render(){renderHero();commandDisplay.render();renderBoard();renderPiles();renderSide();renderRoster();queueMicrotask(showPending);}
-function missionMenu(){let body='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide')+'<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+'<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算')+'<h3>諾曼第戰役</h3><p class="tagline">輔助棋桌處理抽牌、地圖與任務目標。戰役的敵軍活動、特殊行動與編組由玩家依任務書裁定。</p>'+window.FOF_SCENARIOS.map(m=>missionChoice(m.id,'N'+pad(m.number),m.title,m.cols+' × '+m.rows+' 地形・'+(m.mode==='patrol'?'三次十回合巡邏':'十回合進攻'))).join('');dialog('missions','任務選單',body);}
+function missionMenu(){let body='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide','1')+'<h3>野戰手冊 2</h3>'+button('courses','進階作戰・七堂逐步教學','primary wide','2')+'<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+'<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算')+'<h3>諾曼第戰役</h3><p class="tagline">輔助棋桌處理抽牌、地圖與任務目標。戰役的敵軍活動、特殊行動與編組由玩家依任務書裁定。</p>'+window.FOF_SCENARIOS.map(m=>missionChoice(m.id,'N'+pad(m.number),m.title,m.cols+' × '+m.rows+' 地形・'+(m.mode==='patrol'?'三次十回合巡邏':'十回合進攻'))).join('');dialog('missions','任務選單',body);}
 function missionChoice(id,code,n,sub){return '<button class="choice" data-action="missionInfo" data-value="'+id+'"><span class="code">'+code+'</span><span><strong>'+esc(n)+'</strong><small>'+esc(sub)+(slots[id]?' ・ 已有進度':'')+'</small></span></button>';}
 function missionInfo(id){
  const m=G.scenario(id);let body=m?'<p>'+esc(m.brief)+'</p><h3>勝利條件</h3><p>'+esc(m.objective)+'</p><h3>設置</h3><ul>'+m.setupNotes.map(v=>'<li>'+esc(v)+'</li>').join('')+'</ul><p class="tagline">諾曼第任務書，第 '+m.page+'–'+m.lastPage+' 頁。特殊配屬、敵軍組合與額外效果請依任務書處理。</p>':'<p>全體七枚算子從 B0 出發。全部抵達第 3 列即完成演練，沒有回合上限。</p><ol><li>抽取命令牌，依大數字取得排部命令。</li><li>點選編組中的單位，再點選相鄰地形。單位移動耗 1 點，同牌全排移動耗 2 點。</li><li>結束排部命令後，讀取下一張牌的小數字，折半捨去，作為一般主動點。</li></ol><p class="tagline">《野戰手冊 1》頁 7–14。手冊牌序重現前五回合，另可選擇隨機開局。</p>';
@@ -259,7 +269,7 @@ function quickPanel(){
  if(u)h+='<div class="selected-info"><b>'+esc(u.name)+'</b>　'+u.steps+' 階　'+(u.pinned?'壓制 ':'')+(u.covered?'掩蔽 ':'')+G.nameAt(u)+'</div><div class="actionpair">'+button('qact','尋找掩蔽','tiny','cover',!Q.canAct(s,u,'cover'))+button('qact','重整','tiny','rally',!Q.canAct(s,u,'rally'))+'</div>';
  return h+'<div class="buttonrow">'+button('advance',labels[s.phase],'primary wide')+'</div><div class="row">'+button('brief','快戰規則','flat tiny')+button('undo','復原上一步','flat tiny','',!history.length)+'</div>';
 }
-function guide(){dialog('guide','遊戲說明',button('courses','開啟手冊逐步教學','primary wide')+'<h3>第一次遊玩</h3><ol><li>點指揮顯示表上方的行動牌背，抽取啟動命令牌。</li><li>從「第 1 排編組」選擇單位，點選地圖上有金色虛線的目的牌。從集結區出發也可以斜走。</li><li>排部只能命令同牌單位。沒有合適對象時，結束排部命令，把點數留給下一回合。</li><li>使用一般主動點移動分散的單位，再結束回合。</li></ol><h3>牌堆與存檔</h3><p>抽到重洗牌時會先抽滿本次所需張數，再洗混整副牌。每點一次牌背翻一張，放在右側棄牌堆。停留在棄牌上可看完整牌面。可在「最近抽牌」翻閱最近一次操作。每次行動都會存到這個瀏覽器，也可匯出檔案帶往其他裝置。</p><h3>戰役棋桌</h3><p>開啟任務選單切換七項諾曼第任務。選地形可檢視整張牌、放置算子或檢查 PC。選算子可移動、登記狀態與兵力。在「行動牌工具」依指定修正值讀牌；「命令與紀錄」可記錄各部命令、彈藥與特殊效果。</p><p class="tagline">依《Fields of Fire Deluxe》第三版規則 §2–6、§8、§12、《野戰手冊 1》與諾曼第任務書改編。使用者提供之牌面與算子圖樣，原作 GMT Games。</p>');}
+function guide(){dialog('guide','遊戲說明',button('courses','開啟手冊逐步教學','primary wide')+'<h3>第一次遊玩</h3><ol><li>點指揮顯示表上方的行動牌背，抽取啟動命令牌。</li><li>從「第 1 排編組」選擇單位，點選地圖上有金色虛線的目的牌。從集結區出發也可以斜走。</li><li>排部只能命令同牌單位。沒有合適對象時，結束排部命令，把點數留給下一回合。</li><li>使用一般主動點移動分散的單位，再結束回合。</li></ol><h3>牌堆與存檔</h3><p>抽到重洗牌時會先抽滿本次所需張數，再洗混整副牌。每點一次牌背翻一張，放在右側棄牌堆。停留在棄牌上可看完整牌面。可在「最近抽牌」翻閱最近一次操作。每次行動都會存到這個瀏覽器，也可匯出檔案帶往其他裝置。</p><h3>戰役棋桌</h3><p>開啟任務選單切換七項諾曼第任務。選地形可檢視整張牌、放置算子或檢查 PC。選算子可移動、登記狀態與兵力。在「行動牌工具」依指定修正值讀牌；「命令與紀錄」可記錄各部命令、彈藥與特殊效果。</p><p class="tagline">依《Fields of Fire Deluxe》第三版規則 §2–6、§8、§12、兩冊《野戰手冊》與諾曼第任務書改編。使用者提供之牌面與算子圖樣，原作 GMT Games。</p>');}
 function cellDialog(c){
  const us=G.unitsAt(s,c),t=G.terrain(c.t),over=s.outcome,pc=c.pc||c.pending;
  let b='<div class="tagline">'+esc(G.nameAt(c))+'　'+(c.h?'高度 +'+c.h+'　':'')+(t?'掩蔽 +'+t.cover:'集結區')+'</div>';
@@ -401,6 +411,11 @@ function afterAdvance(old){
  }
  if(quick()&&['command','initiative'].includes(s.phase)){selected=s.units.find(u=>Q.able(s,u)&&!u.pinned&&!u.exposed)?.id||null;focus=selected?G.at(s,selectedUnit()):null;}
 }
+document.addEventListener('submit',ev=>{
+ if(ev.target.id!=='lessonAmount')return;
+ ev.preventDefault();
+ if(course()&&C.current(s)?.kind==='amount')lessons.handle('lessonAmount',new FormData(ev.target).get('amount'));
+});
 document.addEventListener('click',ev=>{
  const el=ev.target.closest('[data-action]');if(!el||el.disabled)return;
  const a=el.dataset.action,v=el.dataset.value||'';
@@ -408,7 +423,7 @@ document.addEventListener('click',ev=>{
  if(a==='focusDraw'){focusDraw();return;}
  if(a==='cancelDraw'){delete s.drawOrder;persist();render();return;}
  if(a==='inspectDiscard'){const id=visiblePiles().top;if(id)draws.show([{why:'棄牌堆頂',ids:[id]}],'棄牌堆','');return;}
- if((s.tableRun||s.drawOrder)&&!['zoomIn','zoomOut','fitBoard','last','saves','export','import','acceptImport','close','missions','missionInfo','courses','courseInfo','courseStart','courseRestart','courseResume','resume','start','restart','guide','lessonTurnGuide','lessonCardKey','deck'].includes(a)){tell('請先完成桌上的抽牌。');return;}
+ if((s.tableRun||s.drawOrder)&&!['zoomIn','zoomOut','fitBoard','last','saves','export','import','acceptImport','close','missions','missionInfo','courses','courseInfo','courseStart','courseRestart','courseResume','resume','start','restart','guide','lessonTurnGuide','lessonCardKey','lessonFigure','deck'].includes(a)){tell('請先完成桌上的抽牌。');return;}
  if(commandDisplay.handle(a,v))return;
  if(a==='boardPiece'||a==='boardPile'){
   const key=el.closest('.card-location')?.dataset.coord;

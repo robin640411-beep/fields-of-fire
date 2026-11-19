@@ -2,7 +2,9 @@
 (() => {
 'use strict';
 const G=window.FOF, lessons=window.FOF_LESSONS=Object.create(null);
-const ids=['P1','P2','P3','C1','C2','C3'];
+const basic=['P1','P2','P3','C1','C2','C3'];
+const advanced=['I1','E1','V1','V2','D1','H1','R1'];
+const ids=[...basic,...advanced];
 const layouts={
  排:{rows:[[0,0,0],[41,42,43],[9,44,10],[17,18,19]],hills:{B3:1}},
  連:{rows:[[0,0,0,0],[41,8,21,43],[47,15,42,45],[18,16,20,23]],hills:{C2:1,A3:2,D3:3}}
@@ -11,7 +13,7 @@ const position=v=>({x:v.charCodeAt(0)-65,y:Number(v.slice(1))});
 const unitBy=(s,id)=>s.units.find(u=>u.id===id);
 const has=id=>Object.hasOwn(lessons,id);
 const current=s=>lessons[s.id].steps[s.cursor];
-const arts=new Map(window.FOF_PIECES.map(p=>[p.id,p]));
+const arts=new Map([...window.FOF_PIECES,...window.FOF_COURSE_PIECES||[]].map(p=>[p.id,p]));
 const fullDeck=()=>[...window.FOF_CARDS.map(c=>c.id),51];
 function addUnit(s,v){
  const p=position(v.at), art=arts.get(v.art);
@@ -21,11 +23,12 @@ function addUnit(s,v){
  u.lessonStatus=v.status||'';s.units.push(u);
 }
 function start(id){
- const lesson=lessons[id],layout=layouts[lesson.group];
- const s={version:1,id,cols:layout.rows[0].length,rows:3,map:[],units:[],log:[],tracks:{...lesson.tracks},objectives:{},
+ const lesson=lessons[id],layout=lesson.layout||layouts[lesson.group];
+ const s={version:1,id,cols:Math.max(...layout.rows.map(row=>row.length)),rows:layout.rows.length-1,map:[],units:[],log:[],tracks:{...lesson.tracks},objectives:{},
   cursor:0,turn:lesson.steps[0].turn,outcome:'',deck:fullDeck(),discard:[],last:[],recentDraws:[],pendingDraws:[],drawCount:0,reading:false};
  layout.rows.forEach((row,y)=>row.forEach((t,x)=>{
-  const key=G.nameAt({x,y}),h=layout.hills[key];s.map.push({x,y,t,h:h?1:0,hills:h?[h]:[],marks:(lesson.marks?.[key]||[]).slice()});
+  const key=G.nameAt({x,y}),h=layout.hills?.[key],hills=Array.isArray(h)?h.slice():h?[h]:[];
+  s.map.push({x,y,t,h:hills.length,hills,marks:(lesson.marks?.[key]||[]).slice()});
  }));
  lesson.units.forEach(u=>addUnit(s,u));
  return s;
@@ -44,6 +47,7 @@ function apply(s,step){
  }
  for(const [at,marks] of Object.entries(e.marks||{}))G.at(s,position(at)).marks=marks.slice();
  Object.assign(s.tracks,e.tracks);
+ if(e.entries)Object.assign(s.entries??={},e.entries);
 }
 function beginDraw(s){
  const step=current(s);
@@ -73,6 +77,7 @@ function accepts(s,kind,value){
  if(s.reading||!step||step.kind!==kind)return false;
  switch(kind){
  case 'choice':return Number(value)===step.answer;
+ case 'amount':return /^\d+$/.test(String(value).trim())&&Number(value)===step.answer;
  case 'cell':case 'move':return value===step.at;
  case 'unit':return value===step.unit;
  default:return false;
@@ -98,5 +103,5 @@ function validSave(s){
  return s.version===1&&Number.isInteger(s.cursor)&&s.cursor>=0&&s.cursor<=lessons[s.id].steps.length
   &&typeof s.reading==='boolean'&&(!s.reading||step?.kind==='draw');
 }
-window.FOF_COURSE={ids,lessons,has,current,start,beginDraw,complete,accepts,restore,validSave};
+window.FOF_COURSE={ids,basic,advanced,art:id=>arts.get(id),lessons,has,current,start,beginDraw,complete,accepts,restore,validSave};
 })();

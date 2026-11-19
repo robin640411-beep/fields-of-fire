@@ -10,6 +10,7 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
  ];
  const objectiveArt={primary:'obj1',secondary:'obj2',way1:'route1',way2:'route2',way3:'route3'};
  function symbol(label){
+  if(window.FOF_COURSE_MARKS?.[label])return window.FOF_COURSE_MARKS[label];
   for(const [pattern,art] of markArt){
    const match=pattern.exec(label);
    if(match)return typeof art==='function'?art(match):art;
@@ -55,11 +56,11 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
  function tile(s,c,dest,focused,selected){
   const t=terrain(c.t),name=t?.name||'集結區',coord=G.nameAt(c),layers=G.hillLayers(c);
   const {units,markers}=contents(s,c),key=c.x+','+c.y;
-  const face=t?t.face:backFace(),title=coord+' '+name+(t?' N'+String(t.id).padStart(2,'0'):'');
-  const faces=layers.map((id,i)=>'<img class="hill-face" style="--layer:'+i+'" src="'+terrain(id??1).face+'" alt="" draggable="false">').join('');
+  const code=t?G.terrainCode(t):'',face=t?t.face:backFace(),title=[coord,name,code].filter(Boolean).join(' ');
+  const faces=layers.map((id,i)=>'<img class="hill-face" style="--layer:'+i+'" src="'+terrain(id??1).face+'" data-code="'+esc(G.terrainCode(terrain(id??1)))+'" alt="" draggable="false">').join('');
   return '<div class="card-location'+(dest&&!window.FOF_COURSE.has(s.id)?' move-target':'')+'" '+(t?'':'data-staging')+' data-coord="'+key+'" style="--layers:'+layers.length+'">'+
    '<button type="button" class="tile'+(dest?' can':'')+(focused?' focused':'')+'" data-action="cell" data-value="'+key+'" aria-label="'+esc(title+'，'+units.length+' 枚算子，'+markers.length+' 枚標記'+(dest?'，可移入':''))+'">'+
-   '<span class="cell-caption"><span class="cell-ref"><b>'+coord+'</b>'+(t?'<small>N'+String(t.id).padStart(2,'0')+'</small>':'')+'</span><span class="cell-name">'+esc(name)+'</span></span>'+
+   '<span class="cell-caption"><span class="cell-ref"><b>'+coord+'</b>'+(code?'<small>'+esc(code)+'</small>':'')+'</span><span class="cell-name">'+esc(name)+'</span></span>'+
    '<span class="card-stack">'+faces+'<img class="board-face" src="'+face+'" alt="'+esc(t?name:backName())+'" draggable="false"></span></button>'+
    '<div class="chit-mat">'+bank(markers,'map-markers',6,selected)+bank(units,'map-units',8,selected)+'</div></div>';
  }
@@ -124,7 +125,7 @@ window.FOF_TERRAIN_TABLE=function({catalog,esc,pic,terrain,backFace,backName,obj
   let number=card.querySelector('.cell-ref small')?.textContent||'';
   if(pointer&&event.clientY<img.getBoundingClientRect().top){
    const hill=[...card.querySelectorAll('.hill-face')].reverse().find(h=>event.clientY>=h.getBoundingClientRect().top);
-   if(hill){img=hill;name='下層丘陵';number='N'+hill.getAttribute('src').split('/').pop().split('.')[0];}
+   if(hill){img=hill;name='下層丘陵';number=hill.dataset.code;}
   }
   schedule(card,img.src,[card.querySelector('.cell-ref b').textContent,name,number].filter(Boolean).join('　'));
  }
