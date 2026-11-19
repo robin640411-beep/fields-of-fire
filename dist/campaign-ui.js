@@ -8,15 +8,27 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
  const labels={patrol:'三排巡邏',offensive:'進攻',assault:'進攻',defense:'防禦'};
  const action=(a,label,v,cls='tiny')=>b('cam'+a,label,cls,v);
  function directory(){return '<div class="book-list">'+['N','K','H','V'].map(k=>{const book=C.books[k],save=slots()['campaign-'+k];return '<button class="choice" data-action="camBook" data-value="'+k+'"><span class="code">'+k+'</span><span><strong>'+book.label+'</strong><small>'+book.missions.length+' 個獨立任務・'+book.order.length+' 場連續戰役'+(save?'・已存至任務 '+G.scenario(save.id).number:'')+'</small></span></button>';}).join('')+'</div>';}
- function historyArticle(bookKey, missionId){
-  const book=window.FOF_HISTORY[bookKey];
+ function illustration(id,bookLabel){
+  const art=window.FOF_HISTORY_FIGURES[id];
+  const source=bookLabel+'任務書・第 '+art.page+' 頁';
+  return '<figure class="history-figure"><button type="button" data-history-figure="'+h(id)+'" aria-haspopup="dialog" aria-label="'+h('放大圖片，'+art.caption)+'">'+
+   '<img loading="lazy" decoding="async" src="'+h(art.src)+'" alt="'+h(art.caption)+'" width="'+art.width+'" height="'+art.height+'"></button>'+
+   '<figcaption><span>'+h(art.caption)+'</span><small>'+h(art.kind+'・'+source)+'</small></figcaption></figure>';
+ }
+ function historyArticle(bookKey,missionId){
+  const book=window.FOF_HISTORY[bookKey],label=C.books[bookKey].label;
   const article=missionId ? book.missions[missionId] : book;
-  const heading=missionId ? '任務背景' : article.headline;
-  const date=missionId ? article.date : article.period;
-  const paragraphs=article.paragraphs.map(p=>'<p>'+h(p)+'</p>').join('');
-  const table=missionId ? '<div class="history-table"><strong>本場棋局</strong><p>'+h(article.table)+'</p></div>' : '';
-  return '<article class="history-article" data-history="'+h(missionId||bookKey)+'"><header><span class="history-date">'+h(date)+'</span><h3>'+h(heading)+'</h3></header>'+
-    paragraphs+table+'<footer>依《'+h(C.books[bookKey].label)+'戰役任務書》第 '+h(article.pages)+' 頁整理。'+(article.sourceNote?' '+h(article.sourceNote):'')+'</footer></article>';
+  const heading=missionId ? '受領任務' : article.headline;
+  const lead=missionId ? '<p class="briefing-lead">'+h(article.briefing)+'</p><small>'+h(label)+'任務書・第 '+article.page+' 頁</small>' : '';
+  const sections=article.sections.map(section=>{
+   const text=section.paragraphs.map(p=>'<p>'+h(p)+'</p>').join('');
+   const figures=section.figures?.map(id=>illustration(id,label)).join('')||'';
+   return '<section class="history-section"><h4>'+h(section.title)+'</h4>'+text+
+    '<small class="history-source">原書第 '+h(section.pages)+' 頁</small>'+
+    (figures?'<div class="history-figures">'+figures+'</div>':'')+'</section>';
+  }).join('');
+  return '<article class="history-article" data-history="'+h(missionId||bookKey)+'"><header><span class="history-date">'+h(article.date||article.period)+
+   '</span><h3>'+h(heading)+'</h3>'+lead+'</header>'+sections+'</article>';
  }
  function campaignIntro(k){
   const book=C.books[k];

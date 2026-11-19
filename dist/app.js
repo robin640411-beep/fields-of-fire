@@ -437,6 +437,30 @@ function afterAdvance(old){
  }
  if(quick()&&['command','initiative'].includes(s.phase)){selected=s.units.find(u=>Q.able(s,u)&&!u.pinned&&!u.exposed)?.id||null;focus=selected?G.at(s,selectedUnit()):null;}
 }
+const historyViewer=$('historyViewer'),historyImage=$('historyFullImage');
+function fitIllustration(fullSize){
+ historyViewer.classList.toggle('full-size',fullSize);
+ $('historyZoom').setAttribute('aria-pressed',String(fullSize));
+ $('historyZoom').textContent=fullSize?'適合視窗':'原尺寸';
+ historyViewer.querySelector('.history-canvas').scrollTo(0,0);
+}
+$modal.addEventListener('click',ev=>{
+ const opener=ev.target.closest('[data-history-figure]');
+ if(!opener)return;
+ const figure=window.FOF_HISTORY_FIGURES[opener.dataset.historyFigure];
+ historyImage.src=figure.src;historyImage.alt=figure.caption;
+ $('historyFigureSource').textContent=campaigns.labels[opener.dataset.historyFigure[0]]+'戰役任務書・第 '+figure.page+' 頁・'+figure.kind;
+ $('historyFigureCaption').textContent=figure.caption;
+ fitIllustration(false);historyViewer.showModal();$('historyDone').focus({preventScroll:true});
+});
+$('historyZoom').addEventListener('click',()=>fitIllustration(!historyViewer.classList.contains('full-size')));
+$('historyDone').addEventListener('click',()=>historyViewer.close());
+historyViewer.addEventListener('click',ev=>{
+ if(ev.target!==historyViewer)return;
+ const bounds=historyViewer.getBoundingClientRect();
+ if(ev.clientX<bounds.left||ev.clientX>bounds.right||ev.clientY<bounds.top||ev.clientY>bounds.bottom)historyViewer.close();
+});
+historyViewer.addEventListener('close',()=>{historyImage.removeAttribute('src');});
 document.addEventListener('submit',ev=>{
  if(ev.target.id!=='lessonAmount')return;
  ev.preventDefault();

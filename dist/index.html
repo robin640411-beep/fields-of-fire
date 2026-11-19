@@ -62,6 +62,10 @@
 </div></main>
 <figure id="terrainPreview" hidden aria-hidden="true"><figcaption></figcaption><img alt=""><span class="preview-symbol" hidden></span><small hidden></small></figure>
 <dialog id="panel"><div id="modalBody"></div></dialog>
+<dialog id="historyViewer" aria-labelledby="historyFigureSource" aria-describedby="historyFigureCaption">
+ <header><strong id="historyFigureSource"></strong><div class="buttonrow"><button type="button" id="historyZoom" aria-pressed="false">原尺寸</button><button type="button" id="historyDone">返回閱讀</button></div></header>
+ <div class="history-canvas"><img id="historyFullImage" alt=""></div><p id="historyFigureCaption"></p>
+</dialog>
 <dialog id="drawViewer" aria-labelledby="drawHeading">
  <header class="draw-head"><div><small>行動牌組</small><h2 id="drawHeading"></h2></div><span id="drawCount" aria-live="polite"></span></header>
  <div id="drawFaces"></div><p id="drawHint"></p>
