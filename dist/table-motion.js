@@ -46,7 +46,9 @@ function createPlayer(catalog){
   for(const node of board.querySelectorAll('.card-location')){
    const [x,y]=node.dataset.coord.split(',').map(Number),card=node.querySelector('.board-face');
    cells.set(String.fromCharCode(65+x)+y,{pos:rect(card),src:card.getAttribute('src')});
-   for(const el of node.querySelectorAll('.map-chit[data-value]'))units.set(el.dataset.value,rect(el));
+   for(const el of node.querySelectorAll('[data-counter-id]')){
+    const p=rect(el);if(p)units.set(el.dataset.counterId,{...p,coord:String.fromCharCode(65+x)+y});
+   }
   }
   for(const el of board.querySelectorAll('[data-command-id]'))commands.set(el.dataset.commandId,{pos:rect(el),area:el.dataset.area,points:el.dataset.points,src:el.querySelector('img')?.getAttribute('src'),label:el.getAttribute('aria-label')});
   const discard=$('discardFace');
@@ -61,7 +63,7 @@ function createPlayer(catalog){
   if(active)run.hidden.set(key,selector);else run.hidden.delete(key);
   masks.textContent=run.hidden.size?[...run.hidden.values()].join(',')+'{visibility:hidden!important}':'';
  }
- function unitMask(run,id,on){mask(run,'u'+id,'#terrainGrid .map-chit[data-value="'+CSS.escape(id)+'"]',on);}
+ function unitMask(run,id,on){const query='[data-counter-id="'+CSS.escape(id)+'"]';mask(run,'u'+id,'#terrainGrid '+query+',#terrainGrid .stack-member:has(> '+query+')',on);}
  function anim(run,el,frames,ms,options={}){
   if(current!==run||!el)return Promise.resolve();
   const a=el.animate(frames,{duration:ms,easing:'ease-out',fill:'forwards',...options});run.animations.add(a);
@@ -93,6 +95,7 @@ function createPlayer(catalog){
   if(minX>=port.scrollLeft&&maxX<=port.scrollLeft+port.clientWidth&&minY>=port.scrollTop&&maxY<=port.scrollTop+port.clientHeight)return;
   if(port.scrollWidth>port.clientWidth||port.scrollHeight>port.clientHeight)port.scrollTo({left:(minX+maxX-port.clientWidth)/2,top:(minY+maxY-port.clientHeight)/2,behavior:'instant'});
  }
+ const revealArrow=[{clipPath:'inset(-18px 100% -18px -8px)'},{clipPath:'inset(-18px -16px -18px -8px)',offset:.32},{clipPath:'inset(-18px -16px -18px -8px)'}];
  function route(a,b,side){
   const line=create('span','motion-arrow');line.dataset.side=side||'neutral';pos(line,a);
   line.style.width=Math.max(9,Math.hypot(b.x-a.x,b.y-a.y))+'px';
@@ -107,14 +110,77 @@ function createPlayer(catalog){
   const follow=frameRoute(a,b),traveller=token(run,e,a);if(!traveller)return;
   pos(traveller,a);traveller.hidden=false;
   const arrow=route(a,b,e.side);layer.dataset.stage='direction';traveller.dataset.stage='direction';
-  await anim(run,arrow,[{clipPath:'inset(-12px 100% -12px -6px)'},{clipPath:'inset(-12px -12px -12px -6px)',offset:.65},{clipPath:'inset(-12px -12px -12px -6px)'}],run.quiet?130:330);
+  await anim(run,arrow,run.quiet?[{opacity:1},{opacity:1}]:revealArrow,1350);
   if(current!==run)return;
   layer.dataset.stage='travel';traveller.dataset.stage='travel';
   if(follow)port.scrollTo({left:b.x-port.clientWidth/2,top:b.y-port.clientHeight/2,behavior:run.quiet?'instant':'smooth'});
-  if(run.quiet){pos(traveller,b);await anim(run,traveller,[{opacity:.55},{opacity:1}],100);}
-  else await anim(run,traveller,[{transform:'translate(0,0)'},{transform:shift(a,b),opacity:e.kind==='move'?1:.12}],410);
+  if(run.quiet){pos(traveller,b);await anim(run,traveller,[{opacity:.8},{opacity:1}],1050);}
+  else await anim(run,traveller,[{transform:'translate(0,0)'},{transform:shift(a,b),opacity:e.kind==='move'?1:.12}],1050);
+  if(current!==run)return;
+  pos(traveller,b);await anim(run,arrow,[{opacity:1},{opacity:.7}],400);
   if(current!==run)return;
   arrow.remove();traveller.remove();run.tokens.delete(id);unitMask(run,id,false);
+ }
+ function firingPath(a,b,side){
+  if(Math.hypot(b.x-a.x,b.y-a.y)>=55)return {arrow:route(a,b,side),frames:[{transform:'translate(0,0)'},{transform:shift(a,b)}]};
+  // Nearby counters still need a legible route with an arrowhead at the actual target.
+  const dir=b.x>=a.x?1:-1,first={x:a.x-18*dir,y:a.y-39},second={x:b.x+18*dir,y:b.y-39};
+  const lowX=Math.min(a.x,b.x,first.x,second.x)-7,lowY=Math.min(first.y,second.y)-7;
+  const width=Math.max(a.x,b.x,first.x,second.x)-lowX+7,height=Math.max(a.y,b.y)-lowY+7;
+  const arrow=create('span','motion-arrow local-shot');pos(arrow,{x:lowX,y:lowY});arrow.dataset.side=side||'neutral';
+  arrow.style.width=width+'px';arrow.style.height=height+'px';
+  const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg'),line=document.createElementNS(ns,'path'),head=document.createElementNS(ns,'path');
+  const pair=p=>(p.x-lowX)+' '+(p.y-lowY);
+  svg.setAttribute('viewBox','0 0 '+width+' '+height);
+  line.setAttribute('d','M '+pair(a)+' C '+pair(first)+' '+pair(second)+' '+pair(b));line.setAttribute('class','shot-line');
+  head.setAttribute('d','M 0 0 L -12 -6 L -9 0 L -12 6 Z');
+  head.setAttribute('transform','translate('+pair(b)+') rotate('+Math.atan2(b.y-second.y,b.x-second.x)*180/Math.PI+')');
+  svg.append(line,head);arrow.append(svg);layer.append(arrow);
+  const frames=Array.from({length:15},(_,i)=>{const t=i/14,u=1-t;const axis=k=>u**3*a[k]+3*u*u*t*first[k]+3*u*t*t*second[k]+t**3*b[k];return {transform:shift(a,{x:axis('x'),y:axis('y')}),offset:t};});
+  return {arrow,frames};
+ }
+ function counterAt(run,id,coord){
+  const ghost=id&&run.tokens.get(id);
+  if(ghost&&!ghost.hidden)return {x:parseFloat(ghost.style.left),y:parseFloat(ghost.style.top),w:ghost.offsetWidth};
+  const now=run.after.units.get(id),old=run.before.units.get(id);
+  return (now&&(!coord||now.coord===coord)?now:null)||old||cell(run.after,coord)||cell(run.before,coord);
+ }
+ async function shoot(run,e){
+  const b=counterAt(run,e.target,e.to);
+  if(!b)return;
+  const a=(e.from||e.shooter)?counterAt(run,e.shooter,e.from):null;
+  const follow=frameRoute(a||b,b);
+  let arrow;
+  if(a){
+   const path=firingPath(a,b,e.side);arrow=path.arrow;arrow.dataset.kind='shot';
+   layer.dataset.stage='aim';
+   await anim(run,arrow,run.quiet||arrow.classList.contains('local-shot')?[{opacity:.8},{opacity:1}]:revealArrow,1350);
+   if(current!==run)return;
+   layer.dataset.stage='shot';
+   if(follow)port.scrollTo({left:b.x-port.clientWidth/2,top:b.y-port.clientHeight/2,behavior:run.quiet?'instant':'smooth'});
+   const trace=create('span','motion-trace');pos(trace,run.quiet?b:a);layer.append(trace);
+   await anim(run,trace,run.quiet?[{opacity:.8},{opacity:1}]:path.frames,650);
+   trace.remove();
+   if(current!==run)return;
+  }
+  layer.dataset.stage='impact';
+  const outcome=e.outcome,icon={hit:'✷',pin:'⇊',miss:'↗',success:'↶'}[outcome];
+  const text={hit:'命中',pin:'受壓制',miss:'未命中',success:'撤退'}[outcome];
+  const ring=create('span','motion-impact');ring.dataset.outcome=outcome;ring.dataset.target=e.target||'';pos(ring,b);
+  ring.style.setProperty('--diameter',Math.max(34,Math.min(75,(e.target?b.w:35)||32)+10)+'px');
+  const tag=create('b','impact-tag');tag.textContent=icon+' '+text;ring.append(tag);layer.append(ring);
+  const chip=e.target&&(run.tokens.get(e.target)||board.querySelector('.map-chit[data-value="'+CSS.escape(e.target)+'"]'));
+  const victim=chip||(!run.before.units.has(e.target)&&e.targetPiece&&token(run,{piece:e.targetPiece},b));
+  const steady=[{opacity:1},{opacity:1}],reactions={
+   hit:[{transform:'translateX(0)'},{transform:'translateX(-5px) rotate(-6deg)',filter:'brightness(1.55)',offset:.14},{transform:'translateX(4px) rotate(4deg)',offset:.28},{transform:'none',offset:.43},{transform:'none'}],
+   miss:[{filter:'brightness(1)'},{filter:'brightness(1.4)',offset:.25},{filter:'brightness(1)'}],
+   pin:[{transform:'translateY(0)'},{transform:'translateY(4px) scale(.90)',offset:.25},{transform:'translateY(4px) scale(.90)',offset:.7},{transform:'none'}],
+   success:[{transform:'none'},{transform:'translateY(-6px)',offset:.35},{transform:'none'}]
+  };
+  const animations=[anim(run,ring,run.quiet?steady:[{opacity:.55},{opacity:1,offset:.12},{opacity:1,offset:.92},{opacity:.8}],1550)];
+  if(victim)animations.push(anim(run,victim,run.quiet?steady:reactions[outcome],1550));
+  await Promise.all(animations);arrow?.remove();ring.remove();
+  if(victim&&!chip){victim.remove();run.tokens.delete(e.target);}
  }
  function spark(run,e,p,ms){
   const mark=create('span','motion-signal');mark.dataset.kind=e.kind;mark.dataset.side=e.side||'neutral';
@@ -137,20 +203,21 @@ function createPlayer(catalog){
   const el=create('span','motion-card');el.dataset.kind=e.kind;el.style.width=a.w+'px';el.style.height=a.h+'px';pos(el,a);
   const front=photo(src),rear=photo(back);rear.className='motion-card-back';front.className='motion-card-front';el.append(rear,front);layer.append(el);
   if(run.quiet){
-   pos(el,b);el.style.transform='rotateY(180deg)';await anim(run,el,[{opacity:.4},{opacity:1}],120);
-  }else await anim(run,el,[{transform:'translate(0,0) rotateY(0deg)'},{transform:shift(a,b)+' rotateY(180deg)'}],360);
+   pos(el,b);el.style.transform='rotateY(180deg)';await anim(run,el,[{opacity:.4},{opacity:1}],640);
+  }else await anim(run,el,[{transform:'translate(0,0) rotateY(0deg)'},{transform:shift(a,b)+' rotateY(180deg)'}],680);
   el.remove();
   if(current===run){if(terrain){mask(run,'terrain'+e.to,'',false);run.oldTerrain.get(e.to)?.remove();}else{mask(run,'discard','',false);run.oldTop?.remove();}}
  }
  async function effect(run,e,ms){
   const p=point(run,e,true);
+  if(e.kind==='fire'&&e.outcome)return shoot(run,e);
   if(e.kind==='flight'){
    const path=create('span','motion-flight'),aircraft=document.createElement('i');aircraft.textContent='✈';
    path.setAttribute('aria-hidden','true');path.append(aircraft);label.after(path);
    layer.dataset.stage='direction';
-   await anim(run,path,[{opacity:.4},{opacity:1}],run.quiet?110:310);
+   await anim(run,path,[{opacity:.4},{opacity:1}],800);
    if(current!==run)return;layer.dataset.stage='travel';
-   await anim(run,aircraft,[{transform:'translateX(0)'},{transform:'translateX(42px)'}],run.quiet?110:390);
+   await anim(run,aircraft,[{transform:'translateX(0)'},{transform:'translateX(42px)'}],850);
    path.remove();return;
   }
   if(e.kind==='appear'||e.kind==='remove'){
@@ -169,13 +236,6 @@ function createPlayer(catalog){
    const face=photo(tile.src);face.className='motion-old-card';face.style.width=p.w+'px';face.style.height=p.h+'px';pos(face,p);layer.append(face);
    await anim(run,face,[{opacity:0,transform:'translateY(-20px) scale(.86)'},{opacity:1,transform:'none'}],ms);
    face.remove();if(current===run)mask(run,'terrain'+e.to,'',false);return;
-  }
-  if(e.from&&e.to&&e.from!==e.to){
-   const a=point(run,e,false),line=route(a,p,e.side);line.classList.add('motion-link');
-   const dot=create('span','motion-trace');pos(dot,a);layer.append(dot);
-   await anim(run,dot,[{transform:'translate(0,0)'},{transform:shift(a,p)}],ms*.55);
-   line.remove();dot.remove();if(current!==run)return;
-   return spark(run,e,p,ms*.65);
   }
   return spark(run,e,p,ms);
  }
@@ -225,16 +285,16 @@ function createPlayer(catalog){
    actor.dataset.side=owner;actor.textContent=sideText[owner]||'棋桌';
    label.textContent=group.length===1?first.label:group.map(e=>e.label).join('　／　');
    label.title=label.textContent;placeHud();if(!hud.matches(':popover-open'))hud.showPopover();
-   const ms=run.quiet?110:beats.length>8?260:440;
+   const ms=800;
    const animations=group.map(e=>effect(run,e,ms));
    const sheet=document.querySelector('dialog[open] .modalhead');
    if(sheet)animations.push(anim(run,sheet,[{boxShadow:'inset 0 -3px #d9a84f'},{boxShadow:'inset 0 -3px transparent'}],ms));
    if(i===last)for(const {id,a,b,ghost} of tracks){
     animations.push((async()=>{
      const path=Math.hypot(b.pos.x-a.pos.x,b.pos.y-a.pos.y)>8?route(a.pos,b.pos,'friendly'):null;
-     if(path)await anim(run,path,[{opacity:.3},{opacity:1}],run.quiet?90:200);
+     if(path)await anim(run,path,[{opacity:.3},{opacity:1}],650);
      if(current!==run)return;
-     await anim(run,ghost,[{transform:'translate(0,0)'},{transform:shift(a.pos,b.pos)}],run.quiet?80:240);
+     await anim(run,ghost,[{transform:'translate(0,0)'},{transform:shift(a.pos,b.pos)}],700);
      if(current===run){path?.remove();ghost.remove();mask(run,'cmd'+id,'',false);}
     })());
    }

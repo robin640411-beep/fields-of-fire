@@ -610,5 +610,83 @@ window.FOF_PIECES = [
     "name": "激烈交戰 · Heavily Engaged",
     "category": "marker",
     "art": "assets/pieces/heavily.webp"
+  },
+  {
+    "id": "grenade-miss",
+    "name": "榴彈未命中",
+    "category": "marker",
+    "art": "assets/pieces/grenade-miss.webp"
+  },
+  {
+    "id": "mine-blast",
+    "name": "地雷爆炸",
+    "category": "marker",
+    "art": "assets/pieces/mine-blast.webp"
+  },
+  {
+    "id": "moved-fired",
+    "name": "已移動／射擊",
+    "category": "marker",
+    "art": "assets/pieces/moved-fired.webp"
+  },
+  {
+    "id": "activated",
+    "name": "車輛已啟動",
+    "category": "marker",
+    "art": "assets/pieces/activated.webp"
+  },
+  {
+    "id": "rifle-grenade",
+    "name": "槍榴彈 1 枚",
+    "category": "marker",
+    "art": "assets/pieces/rifle-grenade.webp"
+  },
+  {
+    "id": "scr610",
+    "name": "SCR610 無線電",
+    "category": "marker",
+    "art": "assets/pieces/scr610.webp"
+  },
+  {
+    "id": "pending-3",
+    "name": "待發 −3",
+    "category": "marker",
+    "art": "assets/pieces/pending-3.webp"
+  },
+  {
+    "id": "incoming-3",
+    "name": "來襲 −3",
+    "category": "marker",
+    "art": "assets/pieces/incoming-3.webp"
+  },
+  {
+    "id": "pending-4",
+    "name": "待發 −4",
+    "category": "marker",
+    "art": "assets/pieces/pending-4.webp"
+  },
+  {
+    "id": "incoming-4",
+    "name": "來襲 −4",
+    "category": "marker",
+    "art": "assets/pieces/incoming-4.webp"
+  },
+  {
+    "id": "pending-5",
+    "name": "待發 −5",
+    "category": "marker",
+    "art": "assets/pieces/pending-5.webp"
+  },
+  {
+    "id": "incoming-5",
+    "name": "來襲 −5",
+    "category": "marker",
+    "art": "assets/pieces/incoming-5.webp"
+  },
+  {
+    "id": "tower",
+    "name": "教堂塔樓 +3",
+    "category": "marker",
+    "art": "assets/pieces/tower.webp"
   }
 ];

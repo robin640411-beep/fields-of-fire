@@ -29,6 +29,7 @@ function plan(before,after,ctx={}){
  const newUnits=new Map(after.units.map(u=>[u.id,u]));
  const t=C.has(before.id)&&before.cursor!==after.cursor?C.current(before):null;
  const specific=t&&window.FOF_LESSON_MOTION?.[before.id]?.[before.cursor];
+ const shots=t&&window.FOF_LESSON_ATTACKS?.[before.id]?.[before.cursor];
  const worksheet=C.lessons[before.id]?.worksheet;
  const anchor=worksheet?'worksheet':'board';
  const currentUnit=oldUnits.get(ctx.order?.unit||t?.unit||ctx.selected);
@@ -47,10 +48,16 @@ function plan(before,after,ctx={}){
  if(ctx.events?.length){
   for(const e of ctx.events)add(e);
  }
- if(specific&&!['move','retreat','evacuate'].includes(specific.kind)){
-  add({...specific,region:anchor,piece:specific.unit&&oldUnits.has(specific.unit)?piece(oldUnits.get(specific.unit)):undefined});
+ if(shots)for(const shot of shots)add({...shot,kind:'fire',targetPiece:oldUnits.has(shot.target)?piece(oldUnits.get(shot.target)):undefined});
+ if(!shots&&specific&&!['move','retreat','evacuate'].includes(specific.kind)){
+  add({...specific,kind:specific.kind==='fire'?'check':specific.kind,region:anchor,piece:specific.unit&&oldUnits.has(specific.unit)?piece(oldUnits.get(specific.unit)):undefined});
  }
- if(order&&drawKinds[order]){
+ if(order==='combat'&&ctx.order.target){
+  const target=oldUnits.get(ctx.order.target),shooter=oldUnits.get(ctx.order.shooter);
+  const first=after.recentDraws?.find(g=>g.why==='效果檢定')?.ids.find(id=>id!==51);
+  const result=first&&G.card(first).results[ctx.order.n+4];
+  if(target&&result)add({kind:'fire',target:target.id,to:spot(target),shooter:shooter?.id,from:spot(shooter),side:side(shooter),outcome:result.toLowerCase(),label:target.name+'・'+after.log.at(-1).text});
+ }else if(order&&drawKinds[order]){
   const [kind,name]=drawKinds[order];
   const log=after.log.at(-1)?.text;
   add({kind,region:'discard',to:ctx.order.x!=null?spot(ctx.order):spot(currentUnit),
@@ -104,10 +111,10 @@ function plan(before,after,ctx={}){
  for(const [key,value] of Object.entries(after.objectives||{})){
   if(value&&different(before.objectives?.[key],value)&&!noRoute)markers.push({kind:'objective',to:spot(value),label:spot(value)+'・部署'+({primary:'主要目標',secondary:'次要目標',position:'攻擊陣地',outpost:'前哨'}[key]||'路線點')});
  }
- if(t&&!specific&&!moves.length){
+ if(t&&!specific&&!shots&&!moves.length){
   const written=t.phase||'',kind=kindFor(written)==='check'?kindFor(t.text):kindFor(written);
   const owner=/敵軍活動/.test(written)?'enemy':side(currentUnit);
-  add({kind,label:t.phase+'・'+(t.kind==='choice'?t.options[t.answer]:t.kind==='amount'?t.label+' '+t.answer:t.text),
+  add({kind:kind==='fire'?'check':kind,label:t.phase+'・'+(t.kind==='choice'?t.options[t.answer]:t.kind==='amount'?t.label+' '+t.answer:t.text),
    side:owner,to:t.at||spot(currentUnit),region:worksheet?'worksheet':kind==='order'?'command':anchor});
  }
  for(const craft of after.planes||[]){

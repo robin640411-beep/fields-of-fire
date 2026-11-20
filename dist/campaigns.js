@@ -281,6 +281,7 @@ function adjustMap(s,request){
  }
  if(left){
    for(const p of [...s.map,...s.units,...(s.offboard||[]),...Object.values(s.objectives)])p.x++;
+   for(const marker of s.units){if(marker.side==='marker'&&/^[A-Z]\d+$/.test(marker.toward||'')){const p=coord(marker.toward);p.x++;marker.toward=G.nameAt(p);}}
    const shifted={};for(const [k,v] of Object.entries(s.xpCards)){if(/^[A-Z]\d+$/.test(k)){const p=coord(k);p.x++;shifted[G.nameAt(p)]=v;}else shifted[k]=v;}s.xpCards=shifted;
  }
  if(row)s.rows++;else s.cols++;

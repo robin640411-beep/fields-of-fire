@@ -356,14 +356,93 @@ function cellControls(c){
   b+='<div class="buttonrow">'+button('library','放置算子')+button('editCell','編輯圖上標記')+'</div>';
   return b;
 }
+const M=window.FOF_MARKERS;
+function options(rows,current=''){
+ return rows.map(([v,n])=>'<option value="'+esc(v)+'" '+(v===current?'selected':'')+'>'+esc(n)+'</option>').join('');
+}
+function configureMark(art,existing=null,legacy=null){
+ const def=catalog.get(art);if(!def)return;
+ const origin=existing||focus,cell=G.at(s,origin),at=G.nameAt(cell);
+ const role=M.role(art),on=G.unitsAt(s,cell).filter(u=>u.side!=='marker');
+ let body='';
+ if(role==='cover'){
+  body='<fieldset class="formgroup"><legend>在此掩蔽內的算子</legend>'+on.map(u=>'<label><input name="occupants" type="checkbox" value="'+esc(u.id)+'" '+(existing&&u.shelter===existing.id?'checked':'')+'> '+esc(u.name)+'</label>').join('')+'<small>留空即在本牌放置一處無人佔據的掩蔽。</small></fieldset>';
+  if(['bunker','pillbox'].includes(art)){const fixed=Number.isFinite(existing?.facing);body+='<label class="formgroup">工事射界<select id="fortFacing" '+(fixed?'disabled':'')+'>'+options([['','選擇箭頭朝向'],...['上','右上','右','右下','下','左下','左','左上'].map((n,i)=>[String(45*i),n])],fixed?String(existing.facing):'')+'</select></label>';}
+ }else if(role==='direction'){
+  const lines=s.map.filter(p=>{const dx=Math.abs(p.x-cell.x),dy=Math.abs(p.y-cell.y);return !G.same(p,cell)&&(!dx||!dy||dx===dy);});
+  body='<div class="formgroup"><label for="markDirection">從 '+at+' 射向哪一張牌？</label><select id="markDirection">'+options([['','選擇目標牌'],...lines.map(p=>[G.nameAt(p),G.nameAt(p)])],existing?.toward||'')+'</select></div>';
+ }else if(role==='target'||role==='vof'){
+  let rows=[];
+  if(role==='vof'){
+   rows=[['top','牌外射入，影響全牌']];
+   if(!art.startsWith('incoming-'))rows.push(['friendly','同牌友軍射出，置右上'],['enemy','同牌敵軍射出，置左下']);
+  }
+  if(art==='unspotted'&&on.some(u=>u.side==='enemy'))rows.push(['card','本牌全部敵軍']);
+  const stackTarget=['conc','grenade','mine-blast'].includes(art);
+  if(stackTarget)for(const cover of M.shelters(s,cell)){
+   if(on.some(u=>u.shelter===cover.key))rows.push(['stack:'+cover.key,'掩蔽疊・'+cover.label]);
+  }
+  if(!art.startsWith('incoming-'))for(const u of on){
+   if(stackTarget&&u.shelter||art==='unspotted')continue;
+   if(art.startsWith('kr-fpl')&&!/重機槍|\.30|\.50|HMG|hm[0-9]/i.test([u.name,u.art,u.abbr].join(' ')))continue;
+   if(role==='vof'&&!/雪曼|坦克|戰車|車輛|戰車砲|吉普|半履帶|sherman|panzer|vehicle|truck|jeep|tank|M5|M10|veh-/i.test([u.name,u.art].join(' ')))continue;
+   rows.push(['unit:'+u.id,'算子・'+u.name]);
+  }
+  const value=existing?.coverId?'stack:'+existing.coverId:existing?.members?.length?'unit:'+existing.members[0]:existing?.scope||'';
+  body='<div class="formgroup"><label for="markTarget">標記作用對象</label><select id="markTarget">'+options([['','選擇對象'],...rows],value)+'</select></div>';
+ }
+ body+='<div class="buttonrow">'+button('commitMark',existing?'更新標記':'放置標記','primary')+(existing?button('removeAsk','移出棋桌','',existing.id):'')+'</div>';
+ dialog('marker',at+'・'+def.name.split(' · ')[0],body,{art,id:existing?.id,legacy,cell:{x:cell.x,y:cell.y}});
+}
+function applyMark(){
+ const {id,art,legacy,cell}=modalData||{},def=catalog.get(art),at=cell&&G.at(s,cell);
+ if(!def||!at)return;
+ const target=$('markTarget')?.value,toward=$('markDirection')?.value;
+ if(target===''||toward===''||$('fortFacing')?.value==='')return tell('請先選擇標記的作用對象或射向。');
+ const occupants=[...document.querySelectorAll('input[name="occupants"]:checked')].map(el=>el.value);
+ const warning=M.occupancyError(art,s.units.filter(u=>occupants.includes(u.id)));if(warning)return tell(warning);
+ const old=id&&s.units.find(u=>u.id===id);
+ if(id&&!old)return;
+ const ok=edit(()=>{
+  const on=G.unitsAt(s,at),owner=target?.startsWith('unit:')&&on.find(u=>u.id===target.slice(5)&&u.side!=='marker');
+  if(['exposed','pinned'].includes(art)&&owner){
+   owner[art]=true;if(old)s.units=s.units.filter(m=>m!==old);
+  }else{
+   if(['grenade-miss','crossfire','unspotted'].includes(art)&&(on.some(m=>m.art===art&&m!==old)||at.marks.some((m,i)=>i!==legacy&&M.symbol(m)===art))){tell('本牌已有這枚標記。');return false;}
+   let m=old;
+   if(!m){const name=def.name.split(' · ')[0];m=G.piece('u'+(++s.serial),name,name,1,at.x,at.y,'marker',art);s.units.push(m);}
+   delete m.coverId;delete m.members;delete m.toward;delete m.scope;
+   if($('fortFacing'))m.facing=Number($('fortFacing').value);
+   if(toward)m.toward=toward;
+   if(owner){m.members=[owner.id];m.scope='unit';}
+   else if(target?.startsWith('stack:')){m.coverId=target.slice(6);m.scope='stack';}
+   else if(target)m.scope=target;
+   if(M.role(art)==='cover'){
+    for(const u of on.filter(u=>u.side!=='marker')){
+     if(occupants.includes(u.id)&&u.shelter!==m.id){M.leave(s,u);u.shelter=m.id;}
+     else if(!occupants.includes(u.id)&&u.shelter===m.id)M.leave(s,u);
+    }
+   }
+  }
+  if(Number.isInteger(legacy))at.marks.splice(legacy,1);
+  G.note(s,at&&G.nameAt(at)+'・'+(old?'更新':'放置')+def.name.split(' · ')[0]);return true;
+ });
+ if(ok){close();tell('已更新棋桌標記');}
+}
+function shelterField(u){
+ const covers=M.shelters(s,G.at(s,u));
+ if(!covers.length)return '';
+ return '<label for="shelterKey">所在掩蔽</label><select id="shelterKey">'+options([['','掩蔽外'],...covers.map(c=>[c.key,c.label])],u.shelter)+'</select>';
+}
 function unitDialog(id){
  const u=s.units.find(q=>q.id===id);if(!u)return;
+ if(u.side==='marker'&&catalog.has(u.art)&&isTable()&&!quick()&&!s.outcome){configureMark(u.art,u);return;}
  const art=catalog.get(u.art);
  let b='<div class="unitrow" data-piece-name="'+esc(u.name)+'" data-piece-info="'+G.nameAt(u)+'" tabindex="0">'+(art?pic(art.art,'piece-icon','算子'):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
  if(u.experience)b+='<p>'+esc(campaigns.gradeNames[u.experience])+(u.ammo!=null?'　彈藥 '+u.ammo:'')+(u.skills?.length?'　技能 '+u.skills.map(esc).join('、'):'')+'</p>';
  if(isTable()&&!quick()&&!s.outcome){
   if(u.skills?.length)b+=u.skills.map((skill,i)=>button('useUnitSkill','使用「'+skill+'」','tiny',String(i))).join('');
-  b+='<div class="buttonrow">'+button('moveMode','選擇移動目的地','primary',id)+'</div><div class="formgroup"><label for="steps">兵力階</label><input type="number" id="steps" min="0" max="16" value="'+Number(u.steps)+'"><label><input id="exposed" type="checkbox" '+(u.exposed?'checked':'')+'> 暴露</label><label><input id="pinned" type="checkbox" '+(u.pinned?'checked':'')+'> 受壓制</label><label><input id="casualty" type="checkbox" '+(u.casualty?'checked':'')+'> 傷亡算子（不計佔領）</label><label for="unitNote">算子紀錄</label><textarea id="unitNote" maxlength="2000">'+esc(u.notes)+'</textarea></div><div class="buttonrow">'+button('unitApply','套用變更','primary',id)+button('removeAsk','移出棋桌','',id)+'</div>';
+  b+='<div class="buttonrow">'+button('moveMode','選擇移動目的地','primary',id)+'</div><div class="formgroup"><label for="steps">兵力階</label><input type="number" id="steps" min="0" max="16" value="'+Number(u.steps)+'"><label><input id="exposed" type="checkbox" '+(u.exposed?'checked':'')+'> 暴露</label><label><input id="pinned" type="checkbox" '+(u.pinned?'checked':'')+'> 受壓制</label><label><input id="casualty" type="checkbox" '+(u.casualty?'checked':'')+'> 傷亡算子（不計佔領）</label>'+shelterField(u)+'<label for="unitNote">算子紀錄</label><textarea id="unitNote" maxlength="2000">'+esc(u.notes)+'</textarea></div><div class="buttonrow">'+button('unitApply','套用變更','primary',id)+button('removeAsk','移出棋桌','',id)+'</div>';
  }
  dialog('unit',u.name,b,id);
 }
@@ -373,7 +452,8 @@ function library(cat='friendly',q=''){
  if(modal==='library'&&document.getElementById('pieceList')){$('pieceList').innerHTML=list;return;}
  dialog('library','放置算子・'+G.nameAt(focus),'<div class="formgroup"><select id="pieceCat"><option value="friendly">友軍</option><option value="enemy">敵軍</option><option value="marker">遊戲標記</option></select><input id="pieceQuery" type="search" placeholder="搜尋名稱或代號" aria-label="搜尋算子"></div><div id="pieceList" class="gallery">'+list+'</div><p class="tagline">找不到所需算子時，可以名稱建立自訂棋子。</p><div class="buttonrow"><input id="customName" class="control" maxlength="40" placeholder="自訂名稱" aria-label="自訂名稱">'+button('customPiece','放置')+'</div>');
 }
-function tableDraw(){dialog('draw','行動牌工具','<p>依任務書抽取指定張數。每張牌的原圖都可放大查看。</p><div class="formgroup"><label for="drawN">抽牌張數</label><input id="drawN" type="number" value="1" min="1" max="12"></div>'+button('drawBatch','指定張數，前往牌組','primary')+'<hr class="divider"><h3>戰鬥效果檢定</h3><p class="tagline">輸入依棋桌狀態計出的淨戰鬥修正。命中時再抽一張讀取經驗欄，並將結果套用到該算子。</p><div class="formgroup"><label for="ncm">淨戰鬥修正（NCM）</label><select id="ncm">'+Array.from({length:11},(_,i)=>'<option '+(i===4?'selected':'')+' value="'+(i-4)+'">'+(i-4)+'</option>').join('')+'</select><label for="exp">經驗</label><select id="exp"><option value="line">一般</option><option value="green">新兵</option><option value="veteran">老兵</option></select></div>'+button('combatDraw','準備效果檢定','primary')+'<hr class="divider">'+button('deck','檢視行動牌組','tiny'));}
+function combatOptions(target){return s.units.filter(u=>u.side!=='marker'&&!u.casualty&&(!target||u.id!==target.id)).map(u=>'<option value="'+esc(u.id)+'">'+esc(G.nameAt(u)+'・'+u.name)+'</option>').join('');}
+function tableDraw(){dialog('draw','行動牌工具','<p>依任務書抽取指定張數。每張牌的原圖都可放大查看。</p><div class="formgroup"><label for="drawN">抽牌張數</label><input id="drawN" type="number" value="1" min="1" max="12"></div>'+button('drawBatch','指定張數，前往牌組','primary')+'<hr class="divider"><h3>戰鬥效果檢定</h3><p class="tagline">輸入依棋桌狀態計出的淨戰鬥修正。命中時再抽一張讀取經驗欄，並將結果套用到該算子。</p><div class="formgroup"><label for="combatTarget">受攻擊算子</label><select id="combatTarget"><option value="">僅讀取牌面</option>'+combatOptions()+'</select><label for="combatSource">射擊來源</label><select id="combatSource"><option value="">牌外支援或多個來源</option></select><label for="ncm">淨戰鬥修正（NCM）</label><select id="ncm">'+Array.from({length:11},(_,i)=>'<option '+(i===4?'selected':'')+' value="'+(i-4)+'">'+(i-4)+'</option>').join('')+'</select><label for="exp">經驗</label><select id="exp"><option value="line">一般</option><option value="green">新兵</option><option value="veteran">老兵</option></select></div>'+button('combatDraw','準備效果檢定','primary')+'<hr class="divider">'+button('deck','檢視行動牌組','tiny'));}
 function ledger(){
  const known=s.units.filter(u=>u.side==='friendly'&&(/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr))), names=[...new Set([...known.map(u=>u.id),...Object.keys(s.tracks)])];
  let b='<label class="formgroup">目前活動等級<select id="activity">'+actLabels.map((x,i)=>'<option value="'+i+'" '+(s.activity===i?'selected':'')+'>'+x+'</option>').join('')+'</select></label>'+button('openLedgerSheet','儲存紀錄並前往左側指揮表','secondary wide')+'<h3>命令軌</h3>'+names.map(id=>'<div class="detailrow"><label>'+esc(s.units.find(u=>u.id===id)?.name||id)+'</label><span>'+button('track','−','tiny',id+'|-1')+' <b class="mono">'+Number(s.tracks[id]||0)+'</b> '+button('track','＋','tiny',id+'|1')+'</span></div>').join('')+'<div class="formgroup"><label for="notes">任務紀錄與資源</label><textarea id="notes" maxlength="10000">'+esc(s.notes)+'</textarea></div>'+button('saveLedger','儲存紀錄','primary');
@@ -403,7 +483,7 @@ function saveMenu(){dialog('saves','存檔管理','<p>'+esc(storageOK?'每次行
 function start(id,guided=true,form=$('campaignForm')?.value){
  s=id==='T1'?G.training(guided):id==='Q1'?Q.start():campaigns.create(id,{form});resetView('任務開始・'+title(s.id));
 }
-function editCell(c){dialog('editcell','地圖標記・'+G.nameAt(c),'<div class="formgroup"><label for="marks">本牌標記（每行一項）</label><textarea id="marks" maxlength="800">'+esc(c.marks.join('\n'))+'</textarea><label for="pcType">潛在接敵</label><select id="pcType">'+['','A','B','C'].map(v=>'<option value="'+v+'" '+(v===(c.pc||'')?'selected':'')+'>'+esc(v||'無')+'</option>').join('')+'</select><label><input id="pcHidden" type="checkbox" '+(c.hidden?'checked':'')+'> 標記背面朝上</label></div>'+button('saveCell','套用地圖標記','primary'));}
+function editCell(c){dialog('editcell','地圖標記・'+G.nameAt(c),'<div class="formgroup"><label for="marks">本牌標記（每行一項）</label><textarea id="marks" maxlength="800">'+esc(c.marks.join('\n'))+'</textarea><label for="pcType">潛在接敵</label><select id="pcType">'+['','A','B','C'].map(v=>'<option value="'+v+'" '+(v===(c.pc||'')?'selected':'')+'>'+esc(v||'無')+'</option>').join('')+'</select><label><input id="pcHidden" type="checkbox" '+(c.hidden?'checked':'')+'> 標記背面朝上</label></div>'+button('saveCell','套用地圖標記','primary')+c.marks.map((label,i)=>{const art=M.symbol(label);return catalog.has(art)&&['target','direction','vof'].includes(M.role(art))?button('legacyMark','指定「'+label+'」的位置','tiny',String(i)):'';}).join(''));}
 function addPiece(type,name,art){
  const isMark=type==='marker',data=catalog.get(art);
  if(art==='ccp'&&conf()?.book==='K'&&s.phase==='setup'&&G.at(s,focus)?.faceDown){tell('傷亡收集點須設在已翻開的地形或集結區。');return false;}
@@ -422,7 +502,7 @@ function campaignRetry(){
   G.note(s,'重試 '+(s.attempt-1)+'：地形、敵軍、尚存 PC 與已計分牌保留。請依規則 §3.9 重新編組及配置。');});
  close();
 }
-function applyPatrolMove(u,from,p){recordPatrol(u,from,p);u.x=p.x;u.y=p.y;if(s.phase!=='setup'&&u.side!=='marker'&&(from.y||p.y))u.exposed=true;G.note(s,u.name+' 移至 '+G.nameAt(p)+'。');}
+function applyPatrolMove(u,from,p){recordPatrol(u,from,p);if(u.side!=='marker')M.onMove(s,u,p);u.x=p.x;u.y=p.y;if(s.phase!=='setup'&&u.side!=='marker'&&(from.y||p.y))u.exposed=true;G.note(s,u.name+' 移至 '+G.nameAt(p)+'。');}
 function selectCell(v){
  const p=readPos(v),c=G.at(s,p);
  if(!c)return;
@@ -582,23 +662,26 @@ document.addEventListener('click',ev=>{
   if(edit(()=>{if(!G.placeObjective(s,k,focus))return false;G.note(s,objectiveName(k)+' 位於 '+G.nameAt(focus)+'。');return true;})){close();tell('已放置'+objectiveName(k));}else tell(positionHint(k)+' 請確認位置符合條件。');
   break;}
  case 'library':library();break;
- case 'placePiece':{const t=catalog.get(v);if(!t)return;if(edit(()=>addPiece(t.category,t.name,t.id))){close();tell('已放置算子');}break;}
+ case 'commitMark':applyMark();break;
+ case 'legacyMark':{const c=G.at(s,focus),i=Number(v);configureMark(M.symbol(c.marks[i]),null,i);break;}
+ case 'placePiece':{const t=catalog.get(v);if(!t)return;if(t.category==='marker'&&(M.role(t.id)!=='area'||['grenade-miss','crossfire'].includes(t.id))){configureMark(t.id);break;}if(edit(()=>addPiece(t.category,t.name,t.id))){close();tell('已放置算子');}break;}
  case 'customPiece':{const nm=$('customName').value.trim();if(!nm)return tell('請輸入算子名稱');edit(()=>addPiece($('pieceCat').value,nm,''));close();break;}
  case 'editCell':editCell(G.at(s,focus));break;
  case 'saveCell':{const c=G.at(s,focus);edit(()=>{c.marks=$('marks').value.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,35);if(c.pc!==($('pcType').value||null)||!!c.hidden!==$('pcHidden').checked)G.setPC(s,c,$('pcType').value||null,$('pcHidden').checked);G.note(s,'更新 '+G.nameAt(c)+' 的地圖標記。');});close();break;}
  case 'editUnit':unitDialog(v);break;
  case 'useUnitSkill':{const u=selectedUnit(),i=Number(v);if(u?.skills?.[i]){edit(()=>G.note(s,u.name+' 使用技能「'+u.skills.splice(i,1)[0]+'」。'));unitDialog(u.id);}break;}
- case 'unitApply':{const u=selectedUnit(),n=Number($('steps').value);if(!Number.isInteger(n)||n<0||n>16)return tell('兵力階須介於 0 至 16');edit(()=>{u.steps=n;u.notes=$('unitNote').value;u.exposed=$('exposed').checked;u.pinned=$('pinned').checked;u.casualty=$('casualty').checked;if(s.series&&u.art==='co-hq'&&(u.casualty||!u.steps))s.series.coLost=true;G.note(s,'更新「'+u.name+'」的算子狀態。');});close();break;}
+ case 'unitApply':{const u=selectedUnit(),n=Number($('steps').value);if(!Number.isInteger(n)||n<0||n>16)return tell('兵力階須介於 0 至 16');const dest=$('shelterKey')?.value;if(dest){const shelter=M.shelters(s,G.at(s,u)).find(m=>m.key===dest);const warning=M.occupancyError(shelter?.art,[...G.unitsAt(s,u).filter(q=>q.id!==u.id&&q.shelter===dest),{...u,steps:n}]);if(warning)return tell(warning);}
+ edit(()=>{if($('shelterKey')&&($('shelterKey').value||'')!==(u.shelter||'')){M.leave(s,u);u.shelter=$('shelterKey').value;}u.steps=n;u.notes=$('unitNote').value;u.exposed=$('exposed').checked;u.pinned=$('pinned').checked;u.casualty=$('casualty').checked;if(s.series&&u.art==='co-hq'&&(u.casualty||!u.steps))s.series.coLost=true;G.note(s,'更新「'+u.name+'」的算子狀態。');});close();break;}
  case 'moveMode':selected=v;mode='move';close();render();tell('點選目的地形牌');break;
  case 'removeAsk':dialog('remove','移出棋桌','<p>移出「'+esc(selectedUnit()?.name)+'」？此步驟可復原。</p>'+button('removeUnit','移出','primary',v)+' '+button('close','取消'));break;
- case 'removeUnit':edit(()=>{const u=s.units.find(q=>q.id===v);if(!u)return false;if(s.series&&u.art==='co-hq')s.series.coLost=true;G.note(s,'移出「'+u.name+'」。');s.units=s.units.filter(q=>q.id!==v);});selected=null;close();render();break;
+ case 'removeUnit':edit(()=>{const u=s.units.find(q=>q.id===v);if(!u)return false;if(s.series&&u.art==='co-hq')s.series.coLost=true;G.note(s,'移出「'+u.name+'」。');for(const member of s.units)if(member.shelter===v)M.leave(s,member);s.units=s.units.filter(q=>q.id!==v&&q.coverId!==v&&!q.members?.includes(v));});selected=null;close();render();break;
  case 'hqEvent':armDraw({type:'event'});break;
  case 'choosePC':armDraw({type:'order'});break;
  case 'rerollContact':case 'checkPC':if(focus)armDraw({type:a==='checkPC'?'contact':'group',x:focus.x,y:focus.y});break;
  case 'emptyContact':case 'finishContact':edit(()=>{const c=G.at(s,focus);if(!c?.pending)return false;s.activity=Number($('contactActivity').value);c.pending=false;G.note(s,G.nameAt(c)+(a==='emptyContact'?' 無可用組合，未發生接敵。':' 已完成接敵配置。')+'活動程度為'+actLabels[s.activity]+'。');});close();break;
  case 'tableDraw':tableDraw();break;
  case 'drawBatch':{const n=Number($('drawN').value);if(!Number.isInteger(n)||n<1||n>12)return tell('請輸入 1 至 12');armDraw({type:'batch',n});break;}
- case 'combatDraw':armDraw({type:'combat',n:Number($('ncm').value),exp:$('exp').value});break;
+ case 'combatDraw':armDraw({type:'combat',n:Number($('ncm').value),exp:$('exp').value,target:$('combatTarget').value,shooter:$('combatSource').value});break;
  case 'ledger':ledger();break;
  case 'track':{const [id,delta]=v.split('|');const notes=$('notes').value,activity=Number($('activity').value);edit(()=>{s.notes=notes;s.activity=activity;window.FOF_COMMAND_DISPLAY.adjust(s,id,Number(delta));});ledger();break;}
  case 'openLedgerSheet':case 'saveLedger':edit(()=>{s.activity=Number($('activity').value);s.notes=$('notes').value;G.note(s,'更新命令與任務紀錄。');});close();if(a==='openLedgerSheet'){$('command-display').focus({preventScroll:true});$('command-display').scrollIntoView({block:'nearest',inline:'start'});}break;
@@ -610,7 +693,8 @@ document.addEventListener('click',ev=>{
  }
 });
 document.addEventListener('input',e=>{if(e.target.id==='pieceQuery')library($('pieceCat').value,e.target.value);});
-document.addEventListener('change',e=>{if(e.target.id==='pieceCat')library(e.target.value,$('pieceQuery').value);});
+document.addEventListener('change',e=>{if(e.target.id==='combatTarget'){const target=s.units.find(u=>u.id===e.target.value);$('combatSource').innerHTML='<option value="">牌外支援或多個來源</option>'+(target?combatOptions(target):'');}
+ if(e.target.id==='pieceCat')library(e.target.value,$('pieceQuery').value);});
 $('importFile').addEventListener('change',async e=>{
  const f=e.target.files[0];e.target.value='';if(!f)return;
  try{if(f.size>5e6)throw Error();const raw=JSON.parse(await f.text());

@@ -422,3 +422,28 @@ body{min-width:1080px;--campaign-nav-height:42px}
 #historyViewer.full-size img { max-height:none; max-width:none; }
 #historyFigureCaption { padding:10px 16px; }
 .modalcontent .entry-title { font-size: 1.2rem; margin-bottom: .6rem; }
+
+/* Counters occupy the central mat. Fire zones and PDF use the printed card's coordinates. */
+.physical-stack{position:relative;width:100%;height:100%;isolation:isolate}
+.stack-member{position:absolute;width:100%;height:100%;left:calc((var(--i) - (var(--n) - 1)/2) * min(7px,var(--chit-size)*.19));top:calc((var(--i) - (var(--n) - 1)/2) * min(6px,var(--chit-size)*.16))}
+.stack-member:hover,.stack-member:focus-within{z-index:4}
+.attached-chit,.shelter-chit,.zone-chit{pointer-events:auto;position:relative;display:grid;place-items:center;min-height:0;min-width:0;aspect-ratio:1;padding:0;border:0;border-radius:1px;color:#28382d;background:#e8d9a1;box-shadow:0 1px 2px 1px #17241d98}
+.attached-chit img,.shelter-chit img,.zone-chit img{width:100%;height:100%;display:block;object-fit:contain}
+.personal-marks{position:absolute;z-index:3;right:-6%;bottom:-7%;width:112%;display:flex;flex-wrap:wrap-reverse;justify-content:flex-end;pointer-events:none}
+.attached-chit{width:43%}
+.shelter-chit{position:absolute;z-index:2;width:66%;height:66%;right:-8%;top:-11%}
+.physical-stack:has(.shelter-chit):not(:has(.stack-member)) .shelter-chit{width:88%;height:88%;right:6%;top:6%}
+.stack-condition{position:absolute;z-index:3;right:calc(var(--k)*20%);top:-18%}
+.zone-chit{width:min(17%,var(--chit-size));height:auto}
+.card-fire-rail{position:absolute;top:4%;left:50%;translate:-50% 0;display:flex;align-items:flex-start;justify-content:center;gap:1px;max-width:58%}
+.card-fire-rail .zone-chit{width:calc(var(--chit-size)*.78);flex:0 1 auto}
+.local-vof,.bearing{position:absolute}
+.local-vof.friendly{right:5%;top:5%}.local-vof.enemy{left:5%;bottom:5%}
+.bearing{z-index:3;left:calc(50% + var(--dx)*41.5%);top:calc(50% + var(--dy)*43.5%);translate:-50% -50%;width:calc(var(--chit-size)*.67)}
+.bearing img{transform:rotate(var(--bearing))}
+.choosing-cell .chit-mat button,.move-target .chit-mat button{pointer-events:none}
+.chit-mat :is(.attached-chit,.zone-chit,.shelter-chit):is(:hover,:focus-visible){z-index:5;outline:2px solid #ffd16f}
+
+.gear-chit{position:absolute;left:calc(-19% - var(--k)*13%);top:calc(13% + var(--k)*18%);width:76%}
+
+.shelter-chit img{transform:rotate(var(--facing,0deg))}

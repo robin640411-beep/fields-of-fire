@@ -218,6 +218,7 @@ function advanceTable(s){
   s.phase='orders';note(s,'設置完成，開始第一回合。');return true;
  }
  if(s.phase==='cleanup'){
+  window.FOF_MARKERS?.cleanup(s);
   if(s.turn>=(window.FOF_CAMPAIGNS?.turnLimit(s)||m.turns)){
    if(m.mode==='patrol'){s.phase='patrolresult';note(s,'請依任務書登錄本次巡邏結果。');return true;}
    const gs=goals(s);s.outcome=gs.length&&gs.every(g=>g.done)?'win':'loss';note(s,s.outcome==='win'?'任務目標全部達成。':'回合用盡，尚有未達成的目標。');return true;

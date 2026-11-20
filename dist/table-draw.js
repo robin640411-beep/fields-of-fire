@@ -16,6 +16,10 @@ function validOrder(o){
 }
 function validForState(s,o){
  if(!validOrder(o))return false;
+ if(o.type==='combat'&&(o.target||o.shooter)){
+  const valid=id=>s.units.some(u=>u.id===id&&!u.casualty&&u.side!=='marker');
+  if(!valid(o.target)||o.shooter&&(o.target===o.shooter||!valid(o.shooter)))return false;
+ }
  if(C.has(s.id))return o.type==='lesson'&&C.current(s)?.kind==='draw';
  if(s.id==='T1')return o.type==='advance';
  if(s.id==='Q1')return ['advance','cover','rally'].includes(o.type);

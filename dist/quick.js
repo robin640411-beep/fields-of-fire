@@ -14,7 +14,7 @@ function start(){
 }
 const able=(s,u)=>!!u&&!s.outcome&&['command','initiative'].includes(s.phase)&&s.points>0&&u.side==='friendly'&&!u.casualty;
 function canMove(s,u,c){return able(s,u)&&!u.exposed&&!u.pinned&&G.near(u,c)&&G.unitsAt(s,c).filter(v=>v.side==='friendly'&&!v.casualty).reduce((n,v)=>n+v.steps,0)+u.steps<=16;}
-function move(s,u,c){if(!canMove(s,u,c))return false;u.x=c.x;u.y=c.y;u.exposed=true;u.covered=false;s.points--;G.note(s,u.name+' 移至 '+G.nameAt(c)+'（1 點）。');return true;}
+function move(s,u,c){if(!canMove(s,u,c))return false;if(u.covered&&!u.shelter){const old=G.at(s,u);if(!old.marks.includes('基本掩蔽 +1'))old.marks.push('基本掩蔽 +1');}delete u.shelter;u.x=c.x;u.y=c.y;u.exposed=true;u.covered=false;s.points--;G.note(s,u.name+' 移至 '+G.nameAt(c)+'（1 點）。');return true;}
 function canAct(s,u,kind){
  if(!able(s,u))return false;
  if(kind==='rally')return u.pinned;
@@ -24,12 +24,15 @@ function canAct(s,u,kind){
 function special(s,u,kind){
  if(!canAct(s,u,kind))return false;s.points--;
  if(kind==='rally'){const cs=G.draw(s,2,'重整檢定');if(cs.some(c=>c.rally)){u.pinned=false;G.note(s,u.name+' 重整成功。');}else G.note(s,u.name+' 未抽到重整圖示。');}
- else{const t=G.terrain(G.at(s,u).t),cs=G.draw(s,Math.min(12,t.coverDraws),'尋找掩蔽');u.covered=cs.some(c=>c.cover);G.note(s,u.name+(u.covered?' 得到掩蔽。':' 未找到掩蔽。'));}
+ else{const t=G.terrain(G.at(s,u).t),cs=G.draw(s,Math.min(12,t.coverDraws),'尋找掩蔽');u.covered=cs.some(c=>c.cover);if(u.covered){
+  const here=G.at(s,u),free=window.FOF_MARKERS.shelters(s,here).find(m=>!G.unitsAt(s,u).some(v=>v.shelter===m.key));
+  if(free)u.shelter=free.key;else{const marker=G.piece('u'+(++s.serial),'基本掩蔽 +1','掩蔽',1,u.x,u.y,'marker','cover');s.units.push(marker);u.shelter=marker.id;}
+ }G.note(s,u.name+(u.covered?' 得到掩蔽。':' 未找到掩蔽。'));}
  return true;
 }
 function resolve(s,events,draw=G.draw){
  const report=[];const emit=msg=>{G.note(s,msg);report.push(msg);};
- const cue=(kind,u,label,actor)=>events?.push({kind,label,side:(actor||u).side,
+ const cue=(kind,u,label,actor,result)=>events?.push({kind,label,...(result?{shooter:actor.id,target:u.id,outcome:result.toLowerCase()}:{}),side:(actor||u).side,
   from:G.nameAt(actor||u),to:G.nameAt(u),piece:{id:u.id,name:u.name,art:u.art,side:u.side}});
  let occupied=s.map.filter(c=>G.unitsAt(s,c).some(v=>v.side==='friendly'&&!v.casualty));
  for(const c of occupied.filter(c=>c.pc)){
@@ -45,12 +48,12 @@ function resolve(s,events,draw=G.draw){
   const live=friends.filter(u=>!u.pinned),wasPinned=e.pinned;
   let defeat=false,stun=false;
   if(live.length){const check=draw(s,1,'接敵算子效果')[0].results[4-Math.min(3,live.length)];
-   defeat=check==='HIT';stun=check==='PIN';cue('fire',e,'友軍火力・'+({HIT:'命中',PIN:'壓制',MISS:'未命中'}[check]),live[0]);}
+   defeat=check==='HIT';stun=check==='PIN';cue('fire',e,'友軍火力・'+({HIT:'命中',PIN:'壓制',MISS:'未命中'}[check]),live[0],check);}
   if(!wasPinned){
    for(const u of friends){
     const ncm=Math.max(-4,Math.min(6,(G.terrain(c.t)?.cover||0)+(u.covered?2:0)-(u.exposed?2:0)));
     const r=draw(s,1,'友軍效果 '+u.abbr)[0].results[ncm+4];
-    cue('fire',u,'敵軍火力・'+u.name+' '+({HIT:'命中',PIN:'壓制',MISS:'未命中'}[r]),e);
+    cue('fire',u,'敵軍火力・'+u.name+' '+({HIT:'命中',PIN:'壓制',MISS:'未命中'}[r]),e,r);
     if(r==='HIT'){u.steps--;u.pinned=true;if(u.steps<=0){u.casualty=true;emit(u.name+' 已退場。');}else emit(u.name+' 減少一階，受壓制。');}
     else if(r==='PIN'){u.pinned=true;emit(u.name+' 受壓制。');}
     if(r==='HIT'||r==='PIN')cue(r==='HIT'?'loss':'pin',u,u.casualty?'算子退場':r==='HIT'?'減少一階、受壓制':'受壓制');
