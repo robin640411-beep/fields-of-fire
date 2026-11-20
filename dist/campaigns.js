@@ -135,7 +135,7 @@ function createMap(s,m,previous){
    else if(terrainRules.randomLanding){let eligible=cells(s,c=>land(G.terrain(c.t)));if(!eligible.length){const c=G.shuffle(cells(s,()=>true))[0];c.t=drawCard(land).id;eligible=[c];}s.landing=[G.nameAt(G.shuffle(eligible)[0])];}
    else {const i=Math.floor(Math.random()*(m.cols-2));s.landing=range(3).map(j=>G.nameAt({x:i+j-1,y:1}));}
  }else if(terrainRules.centerLanding&&!s.landing)s.landing=[terrainRules.centerLanding];
- for(const k of s.landing||[]){const c=G.at(s,coord(k));c.marks.push('著陸區 LZ');if(m.pcSkipLanding||m.pcOnLanding){c.pc=m.pcOnLanding||null;c.originalPC=c.pc;c.hadPC=!!c.pc;c.hidden=false;}}
+ for(const k of s.landing||[]){const c=G.at(s,coord(k));if(m.id!=='VN2')c.marks.push('著陸區 LZ');if(m.pcSkipLanding||m.pcOnLanding){c.pc=m.pcOnLanding||null;c.originalPC=c.pc;c.hadPC=!!c.pc;c.hidden=false;}}
  if(terrainRules.randomVillageObjective){const villages=cells(s,c=>terrain.find(t=>t.id===c.t)?.type==='Village'&&!s.landing.includes(G.nameAt(c)));const options=villages.length?villages:cells(s,c=>!s.landing.some(k=>G.same(c,coord(k))||G.near(c,coord(k))));const c=G.shuffle(options)[0];s.objectives.primary={x:c.x,y:c.y};}
  if(hiddenMap){
    s.terrainReserve=cards.map(t=>t.id).reverse();

@@ -4,25 +4,38 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
  const G=window.FOF;
  const M=window.FOF_MARKERS;
  const unitFaces=new Map(Object.entries({...window.FOF_FOOT_GUIDE,...window.FOF_VEHICLE_FACES,...window.FOF_AIR_LOAD_GUIDE}));
- const objectiveArt={primary:'obj1',secondary:'obj2',way1:'route1',way2:'route2',way3:'route3'};
+ const mapNotes=new Set(['樹林丘陵目標','同牌交戰']);
  function contents(s,c){
-  const raw=[],units=[];
-  const add=(label,art,short)=>raw.push({label,art,short});
-  if(c.pc)add('潛在接敵 '+(c.hidden?'?':c.pc),c.hidden?'pc-hidden':'pc-'+c.pc.toLowerCase(),'PC');
-  if(c.pending)add('接敵待配置',null,'接敵');
+  const raw=[],units=[],notes=[];
+  const add=(label,art,short,info)=>raw.push({label,art,short,info});
+  const nextPC=c.pc&&!window.FOF_COURSE.has(s.id)&&s.id!=='Q1'&&G.isTable(s)&&G.nextPC(s)===c;
+  if(c.pc)add('潛在接敵 '+(c.hidden?'?':c.pc),c.hidden?'pc-hidden':'pc-'+c.pc.toLowerCase(),'PC',nextPC?'下一枚應結算的潛在接敵標記':'');
+  if(nextPC)notes.push('下一枚 PC');
+  if(c.pending)notes.push('接敵待配置');
   if(!window.FOF_COURSE.has(s.id)&&G.isTable(s)&&G.secured(s,c))add('已確保區域','secure');
-  if(!window.FOF_COURSE.has(s.id)&&s.id!=='Q1'&&G.isTable(s)&&G.nextPC(s)===c)add('下一枚 PC',null,'次序');
-  if(s.id==='T1'&&c.y===3)add('演練目標',null,'目標');
-  for(const [key,pos] of Object.entries(s.objectives))if(G.same(c,pos))add(objectiveName(key),objectiveArt[key]);
-  for(const label of c.marks)add(label,M.symbol(label));
+  if(s.id==='T1'&&c.y===3)notes.push('演練目標');
+  if(s.id==='VN2'&&s.landing?.includes(G.nameAt(c)))notes.push('中央可著陸地形');
+  for(const [key,pos] of Object.entries(s.objectives))if(G.same(c,pos)){
+   const label=objectiveName(key);add(label,M.symbol(label,s,c));
+  }
+  for(const label of c.marks){
+   if(mapNotes.has(label)){notes.push(label);continue;}
+   if(label==='著陸區 LZ'&&s.id==='VN2'&&s.landing?.includes(G.nameAt(c)))continue;
+   add(label,M.symbol(label,s,c));
+  }
   for(const u of G.unitsAt(s,c)){
    const condition=[u.lessonStatus,u.pinned&&'受壓制',u.exposed&&'暴露',u.covered&&'基本掩蔽',u.casualty&&'傷亡'].filter(Boolean).join('、');
-   const item={...u,art:u.art||(u.side==='marker'?M.symbol(u.name):''),label:u.name,condition,short:u.abbr||u.name};
+   const art=u.side==='marker'&&!catalog.has(u.art)?M.symbol(u.name,s,c)||u.art:u.art;
+   const item={...u,art,label:u.name,condition,short:u.abbr||u.name};
+   if(u.casualty){
+    const losses=G.unitsAt(s,c).filter(v=>v.casualty&&v.side===u.side);
+    if(losses.length>1)item.info=(u.side==='enemy'?'本牌敵軍':'本牌友軍')+'傷亡共 '+losses.reduce((sum,v)=>sum+v.steps,0)+' 階';
+   }
    (u.side==='marker'?raw:units).push(item);
   }
   const model=M.layout(s,c,units,raw);
   const markers=[...model.locations,...[...model.per.values()].flat().filter(m=>!model.locations.some(l=>m.id&&m.id===l.id||l.art===m.art&&l.info&&m.info?.includes(l.info)))];
-  return {units,markers,model};
+  return {units,markers,model,notes,nextPC};
  }
  function chit(item,selected,cls='map-chit',style='',extra=''){
   const label=[item.label,item.condition,item.info].filter(Boolean).join('・');
@@ -44,7 +57,7 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
    const bodies=members.map((id,i)=>{
     const body=chit(byId.get(id),selected);
     const marks=per.get(id)||[];
-    const gear=marks.filter(m=>['scr610','rifle-grenade'].includes(m.art));
+    const gear=marks.filter(m=>M.isGear(m.art));
     const under=gear.map((m,k)=>chit({...m,owner:id},selected,'gear-chit attached-chit','--k:'+k,'data-on="'+esc(id)+'"')).join('');
     const chips=marks.filter(m=>!gear.includes(m)).map((m,k)=>chit({...m,owner:id},selected,'attached-chit','--k:'+k,'data-on="'+esc(id)+'"')).join('');
     const style='--i:'+i+';--n:'+members.length;
@@ -60,7 +73,7 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
    (count<clusters.length?'<button type="button" class="map-chit pile-count" style="grid-area:p14" data-action="boardPile">+'+(clusters.length-count)+'</button>':'');
   const rail=top.length?'<div class="card-fire-rail">'+top.map(m=>chit(M.role(m.art)==='vof'?{...m,info:'牌外射入，影響本牌的敵我單位'}:m,selected,'zone-chit','','data-zone="top"')).join('')+'</div>':'';
   const local=Object.entries(corners).map(([side,m])=>chit({...m,info:side==='friendly'?'同牌友軍射出，影響敵軍':'同牌敵軍射出，影響友軍'},selected,'zone-chit local-vof '+side,'','data-zone="'+side+'"')).join('');
-  const arrows=edges.map(m=>{const d=m.bearing;return chit(m,selected,'zone-chit bearing','--dx:'+d.x+';--dy:'+d.y+';--bearing:'+d.angle+'deg','data-angle="'+d.angle+'"');}).join('');
+  const arrows=edges.map(m=>{const d=m.bearing;return chit(m,selected,'zone-chit bearing'+(M.role(m.art)==='boundary'?' boundary-chit':''),'--dx:'+d.x+';--dy:'+d.y+';--bearing:'+d.angle+'deg','data-angle="'+d.angle+'"');}).join('');
   return '<div class="chit-mat">'+main+rail+local+arrows+'</div>';
  }
  function tile(s,c,dest,focused,selected){
@@ -68,7 +81,7 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   const pieces=contents(s,c),{units,markers}=pieces,key=c.x+','+c.y;
   const code=t&&!c.faceDown?G.terrainCode(t):'',face=t&&!c.faceDown?t.face:backFace(!c.y),title=[coord,name,code].filter(Boolean).join(' ');
   const faces=layers.map((id,i)=>'<img class="hill-face" style="--layer:'+i+'" src="'+terrain(id??1).face+'" data-code="'+esc(G.terrainCode(terrain(id??1)))+'" alt="" draggable="false">').join('');
-  return '<div class="card-location'+(dest&&!window.FOF_COURSE.has(s.id)?' move-target':'')+'" '+(t?'':'data-staging')+' data-coord="'+key+'" style="--layers:'+layers.length+'">'+
+  return '<div class="card-location'+(dest&&!window.FOF_COURSE.has(s.id)?' move-target':'')+'" '+(t?'':'data-staging')+(pieces.nextPC?' data-next-pc':'')+(c.pending?' data-pending-contact':'')+' data-coord="'+key+'" style="--layers:'+layers.length+'">'+
    '<button type="button" class="tile'+(dest?' can':'')+(focused?' focused':'')+'" data-action="cell" data-value="'+key+'" aria-label="'+esc(title+'，'+units.length+' 枚算子，'+markers.length+' 枚標記'+(dest?'，可移入':''))+'">'+
    '<span class="cell-caption"><span class="cell-ref"><b>'+coord+'</b>'+(code?'<small>'+esc(code)+'</small>':'')+'</span><span class="cell-name">'+esc(name)+'</span></span>'+
    '<span class="card-stack">'+faces+'<img class="board-face" src="'+face+'" alt="'+esc(t?name:backName(true))+'" draggable="false"></span></button>'+
@@ -90,12 +103,13 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   const id=layer===null?cell.t:G.hillLayers(cell)[layer];
   const t=cell.faceDown?null:terrain(id??1);
   const description=window.FOF_TERRAIN_LEGEND(t,cell,layer);
-  const {units,markers}=contents(s,cell);
+  const {units,markers,notes}=contents(s,cell);
   const names=items=>items.map(i=>esc(i.label+((i.info||i.condition)?'（'+(i.info||i.condition)+'）':''))).join('、');
   const row=({glyph,title,meaning})=>'<div class="legend-row">'+(glyph?'<span class="legend-glyph glyph-'+glyph+'" aria-hidden="true"></span>':'')+
    '<dt>'+esc(title)+'</dt><dd>'+esc(meaning)+'</dd></div>';
   const summary=description.summary+(layer!==null&&id==null?'　此層牌號未記錄':'');
   return '<p class="legend-summary">'+esc(summary)+'</p><dl>'+description.rows.map(row).join('')+'</dl>'+
+   notes.map(label=>'<p class="legend-pieces"><b>'+esc(label)+'</b>　'+esc(FOF_MARKER_GUIDE.explain('',label,'',s.id))+'</p>').join('')+
    (units.length?'<p class="legend-pieces"><b>本牌算子</b>　'+names(units)+'</p>':'')+
    (markers.length?'<p class="legend-pieces"><b>本牌標記</b>　'+names(markers)+'</p>':'')+
    (cell.pending&&cell.contactDetail?'<p class="legend-pieces"><b>接敵配置</b>　'+esc(cell.contactDetail)+'</p>':'');
@@ -112,10 +126,17 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   dismiss();active=anchor;shownSrc=src;
   timer=setTimeout(()=>{
    if(!anchor.isConnected)return;
+   // Closing a dialog or settling the board can move a different counter under a stationary pointer.
+   if(pointerPosition){
+    const target=document.elementFromPoint(pointerPosition.clientX,pointerPosition.clientY);
+    if(!target){dismiss();return;}
+    inspect({type:'pointermove',target,...pointerPosition});
+    if(active!==anchor||shownSrc!==src)return;
+   }
    const modal=anchor.closest('dialog');
    if(modal?!modal.open:document.querySelector('dialog[open]'))return;
    if(modal)modal.append(preview);
-   preview.dataset.kind=anchor.hasAttribute('data-piece-name')?'piece':'card';
+   preview.dataset.kind=anchor.matches('[data-piece-name],[data-pool-readout]')?'piece':'card';
    preview.toggleAttribute('data-terrain',!!details);
    preview.toggleAttribute('data-unit-face',!!rows);
    preview.toggleAttribute('data-marker-rule',!!rule);
@@ -136,7 +157,7 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
    }else legendPanel.replaceChildren();
    caption.textContent=name;note.textContent=info;note.hidden=!info;
    picture.hidden=!src;picture.style.transform=anchor.classList.contains('bearing')?'rotate('+anchor.style.getPropertyValue('--bearing')+')':anchor.style.getPropertyValue('--facing')?'rotate('+anchor.style.getPropertyValue('--facing')+')':'';if(src)picture.src=src;else picture.removeAttribute('src');
-   symbolFace.hidden=!!src;symbolFace.textContent=symbol;
+   symbolFace.hidden=!!src||!symbol;symbolFace.textContent=symbol;
    preview.hidden=false;
    described=anchor.querySelector('.tile')||anchor;described.setAttribute('aria-describedby',preview.id);
    const p=preview.getBoundingClientRect(),gap=details||rows?0:margin;
@@ -159,7 +180,7 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   const card=target.closest('.card-location');
   let piece=target.closest('[data-piece-name]');
   if(!piece&&pointer){
-   const surface=target.closest('#commandPaper')||(card?.matches('.choosing-cell .card-location,.move-target')&&card);
+   const surface=target.closest('#commandPaper')||card;
    if(surface)piece=pieceAtPointer(surface,event);
   }
   if(piece){
@@ -172,13 +193,15 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
    const rows=unitFaces.get(key);
    const marker=piece.hasAttribute('data-marker')||entry?.category==='marker';
    const rule=marker?window.FOF_MARKER_GUIDE.explain(piece.dataset.marker||key,name,piece.dataset.area,state().id):'';
-   const title=key.startsWith('concentration-')&&entry?entry.name.split(' · ')[0]:name;
+   const title=(key.startsWith('concentration-')||name==='著陸區 LZ')&&entry?entry.name.split(' · ')[0]:name;
    const tracksStrength=!marker&&(!rows||rows.some(([mark])=>mark.includes('●')));
    const unit=tracksStrength&&piece.dataset.unitKey&&state().units.find(u=>u.id===piece.dataset.unitKey);
    const strength=unit&&Number.isFinite(unit.steps)?'本局兵力 '+unit.steps+' 階':'';
    const info=[piece.dataset.pieceInfo,strength].filter(Boolean).join('　');
    schedule(piece,src,title,{info,symbol,rule,rows});return;
   }
+  const pool=target.closest('[data-pool-readout]');
+  if(pool){schedule(pool,null,'連隊共用命令',{info:pool.dataset.poolReadout,rule:'快戰中六個班共用命令點。指揮表的框線標出目前記錄的位置。'});return;}
   const discard=target.closest('#discardPile'),front=discard?.querySelector('img');
   if(front&&!front.hidden){schedule(discard,front.src,front.alt);return;}
   if(!card||card.hasAttribute('data-staging')||target.closest('.pile-count')){dismiss();return;}

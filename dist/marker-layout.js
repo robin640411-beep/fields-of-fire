@@ -1,18 +1,40 @@
 /* Interpret physical counters independently of the text used in old saved games. */
 (() => {
 'use strict';
-const covers=new Set(['cover','foxhole','trench','bunker','pillbox','lightbuilding','strongbuilding','tower']);
+const covers=new Set(['cover','foxhole','trench','bunker','deep-bunker','pillbox','lightbuilding','strongbuilding','tower']);
+const gear=new Set(['scr610','rifle-grenade','ger-rifle-grenade-2','panzerfaust-1','panzerfaust-2']);
 const personal=new Set(['exposed','pinned','unspotted','conc','grenade','mine-blast','vof-sniper','green','vet','activated','moved-fired','rifle-grenade','scr610','kr-fpl-l','kr-fpl-r']);
 const strength={'vof-p':2,'vof-s':0,'vof-a':-1,'vof-h':-3,'incoming-3':-3,'incoming-4':-4,'incoming-5':-5};
+for(const key of ['incoming-6','incoming-7','incoming-wp-3','incoming-wp-4','incoming-air-7','incoming-air-8'])strength[key]=-Number(key.at(-1));
 function role(art){
  if(covers.has(art))return 'cover';
+ if(art==='wire-perimeter')return 'boundary';
+ if(art==='claymore')return 'claymore';
+ if(art==='booby-trap'||gear.has(art))return 'target';
  if(art==='pdf')return 'direction';
  if(Object.hasOwn(strength,art))return 'vof';
  if(personal.has(art))return 'target';
  return 'area';
 }
-function symbol(label){
- if(window.FOF_COURSE_MARKS?.[label])return FOF_COURSE_MARKS[label];
+let printedNames;
+function symbol(label,state,cell){
+ if(label==='著陸區 LZ')return FOF_MISSION_MARKERS.landingFace(state,cell);
+ if(label==='鐵絲網'&&state?.id==='VN8')return 'wire-perimeter';
+ if(Object.hasOwn(window.FOF_COURSE_MARKS||{},label))return FOF_COURSE_MARKS[label];
+ const mission=FOF_MISSION_MARKERS.lookup(label);
+ if(mission)return mission;
+ if(/^一般碉堡$|^碉堡\s*\+3/.test(label)||(label==='碉堡'&&FOF.scenario(state?.id)?.book==='V'))return 'bunker';
+ if(/^碉堡\s*\+4/.test(label))return 'pillbox';
+ if(!printedNames){
+  printedNames=new Map();
+  for(const p of [...FOF_PIECES,...FOF_COURSE_PIECES,...FOF_CAMPAIGN_PIECES]){
+   if(p.category!=='marker')continue;
+   for(const name of [p.id,p.name,p.name.split(' · ')[0]])printedNames.set(name,p.id);
+  }
+ }
+ if(printedNames.has(label))return printedNames.get(label);
+ const route=/^路線點\s*([1-4])$/.exec(label);
+ if(route)return 'route'+route[1];
  if(['集中目標','迫擊砲集中目標','迫擊砲集中目標 303'].includes(label))return 'concentration-mtr-303';
  if(['砲兵集中','砲兵集中目標','砲兵集中目標 211'].includes(label))return 'concentration-arty-211';
  for(const [re,art] of [
@@ -33,11 +55,11 @@ function direction(origin,to){
  const angle=(Math.round(Math.atan2(dx,dy)*4/Math.PI)*45+360)%360;
  return {angle,x:Math.sign(dx),y:-Math.sign(dy)};
 }
-const statusDefs=[['受壓制','pinned'],['乘員暴露','crew-exposed'],['暴露','exposed'],['未被發現','unspotted'],['未發現','unspotted'],['已移動／射擊','moved-fired'],['已啟動','activated'],['SCR610','scr610'],['槍榴彈 1 枚','rifle-grenade']];
+const statusDefs=[['受壓制','pinned'],['暴露','exposed'],['未被發現','unspotted'],['未發現','unspotted'],['已移動／射擊','moved-fired'],['已啟動','activated'],['SCR610','scr610'],['槍榴彈 1 枚','rifle-grenade']];
 function shelters(s,c){
  const result=[];
  for(const label of c.marks){
-  const art=symbol(label);if(role(art)!=='cover')continue;
+  const art=symbol(label,s,c);if(role(art)!=='cover')continue;
   const count=Math.min(16,Number(/×\s*(\d+)/.exec(label)?.[1]||1));
   for(let i=1;i<=count;i++)result.push({key:label+'|'+i,art,label:count>1?label.replace(/\s*×.*/,'')+' '+i:label});
  }
@@ -46,8 +68,8 @@ function shelters(s,c){
 }
 function occupancyError(art,units){
   if(new Set(units.map(u=>u.side)).size>1)return '同一處掩蔽只能容納同一方的單位。';
-  const limit={bunker:4,pillbox:2,tower:1}[art];
-  return limit&&units.reduce((n,u)=>n+(u.steps||0),0)>limit?'這處掩蔽的上限是 '+limit+' 階。':'';
+  const limit={bunker:4,pillbox:2,'deep-bunker':3,tower:1}[art];
+  return limit&&units.reduce((n,u)=>n+(u.casualty?0:u.steps||0),0)>limit?'這處掩蔽的上限是 '+limit+' 階。':'';
 }
 function leave(s,u){
  const cell=FOF.at(s,u);
@@ -62,20 +84,20 @@ function leave(s,u){
  delete u.shelter;u.covered=false;
 }
 function cleanup(s){
- const temporary=new Set(['conc','grenade','grenade-miss','exposed','mine-blast','moved-fired','activated']);
+ const temporary=new Set(['conc','grenade','grenade-miss','exposed','mine-blast','booby-trap','moved-fired','activated']);
  for(const m of s.units){
   if(m.side!=='marker'||m.art!=='mine-blast')continue;
   const c=FOF.at(s,m);
   if(!c.marks.some(v=>symbol(v)==='mines')&&!FOF.unitsAt(s,c).some(v=>v.art==='mines'))c.marks.push('雷區');
  }
  for(const c of s.map)c.marks=c.marks.filter(m=>!temporary.has(symbol(m)));
- s.units=s.units.filter(m=>m.side!=='marker'||!temporary.has(m.art));
+ s.units=s.units.filter(m=>m.side!=='marker'||(!temporary.has(m.art)&&!(m.art==='claymore'&&m.scope==='unit')));
 }
 function onMove(s,u,p){
  leave(s,u);
  for(const m of FOF.unitsAt(s,u)){
   if(m.side!=='marker'||!m.members?.includes(u.id))continue;
-  if(['unspotted','exposed','pinned','green','vet','scr610','rifle-grenade','activated','moved-fired','kr-fpl-l','kr-fpl-r'].includes(m.art)){m.x=p.x;m.y=p.y;}
+  if(gear.has(m.art)||['unspotted','exposed','pinned','green','vet','activated','moved-fired','kr-fpl-l','kr-fpl-r'].includes(m.art)){m.x=p.x;m.y=p.y;}
   else delete m.members;
  }
 }
@@ -114,10 +136,12 @@ function layout(s,c,units,raw){
     groups.push({members:ids,cover,key});ids.forEach(id=>assigned.add(id));
     locations.push(cover);
    }
-  }else if(m.art==='pdf'){
+  }else if(m.art==='pdf'||placement==='boundary'){
    const to=m.toward||r?.toward||/([A-Z]\d+)\s*$/.exec(m.label)?.[1],bearing=direction(here,to);
-   const entry={...m,label:to?'主要射向 → '+to:m.label,info:to?here+' 射向 '+to:'選擇此標記可指定射向',bearing};
-   if(bearing&&!edges.some(v=>v.bearing.angle===bearing.angle))edges.push(entry);else if(!bearing)center.push(entry);
+   const entry=placement==='boundary'
+    ?{...m,info:to?here+' 與 '+to+' 的交界':'可在地圖標記中指定相鄰牌邊',bearing}
+    :{...m,label:to?'主要射向 → '+to:m.label,info:to?here+' 射向 '+to:'選擇此標記可指定射向',bearing};
+   if(bearing&&!edges.some(v=>v.art===m.art&&v.bearing.angle===bearing.angle))edges.push(entry);else if(!bearing)center.push(entry);
    locations.push(entry);
   }else if(bound||placement==='target'){
    if(m.art==='unspotted'&&commonHidden){if(!top.some(v=>v.art===m.art)){const entry={...m,info:'本牌全部敵軍：'+memberNames(hiddenRule.units)};top.push(entry);locations.push(entry);}continue;}
@@ -169,5 +193,5 @@ function layout(s,c,units,raw){
  for(const u of units)if(!assigned.has(u.id))groups.push({members:[u.id]});
  return {groups,per,top,corners,edges,center,locations};
 }
-window.FOF_MARKERS={role,symbol,direction,layout,shelters,leave,onMove,cleanup,occupancyError};
+window.FOF_MARKERS={role,symbol,direction,layout,shelters,leave,onMove,cleanup,occupancyError,isGear:art=>gear.has(art)};
 })();

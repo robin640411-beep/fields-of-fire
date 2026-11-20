@@ -108,6 +108,7 @@
     team(prefix+'paralyzed','paralyzed','arrow');
     casualty(prefix+'casualty',1);
   }
+  for(const n of [2,3])casualty('de-casualty-'+n,n);
   put('de-leader','LEADER','德軍領導者。','rank',1);
   put('de-at','1/PZRSCHCK','第 1 反戰車組。PZRSCHCK 是 Panzerschreck 反戰車火箭筒的縮寫。','launcher',1,'S','C',[grenade]);
   put('de-sniper','SNIPER!','德軍狙擊手。','sniper',1,'S!','L');

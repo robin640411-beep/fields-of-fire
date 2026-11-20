@@ -14,7 +14,9 @@ window.FOF_MARKER_BINDINGS = {
   ],
   C1: [
     {"kind": "cover", "at": "B3", "mark": "戰壕", "units": ["west"], "from": 0, "to": 43},
-    {"kind": "cover", "at": "B3", "mark": "戰壕", "units": ["west-last"], "from": 44, "to": 47},
+    {"kind": "cover", "at": "B3", "mark": "戰壕", "units": ["west-last", "west-loss"], "from": 44, "to": 47},
+    {"kind": "cover", "at": "B3", "mark": "戰壕", "units": ["west-loss"], "from": 48, "to": 49},
+    {"kind": "cover", "at": "B3", "mark": "掩體（右下）", "units": ["b3-loss"], "from": 44, "to": 49, "toward":"C2"},
     {"kind": "cover", "at": "B3", "mark": "掩體（右下）", "units": ["bunker-mg"], "from": 0, "to": 43, "toward": "C2"},
     {"kind": "cover", "at": "C3", "mark": "戰壕", "units": ["east"], "from": 0, "to": 45},
     {"kind": "cover", "at": "C3", "mark": "戰壕", "units": ["east-last", "c3-loss"], "from": 46, "to": 47},

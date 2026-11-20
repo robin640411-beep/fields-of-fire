@@ -1,9 +1,13 @@
-/* Positions use the printed US Army WWII/Korea sheet as their coordinate system. */
+/* The WWII/Korea and Vietnam sheets have different ready boxes and turn tracks. */
 (() => {
 'use strict';
 const imageRoot='assets/command/', boardImage=imageRoot+'us-wwii-korea.webp';
-const readyOrder=['co','pl1','pl2','pl3','xo','sgt','hmg','tank1','tank2'];
-const artSlots={'co-hq':'co',hq:'pl1',hq2:'pl2',hq3:'pl3','co-xo':'xo','first-sgt':'sgt'};
+const sheets={
+ standard:{image:boardImage,label:'二戰與韓戰',ready:['co','pl1','pl2','pl3','xo','sgt','hmg','tank1','tank2'],spacing:60.4,firstTurn:81,turnWidth:54,turns:12},
+ vietnam:{image:'assets/fm2/us-vietnam.webp',label:'越戰',ready:['co','pl1','pl2','pl3','pl4','xo','sgt','tank1'],spacing:67.8,firstTurn:87,turnWidth:64.8,turns:10}
+};
+const printedCommands=new Set([...sheets.standard.ready,...sheets.vietnam.ready]);
+const artSlots={'co-hq':'co',hq:'pl1',hq2:'pl2',hq3:'pl3','vn-hq4':'pl4','co-xo':'xo','first-sgt':'sgt','kr-hmg-hq':'hmg'};
 const areas={ready:'待用',available:'命令記錄區',saved:'保留命令點區',done:'啟動已完成'};
 const phases={friendly:0,orders:2,enemy:3,retreat:4,vehicles:5,combat:6,cleanup:7};
 const phaseLabels=['友軍上級事件','敵軍活動（防禦任務）','友軍命令','敵軍活動','雙方俘虜與撤退','反戰車戰鬥與車輛移動','雙方戰鬥','整理'];
@@ -12,18 +16,23 @@ const number=n=>Math.max(0,Math.min(99,Math.trunc(Number(n)||0)));
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 function printedSlot(unit){
  if(!unit)return null;
- if(artSlots[unit.art])return artSlots[unit.art];
  const name=(unit.name+' '+unit.abbr).replace(/\s/g,'');
- if(/重機槍排部|HMGPLT(?:HQ)?/i.test(name))return 'hmg';
- if(/第[1一]戰車排部|1(?:st)?TANKPLT/i.test(name))return 'tank1';
- if(/第[2二]戰車排部|2(?:nd)?TANKPLT/i.test(name))return 'tank2';
+ if(/第[2二]戰車排(?:部|HQ|指揮部)|2(?:nd)?TANKPLT/i.test(name))return 'tank2';
+ if(/第[1一]戰車排(?:部|HQ|指揮部)|1(?:st)?TANKPLT/i.test(name))return 'tank1';
+ // The Normandy roster numbers its vehicles, including the HQ vehicle, from 1.
+ if(unit.abbr==='armor1'&&unit.art==='sherman')return 'tank1';
+ if(unit.abbr==='armor1'&&unit.art==='m10')return 'tank2';
+ if(unit.art==='kr-m26'&&/戰車排HQ/i.test(name))return 'tank2';
+ if(/戰車排HQ|M48HQ/i.test(name))return 'tank1';
+ if(/重機槍排(?:部|HQ)|HMGPLT(?:HQ)?/i.test(name))return 'hmg';
+ if(Object.hasOwn(artSlots,unit.art))return artSlots[unit.art];
  return null;
 }
 function campaignMarkers(s){
  const eligible=s.units.filter(u=>u.side==='friendly'&&(printedSlot(u)||/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr)));
  const ids=new Set([...eligible.map(u=>u.id),...Object.keys(s.tracks)]);
  return Array.from(ids,id=>{
-  const u=eligible.find(v=>v.id===id),points=number(s.tracks[id]);
+  const u=eligible.find(v=>v.id===id)||(s.offboard||[]).find(v=>v.id===id),points=number(s.tracks[id]);
   const stored=s.commandAreas?.[id];
   let area=areaCodes.has(stored)?stored:points?'available':'ready';
   const face=area==='available'?'commands':'complete';
@@ -63,22 +72,22 @@ function snapshot(s){
  }
  return {markers:campaignMarkers(s),phase:s.phase==='events'?'friendly':s.phase};
 }
-function bounds(marker){
+function bounds(marker,sheet){
  const {id,slot=id,area,points}=marker;
  if(area==='ready'){
-  const i=readyOrder.indexOf(slot);
-  return i<0?null:{x:31+i*60.4,y:59,w:55,h:55};
+  const i=sheet.ready.indexOf(slot);
+  return i<0?null:{x:31+i*sheet.spacing,y:59,w:55,h:55};
  }
  if(area==='done')return {x:578,y:36,w:121,h:76};
  if(area!=='available'&&area!=='saved')return null;
  const x=104+(clamp(points,1,10)-1)*59.8;
  return area==='saved'?{x,y:245,w:58,h:68}:{x,y:143,w:58,h:89};
 }
-function arrange(markers){
+function arrange(markers,sheet){
  const groups=new Map(),out=[];
  for(const m of markers){
-  if(m.id==='general')continue;
-  const b=bounds(m);if(!b)continue;
+  if(m.id==='general'||m.id==='shared')continue;
+  const b=bounds(m,sheet);if(!b)continue;
   const key=b.x+','+b.y;if(!groups.has(key))groups.set(key,{b,items:[]});groups.get(key).items.push(m);
  }
  for(const {b,items} of groups.values()){
@@ -111,20 +120,27 @@ function create({state,esc,button,edit}){
  }
  function paper(s,data,interactive){
   let marks='';
+  const sheet=s.id==='H1'||s.id==='R1'||window.FOF.scenario(s.id)?.book==='V'?sheets.vietnam:sheets.standard;
   if(interactive){
    for(let i=1;i<=10;i++){
     const x=103+(i-1)*59.9;
     marks+=hotspot(x,122,59.9,112,'available',i,'可用 '+i+' 點')+hotspot(x,234,59.9,82,'saved',i,'保留 '+i+' 點');
    }
    const target=data.markers.find(m=>m.id===selected);
-   const rb=target&&bounds({...target,area:'ready'});
+   const rb=target&&bounds({...target,area:'ready'},sheet);
    if(rb)marks+=hotspot(rb.x,rb.y,rb.w,rb.h,'ready',0,'回到待用格');
    marks+=hotspot(577,32,125,83,'done',0,'移至啟動完成（零點）');
   }
-  for(const {m,x,y,side} of arrange(data.markers)){
+  for(const {m,x,y,side} of arrange(data.markers,sheet)){
    const slot=m.slot===undefined?m.id:m.slot;
-   const src=readyOrder.includes(slot)?slot+'-'+(m.face||(m.area==='available'?'commands':'complete')):null;
+   const src=printedCommands.has(slot)?slot+'-'+(m.face||(m.area==='available'?'commands':'complete')):null;
    marks+=chit(x,y,side,src,textFor(m),'命令標記','command-token'+(interactive&&m.id===selected?' chosen':''),'data-command-id="'+esc(m.id)+'" data-area="'+esc(m.area)+'" data-points="'+number(m.points)+'"',m.points>10?String(m.points):'','command');
+  }
+  const pool=data.markers.find(m=>m.id==='shared');
+  const box=pool&&bounds(pool,sheet);
+  if(box){
+   const label=textFor(pool);
+   marks+='<span class="shared-pool-box" tabindex="0" data-pool-readout="'+esc(label)+'" aria-label="'+esc(label)+'" style="left:'+percent(box.x,734)+';top:'+percent(box.y,950)+';width:'+percent(box.w,734)+';height:'+percent(box.h,950)+'"></span>';
   }
   if(s.id==='C3'){
    const gear=[['營戰術網','bn-radio',100,452],['連戰術網','co-radio',164,452],['第 1 排部裝備','co-radio',166,563],['第 2 排部裝備','co-radio',364,563],['分隊裝備','co-radio',169,773]];
@@ -132,10 +148,9 @@ function create({state,esc,button,edit}){
     marks+=chit(x,y,38,asset,key+'・'+s.tracks[key],asset==='bn-radio'?'營無線電':'連無線電','equipment-token');
   }
   const turn=s.turn;
-  if(turn>0&&!['I1','V2','R1'].includes(s.id))marks+=chit(81+54*clamp(turn-1,0,11),350,34,'turn','第 '+turn+' 回合','回合標記','timing-token','',turn>12?String(turn):'');
+  if(turn>0&&!['I1','V2','R1'].includes(s.id))marks+=chit(sheet.firstTurn+sheet.turnWidth*clamp(turn-1,0,sheet.turns-1),350,34,'turn','第 '+turn+' 回合','回合標記','timing-token','',turn>sheet.turns?String(turn):'');
   const phase=phases[data.phase];if(phase!==undefined)marks+=chit(674,441+phase*63.7,29,'phase',phaseLabels[phase],'階段標記','timing-token');
-  const vietnam=s.id==='H1'||s.id==='R1';
-  return '<span class="sheet-paper"><img class="printed-sheet" width="1836" height="2376" src="'+(vietnam?'assets/fm2/us-vietnam.webp':boardImage)+'" alt="美國陸軍'+(vietnam?'越戰':'二戰與韓戰')+'指揮顯示表" draggable="false">'+marks+'</span>';
+  return '<span class="sheet-paper"><img class="printed-sheet" width="1836" height="2376" src="'+sheet.image+'" alt="美國陸軍'+sheet.label+'指揮顯示表" draggable="false">'+marks+'</span>';
  }
  function editor(current){
   return '<div class="sheet-edit"><h3>'+esc(current.label)+'</h3><div class="sheet-adjust">'+button('sheetDelta','−','',-1,current.points<=0)+'<output>'+current.points+' 點</output>'+button('sheetDelta','＋','',1,current.points>=99)+'</div>'+

@@ -368,11 +368,13 @@ function configureMark(art,existing=null,legacy=null){
  if(role==='cover'){
   body='<fieldset class="formgroup"><legend>在此掩蔽內的算子</legend>'+on.map(u=>'<label><input name="occupants" type="checkbox" value="'+esc(u.id)+'" '+(existing&&u.shelter===existing.id?'checked':'')+'> '+esc(u.name)+'</label>').join('')+'<small>留空即在本牌放置一處無人佔據的掩蔽。</small></fieldset>';
   if(['bunker','pillbox'].includes(art)){const fixed=Number.isFinite(existing?.facing);body+='<label class="formgroup">工事射界<select id="fortFacing" '+(fixed?'disabled':'')+'>'+options([['','選擇箭頭朝向'],...['上','右上','右','右下','下','左下','左','左上'].map((n,i)=>[String(45*i),n])],fixed?String(existing.facing):'')+'</select></label>';}
- }else if(role==='direction'){
-  const lines=s.map.filter(p=>{const dx=Math.abs(p.x-cell.x),dy=Math.abs(p.y-cell.y);return !G.same(p,cell)&&(!dx||!dy||dx===dy);});
-  body='<div class="formgroup"><label for="markDirection">從 '+at+' 射向哪一張牌？</label><select id="markDirection">'+options([['','選擇目標牌'],...lines.map(p=>[G.nameAt(p),G.nameAt(p)])],existing?.toward||'')+'</select></div>';
- }else if(role==='target'||role==='vof'){
+ }else if(role==='direction'||role==='boundary'){
+  const boundary=role==='boundary';
+  const lines=s.map.filter(p=>{const dx=Math.abs(p.x-cell.x),dy=Math.abs(p.y-cell.y);return boundary?dx+dy===1:!G.same(p,cell)&&(!dx||!dy||dx===dy);});
+  body='<div class="formgroup"><label for="markDirection">'+(boundary?'鐵絲網放在 '+at+' 與哪張牌之間？':'從 '+at+' 射向哪一張牌？')+'</label><select id="markDirection">'+options([['',boundary?'選擇相鄰牌':'選擇目標牌'],...lines.map(p=>[G.nameAt(p),G.nameAt(p)])],existing?.toward||'')+'</select></div>';
+ }else if(role==='target'||role==='vof'||role==='claymore'){
   let rows=[];
+  if(role==='claymore')rows.push(['card','預置於本牌，尚未觸發']);
   if(role==='vof'){
    rows=[['top','牌外射入，影響全牌']];
    if(!art.startsWith('incoming-'))rows.push(['friendly','同牌友軍射出，置右上'],['enemy','同牌敵軍射出，置左下']);
@@ -411,6 +413,7 @@ function applyMark(){
    if(['grenade-miss','crossfire','unspotted'].includes(art)&&(on.some(m=>m.art===art&&m!==old)||at.marks.some((m,i)=>i!==legacy&&M.symbol(m)===art))){tell('本牌已有這枚標記。');return false;}
    let m=old;
    if(!m){const name=def.name.split(' · ')[0];m=G.piece('u'+(++s.serial),name,name,1,at.x,at.y,'marker',art);s.units.push(m);}
+   m.art=art;
    delete m.coverId;delete m.members;delete m.toward;delete m.scope;
    if($('fortFacing'))m.facing=Number($('fortFacing').value);
    if(toward)m.toward=toward;
@@ -436,9 +439,10 @@ function shelterField(u){
 }
 function unitDialog(id){
  const u=s.units.find(q=>q.id===id);if(!u)return;
- if(u.side==='marker'&&catalog.has(u.art)&&isTable()&&!quick()&&!s.outcome){configureMark(u.art,u);return;}
- const art=catalog.get(u.art);
- let b='<div class="unitrow" data-unit-key="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(u.art||'')+'" data-piece-info="'+esc([G.nameAt(u),u.side==='marker'&&u.notes].filter(Boolean).join('　'))+'" '+(u.side==='marker'?'data-marker="" ':'')+'tabindex="0">'+(art?pic(art.art,'piece-icon','算子'):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
+ const face=u.side==='marker'&&!catalog.has(u.art)?M.symbol(u.name,s,G.at(s,u)):u.art;
+ if(u.side==='marker'&&catalog.has(face)&&isTable()&&!quick()&&!s.outcome){configureMark(face,u);return;}
+ const art=catalog.get(face);
+ let b='<div class="unitrow" data-unit-key="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(face||'')+'" data-piece-info="'+esc([G.nameAt(u),u.side==='marker'&&u.notes].filter(Boolean).join('　'))+'" '+(u.side==='marker'?'data-marker="" ':'')+'tabindex="0">'+(art?pic(art.art,'piece-icon','算子'):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
  if(u.experience)b+='<p>'+esc(campaigns.gradeNames[u.experience])+(u.ammo!=null?'　彈藥 '+u.ammo:'')+(u.skills?.length?'　技能 '+u.skills.map(esc).join('、'):'')+'</p>';
  if(isTable()&&!quick()&&!s.outcome){
   if(u.skills?.length)b+=u.skills.map((skill,i)=>button('useUnitSkill','使用「'+skill+'」','tiny',String(i))).join('');
@@ -483,13 +487,15 @@ function saveMenu(){dialog('saves','存檔管理','<p>'+esc(storageOK?'每次行
 function start(id,guided=true,form=$('campaignForm')?.value){
  s=id==='T1'?G.training(guided):id==='Q1'?Q.start():campaigns.create(id,{form});resetView('任務開始・'+title(s.id));
 }
-function editCell(c){dialog('editcell','地圖標記・'+G.nameAt(c),'<div class="formgroup"><label for="marks">本牌標記（每行一項）</label><textarea id="marks" maxlength="800">'+esc(c.marks.join('\n'))+'</textarea><label for="pcType">潛在接敵</label><select id="pcType">'+['','A','B','C'].map(v=>'<option value="'+v+'" '+(v===(c.pc||'')?'selected':'')+'>'+esc(v||'無')+'</option>').join('')+'</select><label><input id="pcHidden" type="checkbox" '+(c.hidden?'checked':'')+'> 標記背面朝上</label></div>'+button('saveCell','套用地圖標記','primary')+c.marks.map((label,i)=>{const art=M.symbol(label);return catalog.has(art)&&['target','direction','vof'].includes(M.role(art))?button('legacyMark','指定「'+label+'」的位置','tiny',String(i)):'';}).join(''));}
+function editCell(c){dialog('editcell','地圖標記・'+G.nameAt(c),'<div class="formgroup"><label for="marks">本牌標記（每行一項）</label><textarea id="marks" maxlength="800">'+esc(c.marks.join('\n'))+'</textarea><label for="pcType">潛在接敵</label><select id="pcType">'+['','A','B','C'].map(v=>'<option value="'+v+'" '+(v===(c.pc||'')?'selected':'')+'>'+esc(v||'無')+'</option>').join('')+'</select><label><input id="pcHidden" type="checkbox" '+(c.hidden?'checked':'')+'> 標記背面朝上</label></div>'+button('saveCell','套用地圖標記','primary')+c.marks.map((label,i)=>{const art=M.symbol(label,s,c);return catalog.has(art)&&['target','direction','vof','boundary','claymore'].includes(M.role(art))?button('legacyMark','指定「'+label+'」的位置','tiny',String(i)):'';}).join(''));}
 function addPiece(type,name,art){
- const isMark=type==='marker',data=catalog.get(art);
+ const isMark=type==='marker';
+ if(isMark&&!catalog.has(art))art=M.symbol(name,s,focus)||art;
+ const data=catalog.get(art);
  if(art==='ccp'&&conf()?.book==='K'&&s.phase==='setup'&&G.at(s,focus)?.faceDown){tell('傷亡收集點須設在已翻開的地形或集結區。');return false;}
  if(art?.startsWith('pc-')){const c=G.at(s,focus);if(art==='pc-hidden'){if(!c.pc){tell('請以「編輯圖上標記」選擇等級。');return false;}c.hidden=true;}else{G.setPC(s,c,art.slice(3).toUpperCase(),false,true);G.note(s,G.nameAt(c)+' 放置標記後為 PC '+c.pc+'。');}return true;}
  const id='u'+(++s.serial);const [cn,ab]=name.split(' · ');
- const u=G.piece(id,cn,ab||cn,1,focus.x,focus.y,type,art||'');if(['casualty','de-casualty'].includes(art))u.casualty=true;
+ const u=G.piece(id,cn,ab||cn,data?.steps??1,focus.x,focus.y,type,art||'');if(data?.casualty||['casualty','de-casualty'].includes(art))u.casualty=true;
  s.units.push(u);G.note(s,'在 '+G.nameAt(focus)+' 放置'+(isMark?'標記':'算子')+'「'+cn+'」。');return true;
 }
 function patrolFinish(){
@@ -663,7 +669,7 @@ document.addEventListener('click',ev=>{
   break;}
  case 'library':library();break;
  case 'commitMark':applyMark();break;
- case 'legacyMark':{const c=G.at(s,focus),i=Number(v);configureMark(M.symbol(c.marks[i]),null,i);break;}
+ case 'legacyMark':{const c=G.at(s,focus),i=Number(v);configureMark(M.symbol(c.marks[i],s,c),null,i);break;}
  case 'placePiece':{const t=catalog.get(v);if(!t)return;if(t.category==='marker'&&(M.role(t.id)!=='area'||['grenade-miss','crossfire'].includes(t.id))){configureMark(t.id);break;}if(edit(()=>addPiece(t.category,t.name,t.id))){close();tell('已放置算子');}break;}
  case 'customPiece':{const nm=$('customName').value.trim();if(!nm)return tell('請輸入算子名稱');edit(()=>addPiece($('pieceCat').value,nm,''));close();break;}
  case 'editCell':editCell(G.at(s,focus));break;

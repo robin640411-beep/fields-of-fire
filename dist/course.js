@@ -19,7 +19,7 @@ function addUnit(s,v){
  const p=position(v.at), art=arts.get(v.art);
  const squad=/^(s[123]|p[23]s[123]|de-gr[123]|mtr)$/.test(v.art);
  const u=G.piece(v.id,v.name,v.name,v.steps??(squad?3:1),p.x,p.y,v.side||art?.category||'friendly',v.art);
- u.casualty=['casualty','de-casualty'].includes(v.art);
+ u.casualty=!!art?.casualty||['casualty','de-casualty'].includes(v.art);
  u.lessonStatus=v.status||'';s.units.push(u);
 }
 function start(id){
