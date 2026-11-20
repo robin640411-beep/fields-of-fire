@@ -165,7 +165,7 @@ function createPlayer(catalog){
   }
   layer.dataset.stage='impact';
   const outcome=e.outcome;
-  const text={hit:'HIT!',miss:'MISS!',pin:'⇊ 受壓制',success:'↶ 撤退'}[outcome];
+  const text={hit:'HIT!',miss:'MISS!',pin:'PIN!',success:'↶ 撤退'}[outcome];
   const ring=create('span','motion-impact');ring.dataset.outcome=outcome;ring.dataset.target=e.target||'';pos(ring,b);
   ring.style.setProperty('--diameter',Math.max(34,Math.min(75,(e.target?b.w:35)||32)+10)+'px');
   const tag=create('b','impact-tag');tag.textContent=text;ring.append(tag);layer.append(ring);
@@ -211,6 +211,7 @@ function createPlayer(catalog){
  async function effect(run,e,ms){
   const p=point(run,e,true);
   if(e.kind==='fire'&&e.outcome)return shoot(run,e);
+  if(e.kind==='pin'&&e.piece)return shoot(run,{outcome:'pin',target:e.piece.id,targetPiece:e.piece,to:e.to});
   if(e.kind==='flight'){
    const path=create('span','motion-flight'),aircraft=document.createElement('i');aircraft.textContent='✈';
    path.setAttribute('aria-hidden','true');path.append(aircraft);label.after(path);

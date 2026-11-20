@@ -6,6 +6,7 @@ const different=(a,b)=>JSON.stringify(a)!==JSON.stringify(b);
 const spot=u=>u&&G.nameAt(u);
 const side=u=>u?.side==='enemy'?'enemy':u?.side==='friendly'?'friendly':'neutral';
 const piece=u=>({id:u.id,name:u.name,art:u.art,side:side(u)});
+const pinned=u=>!!u.pinned||/(?:^|[、・·])\s*受壓制\s*(?:$|[、・·])/.test(u.lessonStatus||'');
 const verbs=[
  ['evacuate',/後送|疏散/],['retreat',/撤退|後退/],['rally',/重整|解除壓制|恢復壓制/],
  ['cover',/尋找掩蔽|尋找建築|找掩蔽|進入掩蔽/],['spot',/發現嘗試|嘗試發現|觀察|偵察/],
@@ -18,7 +19,15 @@ const drawKinds={event:['event','上級事件'],weather:['weather','天候判定
 const actionLabels={camApplyDeploy:'確認部署',camApplyRanks:'登記經驗分配',camApplyKatusa:'登記韓籍編組',camApplyAttach:'確認巡邏配屬',camSwapForm:'變更連隊編制',camReport:'登記任務成果',camLedger:'更新戰役紀錄',camSettle:'任務間重組',camMapApply:'調整地圖',patrolFinish:'結算巡邏',saveLedger:'登記命令與紀錄',openLedgerSheet:'登記命令與紀錄',useUnitSkill:'使用技能',unitApply:'更新算子',saveCell:'更新地形標記',emptyContact:'結束接敵判定',finishContact:'完成接敵配置'};
 function plan(before,after,ctx={}){
  const beats=[];
- const add=(...events)=>{if(events.length)beats.push(events);};
+ const pinFromShot=new Set();
+ const add=(...events)=>{
+  const visible=events.filter(e=>{
+   if(e.kind==='fire'&&e.outcome==='pin')pinFromShot.add(e.target);
+   if(e.kind==='rally')pinFromShot.delete(e.piece?.id);
+   return e.kind!=='pin'||!pinFromShot.delete(e.piece?.id);
+  });
+  if(visible.length)beats.push(visible);
+ };
  if(ctx.frame){
   const {id,why}=ctx.frame;
   add({kind:id?'draw':'shuffle',id,side:before.phase==='enemy'?'enemy':'neutral',label:id?(id===51?'抽到重洗牌':'行動牌 #'+String(id).padStart(2,'0'))+'・'+why:'重洗行動牌組'});
@@ -85,7 +94,7 @@ function plan(before,after,ctx={}){
    if(u.lessonStatus!==v.lessonStatus)labels.push(v.lessonStatus||'移除'+u.lessonStatus);
    if(u.experience!==v.experience||u.art!==v.art||different(u.skills,v.skills)||u.notes!==v.notes)labels.push('更新算子資料');
    if(labels.length){
-    const label=labels.join('、'),kind=v.casualty&&!u.casualty||v.steps<u.steps?'loss':/解除壓制|重整/.test(label)?'rally':/受壓制/.test(label)?'pin':/掩蔽/.test(label)?'cover':'status';
+    const label=labels.join('、'),kind=v.casualty&&!u.casualty||v.steps<u.steps?'loss':pinned(u)!==pinned(v)?(pinned(v)?'pin':'rally'):/解除壓制|重整/.test(label)?'rally':/掩蔽/.test(label)?'cover':'status';
     changes.push({kind,label:u.name+'・'+label,side:side(v),piece:piece(v),to:spot(v)});
    }
   }
