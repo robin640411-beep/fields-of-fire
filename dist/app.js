@@ -438,7 +438,7 @@ function unitDialog(id){
  const u=s.units.find(q=>q.id===id);if(!u)return;
  if(u.side==='marker'&&catalog.has(u.art)&&isTable()&&!quick()&&!s.outcome){configureMark(u.art,u);return;}
  const art=catalog.get(u.art);
- let b='<div class="unitrow" data-piece-name="'+esc(u.name)+'" data-piece-info="'+G.nameAt(u)+'" tabindex="0">'+(art?pic(art.art,'piece-icon','算子'):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
+ let b='<div class="unitrow" data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(u.art||'')+'" data-piece-info="'+esc([G.nameAt(u),u.side==='marker'&&u.notes].filter(Boolean).join('　'))+'" '+(u.side==='marker'?'data-marker="" ':'')+'tabindex="0">'+(art?pic(art.art,'piece-icon','算子'):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
  if(u.experience)b+='<p>'+esc(campaigns.gradeNames[u.experience])+(u.ammo!=null?'　彈藥 '+u.ammo:'')+(u.skills?.length?'　技能 '+u.skills.map(esc).join('、'):'')+'</p>';
  if(isTable()&&!quick()&&!s.outcome){
   if(u.skills?.length)b+=u.skills.map((skill,i)=>button('useUnitSkill','使用「'+skill+'」','tiny',String(i))).join('');
@@ -448,7 +448,7 @@ function unitDialog(id){
 }
 function library(cat='friendly',q=''){
  const pool=[...catalog.values()].filter(t=>(!t.army||({K:['NKPA','KATUSA'],H:['NKPA','CCF'],V:['VC','NVA']}[conf()?.book]||[]).includes(t.army))&&t.category===cat&&(t.name+' '+t.id).toLowerCase().includes(q.toLowerCase()));
- const list=pool.map(t=>'<button data-action="placePiece" data-value="'+esc(t.id)+'" data-piece-name="'+esc(t.name)+'">'+pic(t.art,'','')+'<span>'+esc(t.name.split(' · ')[0])+'</span></button>').join('');
+ const list=pool.map(t=>'<button data-action="placePiece" data-value="'+esc(t.id)+'" data-piece-art="'+esc(t.id)+'" data-piece-name="'+esc(t.name)+'">'+pic(t.art,'','')+'<span>'+esc(t.name.split(' · ')[0])+'</span></button>').join('');
  if(modal==='library'&&document.getElementById('pieceList')){$('pieceList').innerHTML=list;return;}
  dialog('library','放置算子・'+G.nameAt(focus),'<div class="formgroup"><select id="pieceCat"><option value="friendly">友軍</option><option value="enemy">敵軍</option><option value="marker">遊戲標記</option></select><input id="pieceQuery" type="search" placeholder="搜尋名稱或代號" aria-label="搜尋算子"></div><div id="pieceList" class="gallery">'+list+'</div><p class="tagline">找不到所需算子時，可以名稱建立自訂棋子。</p><div class="buttonrow"><input id="customName" class="control" maxlength="40" placeholder="自訂名稱" aria-label="自訂名稱">'+button('customPiece','放置')+'</div>');
 }

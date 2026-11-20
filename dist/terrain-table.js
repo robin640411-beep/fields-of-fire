@@ -29,7 +29,9 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   const identity=item.id?'data-counter-id="'+esc(item.id)+'" ':'';
   const attr=name?'data-action="boardPiece" data-value="'+esc(name)+'"':'data-action="boardPile"';
   const face=entry?pic(entry.art,'',''):'<span class="chit-text">'+esc((item.short||item.label).slice(0,4))+'</span>';
-  const preview='data-piece-name="'+esc(item.label)+'" data-piece-info="'+esc([item.info,item.condition].filter(Boolean).join('　'))+'" data-piece-art="'+esc(item.art||'')+'"';
+  const isMarker=!item.side||item.side==='marker'||entry?.category==='marker';
+  const info=[item.info,item.condition,isMarker&&item.notes].filter(Boolean).join('　');
+  const preview='data-piece-name="'+esc(item.label)+'" data-piece-info="'+esc(info)+'" data-piece-art="'+esc(item.art||'')+'"'+(isMarker?' data-marker=""':'');
   if(cls==='list')return '<li><button type="button" '+attr+' '+preview+' class="pile-choice"><span class="chit-icon">'+face+'</span><span>'+esc(label)+'</span></button></li>';
   return '<button type="button" '+identity+attr+' '+preview+' '+extra+' style="'+style+'" class="'+cls+(selected&&selected===item.id?' chosen':'')+'" aria-label="'+esc(label)+'">'+face+'</button>';
  }
@@ -55,7 +57,7 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   const count=clusters.length>14?13:clusters.length;
   const main=clusters.slice(0,count).map((render,i)=>render(i+1)).join('')+
    (count<clusters.length?'<button type="button" class="map-chit pile-count" style="grid-area:p14" data-action="boardPile">+'+(clusters.length-count)+'</button>':'');
-  const rail=top.length?'<div class="card-fire-rail">'+top.map(m=>chit(m,selected,'zone-chit','','data-zone="top"')).join('')+'</div>':'';
+  const rail=top.length?'<div class="card-fire-rail">'+top.map(m=>chit(M.role(m.art)==='vof'?{...m,info:'牌外射入，影響本牌的敵我單位'}:m,selected,'zone-chit','','data-zone="top"')).join('')+'</div>':'';
   const local=Object.entries(corners).map(([side,m])=>chit({...m,info:side==='friendly'?'同牌友軍射出，影響敵軍':'同牌敵軍射出，影響友軍'},selected,'zone-chit local-vof '+side,'','data-zone="'+side+'"')).join('');
   const arrows=edges.map(m=>{const d=m.bearing;return chit(m,selected,'zone-chit bearing','--dx:'+d.x+';--dy:'+d.y+';--bearing:'+d.angle+'deg','data-angle="'+d.angle+'"');}).join('');
   return '<div class="chit-mat">'+main+rail+local+arrows+'</div>';
@@ -79,6 +81,7 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
  const preview=document.getElementById('terrainPreview');
  const caption=preview.querySelector('figcaption'),picture=preview.querySelector('img');
  const symbolFace=preview.querySelector('.preview-symbol'),note=preview.querySelector('small');
+ const markerRule=preview.querySelector('.marker-rule');
  const legendPanel=preview.querySelector('.terrain-legend');
  function terrainNotes(card,layer){
   const [x,y]=card.dataset.coord.split(',').map(Number),s=state(),cell=G.at(s,{x,y});
@@ -102,7 +105,7 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   if(described){described.removeAttribute('aria-describedby');described=null;}
   if(preview.parentElement!==document.body)document.body.append(preview);
  }
- function schedule(anchor,src,name,info='',symbol='',details=null){
+ function schedule(anchor,src,name,info='',symbol='',details=null,rule=''){
   if(anchor===active&&src===shownSrc)return;
   dismiss();active=anchor;shownSrc=src;
   timer=setTimeout(()=>{
@@ -112,6 +115,8 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
    if(modal)modal.append(preview);
    preview.dataset.kind=anchor.hasAttribute('data-piece-name')?'piece':'card';
    preview.toggleAttribute('data-terrain',!!details);
+   preview.toggleAttribute('data-marker-rule',!!rule);
+   markerRule.textContent=rule;markerRule.hidden=!rule;
    legendPanel.hidden=!details;
    const r=anchor.getBoundingClientRect(),margin=10;
    const roomRight=innerWidth-r.right-margin,roomLeft=r.left-margin;
@@ -151,9 +156,12 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   }
   if(piece){
    const name=piece.dataset.pieceName;
-   const src=catalog.get(piece.dataset.pieceArt)?.art||piece.querySelector('img')?.src;
+   const entry=catalog.get(piece.dataset.pieceArt);
+   const src=entry?.art||piece.querySelector('img')?.src;
    const symbol=piece.querySelector('.chit-text,.sheet-custom,.piece-icon')?.textContent||name.slice(0,3);
-   schedule(piece,src,name,piece.dataset.pieceInfo,symbol);return;
+   const rule=piece.hasAttribute('data-marker')||entry?.category==='marker'
+    ?window.FOF_MARKER_GUIDE.explain(piece.dataset.marker||piece.dataset.pieceArt||'',name,piece.dataset.area,state().id):'';
+   schedule(piece,src,name,piece.dataset.pieceInfo,symbol,null,rule);return;
   }
   const discard=target.closest('#discardPile'),front=discard?.querySelector('img');
   if(front&&!front.hidden){schedule(discard,front.src,front.alt);return;}

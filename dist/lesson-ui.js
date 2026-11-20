@@ -69,7 +69,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
  const numbered=i=>'<span class="lesson-counter">步驟 <b>'+i+'</b> / '+lesson().steps.length+'</span>';
  function pieceCue(u,selectable){
   const info=[G.nameAt(u),u.lessonStatus].filter(Boolean).join('・');
-  const attrs=' data-piece-name="'+esc(u.name)+'" data-piece-info="'+esc(info)+'"';
+  const attrs=' data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(u.art||'')+'" data-piece-info="'+esc(info)+'"';
   if(!selectable)return '<span class="cue-companion" tabindex="0"'+attrs+'>'+tokenPic(u)+'</span>';
   return '<button type="button" class="cue-counter'+(picked===u.id?' is-picked':'')+'" data-action="lessonPick" data-value="'+esc(u.id)+'" aria-label="選取'+esc(u.name)+'（'+G.nameAt(u)+'）"'+attrs+'>'+tokenPic(u)+'</button>';
  }
@@ -105,7 +105,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   case 'amount':
    art='<span class="cue-number" aria-hidden="true">#</span>';gesture='輸入算出的數字，再登記到表上。';break;
   }
-  if(t.cueArt){const piece=C.art(t.cueArt);if(piece)art='<span class="cue-counter" tabindex="0" data-piece-name="'+esc(t.cueName||piece.name)+'"><img src="'+esc(piece.art)+'" alt="'+esc(t.cueName||piece.name)+'"></span>';}
+  if(t.cueArt){const piece=C.art(t.cueArt);if(piece)art='<span class="cue-counter" tabindex="0" data-piece-name="'+esc(t.cueName||piece.name)+'" data-piece-art="'+esc(t.cueArt)+'"><img src="'+esc(piece.art)+'" alt="'+esc(t.cueName||piece.name)+'"></span>';}
   return '<div class="lesson-instruction" data-kind="'+esc(t.kind)+'"><div class="lesson-art">'+art+
    (caption?'<span class="cue-coordinate">'+esc(caption)+'</span>':'')+'</div><div><h2 class="lesson-prompt">'+esc(t.text)+'</h2><p class="lesson-gesture">'+esc(gesture)+'</p></div></div>';
  }
