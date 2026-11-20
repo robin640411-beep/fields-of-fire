@@ -132,6 +132,7 @@ body{min-width:1080px;--campaign-nav-height:42px}
 .hero-acts .heroquick{color:#253629;background:#e9c773;border-color:#e9c773}
 .shell{padding:12px 14px;height:calc(100vh - 75px - var(--campaign-nav-height));height:calc(100dvh - 75px - var(--campaign-nav-height));min-height:510px}
 .desk{height:100%;display:grid;grid-template-columns:minmax(0,1fr) clamp(250px,20.5vw,350px);gap:10px}
+.desk:has(#side[data-lesson-step]){grid-template-columns:minmax(0,1fr) clamp(310px,27vw,460px)}
 .command-dock{min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#839378 #e3e6d9;padding:0 4px 1px 0}
 .command-dock .rostergrid{grid-template-columns:repeat(2,minmax(0,1fr));padding:9px;gap:6px}
 .command-dock .rosterbox{margin-top:12px}
@@ -262,6 +263,19 @@ body{min-width:1080px;--campaign-nav-height:42px}
 .lesson-position small,.lesson-source,.lesson-phase,.lesson-gesture,.lesson-feedback small{color:#586b53}
 .lesson-counter b{font:700 1.55rem var(--cond)}
 .lesson-phase{font-size:.86rem;font-weight:700;margin:9px 0 5px}
+.lesson-reading{margin:10px 0 14px;padding:10px 13px;border-left:3px solid #788558;background:#eef0e4;overflow-wrap:anywhere}
+.lesson-reading h2,.lesson-journal summary{font-weight:750;color:var(--forest)}
+.lesson-reading h2{font-size:1.06rem;line-height:1.45}
+.lesson-reading p,.lesson-journal p{margin:5px 0 0;line-height:1.65;font-size:.95rem}
+.lesson-journal details+details{border-top:1px solid var(--line)}
+.lesson-journal details{padding:8px 0}
+.lesson-journal summary{cursor:pointer;line-height:1.45}
+.lesson-journal summary small{display:block;margin-left:1rem;color:var(--muted);font-weight:500}
+.lesson-journal ol{padding-left:2.35rem;font-size:.9rem;margin:6px 0}
+.lesson-journal li+li{margin-top:4px}
+.lesson-example,.lesson-log{font-size:.9rem;margin-top:9px}
+.lesson-example summary,.lesson-log summary{cursor:pointer;color:var(--muted);font-weight:650}
+.lesson-example p{margin:4px 0 0}
 .lesson-instruction{display:grid;grid-template-columns:clamp(50px,4vw,64px) minmax(0,1fr);align-items:start;gap:12px;margin:10px 0 13px}
 .lesson-art{display:grid;justify-items:center;gap:5px}
 .cue-counter,.cue-card,.cue-companion{display:grid;place-items:center;width:100%;padding:0;border:0;border-radius:2px;box-shadow:0 1px 3px #25342655}

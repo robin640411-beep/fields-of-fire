@@ -16,8 +16,8 @@
   });
   const initiative = (turn,page,card,total,small,saved) => ({
     turn, page, phase:ini, kind:'draw', cards:[card],
-    text:'排部結束下令。抽另一張牌，讀星形的小數字。',
-    detail:'單排任務將 '+small+' 點減半並無條件捨去，這個時段可用 '+total+' 點。'+(saved?'排部另存 '+saved+' 點。':''),
+    text:'排部結束下令。抽另一張牌，讀牌面左上、鋼盔下方的小數字。',
+    detail:'左上角的小數字是 '+small+'。單排一般主動減半，小數捨去，這個時段可用 '+total+' 點。'+(saved?'排部另存 '+saved+' 點。':''),
     effects:{tracks:{[cmd]:0,[bank]:saved,[ini]:total}}
   });
   const move = (turn,page,phase,id,at,left,line,extra={}) => ({
@@ -133,7 +133,7 @@
       draw(5,25,cmd,[12],'教學續局：抽選用的第 12 號牌，計算排部可用命令。','第 12 號牌的鋼盔為 4，加上保留 1 點，共 5 點。',{tracks:{[cmd]:5,[bank]:0,[ini]:0}}),
       move(5,25,cmd,'hq','C2',4,'排部抵達 C2，與 1/1 班同牌。'),
       checkpoint(5,25,cmd,'unit','s1','選取 1/1 班，結算 C2 的停火命令。','花 1 點移除 C2 的 PDF，B3 少一個來向，取下交叉火力修正。',{tracks:{[cmd]:3},marks:{C2:[],B3:[woods,'VOF S 0','集中目標']}}),
-      draw(5,25,ini,[2],'教學續局：抽選用的第 2 號牌，計算一般主動點。','星形為 4，單排減半後得 2。另將排部剩餘 3 點保留。',{tracks:{[cmd]:0,[bank]:3,[ini]:2}}),
+      draw(5,25,ini,[2],'教學續局：抽選用的第 2 號牌，計算一般主動點。','左上角的小數字為 4，單排減半後得 2。另將排部剩餘 3 點保留。',{tracks:{[cmd]:0,[bank]:3,[ini]:2}}),
       checkpoint(5,25,ini,'unit','s2','選取 2/1 班，結算 A2 的停火命令。','一個停火命令傳給同牌全部單位。A2 的 PDF 與 B3 剩下的基本 VOF 都可移除。',{tracks:{[ini]:1},marks:{A2:[],B3:[woods,'集中目標']}}),
       move(5,25,ini,'s1','B3',0,'1/1 班占據已無敵軍的中央樹林，完成本課。',{marks:{B3:[woods,'集中目標','已確保']}})
     ]

@@ -109,6 +109,18 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   return '<div class="lesson-instruction" data-kind="'+esc(t.kind)+'"><div class="lesson-art">'+art+
    (caption?'<span class="cue-coordinate">'+esc(caption)+'</span>':'')+'</div><div><h2 class="lesson-prompt">'+esc(t.text)+'</h2><p class="lesson-gesture">'+esc(gesture)+'</p></div></div>';
  }
+ const readings=()=>window.FOF_LESSON_READINGS[state().id];
+ const noteBody=note=>note.text.split('\n').map(line=>'<p>'+esc(line)+'</p>').join('');
+ function readingJournal(){
+  const {cursor}=state(),steps=lesson().steps;
+  if(!cursor)return '<p class="hint">完成第一步後，就能在這裡回讀講解和棋桌結果。</p>';
+  const groups=readings().filter(note=>note.from<cursor).reverse();
+  return '<div class="lesson-journal">'+groups.map((note,index)=>{
+   const end=Math.min(cursor-1,note.to);
+   const results=steps.slice(note.from,end+1).map((t,i)=>'<li value="'+(note.from+i+1)+'">'+esc(t.detail||t.text)+'</li>').join('');
+   return '<details'+(!index?' open':'')+'><summary>'+esc(note.title)+'<small>步驟 '+(note.from+1)+(end===note.from?'':'–'+(end+1))+'・手冊第 '+esc(steps[note.from].page)+' 頁起</small></summary>'+noteBody(note)+'<ol>'+results+'</ol></details>';
+  }).join('')+'</div><details class="lesson-log"><summary>棋桌事件紀錄</summary>'+logView()+'</details>';
+ }
  function play(drawInstruction){
   const s=state(),t=step(),l=lesson();
   if(!t){
@@ -117,8 +129,14 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
     (next?button('courseInfo','進入下一課','primary wide',next):button('missions','開啟任務選單','primary wide'))+
     (s.id==='P1'?button(slots().T1?'resume':'start',slots().T1?'繼續已存的自由演練':'用隨機牌序練習移動','secondary wide',slots().T1?'T1':'random'):'')+button('courses','查看課程進度','flat tiny',advanced(s.id)?'2':'1');
   }
+  const note=readings().find(n=>s.cursor>=n.from&&s.cursor<=n.to);
+  const previous=l.steps[s.cursor-1];
+  const previousDraw=previous?.kind==='draw';
+  const feedback=previous?.detail?'<div class="lesson-feedback"><small>'+esc(previousDraw?'上一步的抽牌・'+previous.cards.map(n=>n===51?'重洗牌':'第 '+n+' 號').join('、'):'上一步的結果')+'</small><p>'+esc(previous.detail)+'</p></div>':'';
   let body='<div class="lesson-position">'+numbered(s.cursor+1)+'<small>手冊第 '+esc(t.page)+' 頁</small></div>'+
    '<div class="progressline"><i style="width:'+100*s.cursor/l.steps.length+'%"></i></div><p class="lesson-phase">'+esc(t.roundLabel||(t.turn?'第 '+t.turn+' 回合':'任務設置'))+'　／　'+esc(t.phase)+'</p>'+
+   (previousDraw&&!drawInstruction?feedback:'')+
+   '<section class="lesson-reading" aria-label="本步手冊講解"><h2>'+esc(note.title)+'</h2>'+noteBody(note)+'</section>'+
    instruction(t,drawInstruction);
   if(t.kind==='draw')body+=button('focusDraw','前往行動牌組','secondary wide');
   if(t.kind==='choice')body+='<div class="answer-list">'+t.options.map((v,i)=>button('lessonAnswer',v,'',i)).join('')+'</div>';
@@ -127,16 +145,16 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   if(s.id==='H1'&&t.page>=38)body+=button('airPlan','查看我的裝載與管制卡','secondary wide');
   if(error)body+='<p role="alert" class="lesson-error">'+esc(error)+'</p>';
   if(hint&&t.kind!=='choice'&&t.kind!=='draw')body+='<p class="lesson-tip">'+(t.unit?'算子位於 '+G.nameAt(unit(t.unit))+'。':'')+(t.at?'請找 '+esc(t.at)+'。':'')+'</p>';
+  if(t.detail)body+='<details class="lesson-example"><summary>'+(['choice','amount'].includes(t.kind)?'對照本步解答':'對照本步的棋桌結果')+'</summary><p>'+esc(t.detail)+'</p></details>';
   body+='<div class="lesson-tools">'+button('lessonBack','上一步','flat tiny','',!s.cursor||!!drawInstruction)+(t.kind==='move'||t.kind==='cell'||t.kind==='unit'?button('lessonHint',hint?'收起提示':'指出位置','flat tiny'):'')+'</div>';
-  const previous=l.steps[s.cursor-1];
-  if(previous?.detail)body+='<div class="lesson-feedback"><small>上一步的結果</small><p>'+esc(previous.detail)+'</p></div>';
+  if(!previousDraw||drawInstruction)body+=feedback;
   return body;
  }
  function side(drawInstruction=''){
   const s=state(),l=lesson();
   const ledger=Object.entries(s.tracks);
   const showPlay=tab==='play'||!!drawInstruction;
-  return '<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('lessonTab','教學步驟',showPlay?'on':'','play',!!drawInstruction)+button('lessonTab','演練紀錄',showPlay?'':'on','log',!!drawInstruction)+'</div>'+button('lessonTurnGuide','流程表','tiny')+'</div><div class="sidebody">'+(showPlay?play(drawInstruction):logView())+'</div>'+(l.worksheet?'':lastRow())+'</section>'+
+  return '<section class="cardbox"><div class="sidehead"><div class="tabbar">'+button('lessonTab','教學步驟',showPlay?'on':'','play',!!drawInstruction)+button('lessonTab','演練紀錄',showPlay?'':'on','log',!!drawInstruction)+'</div>'+button('lessonTurnGuide','流程表','tiny')+'</div><div class="sidebody">'+(showPlay?play(drawInstruction):readingJournal())+'</div>'+(l.worksheet?'':lastRow())+'</section>'+
    (ledger.length&&!l.worksheet?box('演練紀錄值','<dl class="lesson-tracks">'+ledger.map(([label,v])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>'):'')+box('演練目標','<p class="hint">'+esc(l.goal)+'</p>');
  }
  function roster(){
@@ -165,7 +183,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   const s=state();
   switch(a){
   case 'lessonTurnGuide':turnGuide();return true;
-  case 'lessonCardKey':window.FOF_DRAW_VIEW.show([{why:'牌面示例',ids:[30]}],'判讀行動牌','左上鋼盔內的大數字是啟動命令，右下的小數字是主動命令。左欄按淨修正查 HIT、PIN 或 MISS。若命中，再抽牌查經驗欄。牌底的 RAND 是隨機數。');return true;
+  case 'lessonCardKey':window.FOF_DRAW_VIEW.show([{why:'牌面示例',ids:[30]}],'判讀行動牌','先看牌的左上角。啟動時讀鋼盔內的大數字。各種主動行動都讀鋼盔下方的小數字。左欄按淨修正查 HIT、PIN 或 MISS。若命中，再抽牌查經驗欄。牌底是隨機數表。');return true;
   case 'courses':menu(v);return true;
   case 'courseInfo':info(v);return true;
   case 'courseRestart':dialog('courseRestart','重新演練','<p>要將這一課的進度回到第一步嗎？</p><div class="buttonrow">'+button('courseStart','從頭開始','primary',v)+button('courseInfo','繼續保留進度','',v)+'</div>');return true;
@@ -180,7 +198,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   case 'lessonTab':tab=v;render();break;
   case 'lessonHint':hint=!hint;render();break;
   case 'lessonBack':if(s.cursor){reset();switchState(C.restore({id:s.id,cursor:s.cursor-1,reading:false}));}break;
-  case 'lessonAnswer':if(C.accepts(s,'choice',v))success();else fail('這個選項與本步的規則不符。請再對照提示或查看最近抽牌。');break;
+  case 'lessonAnswer':if(C.accepts(s,'choice',v))success();else fail('再核對一次本步的判斷。'+step().detail);break;
   case 'lessonPick':pick(v);break;
   case 'cell':{const [x,y]=v.split(',').map(Number);const c=G.at(s,{x,y});if(c)cell(c);break;}
   default:return false;

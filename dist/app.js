@@ -251,7 +251,16 @@ function tablePanel(){
 }
 function positionHint(k){const o=conf().objectives;if(k==='outpost')return '在第 2 列選擇前哨。';if(k.startsWith('way'))return '在第 '+o.waypointRows.join('、')+' 列選擇尚未使用的路線點。';const r=o[k+'Row'];return '在第 '+r+' 列放置'+objectiveName(k)+(k==='position'?'，須鄰接指定目標。':'。');}
 function renderSide(){
- if(course()){$('side').innerHTML=lessons.side(s.tableRun?drawProgress():'');return;}
+ const panel=$('side');
+ if(course()){
+  const key=s.id+'-'+s.cursor;
+  const stepChanged=panel.dataset.lessonStep!==key;
+  panel.innerHTML=lessons.side(s.tableRun?drawProgress():'');
+  panel.dataset.lessonStep=key;
+  if(stepChanged)panel.closest('.command-dock').scrollTop=0;
+  return;
+ }
+ delete panel.dataset.lessonStep;
  if(s.tableRun||s.drawOrder){
   const order=s.tableRun?.order||s.drawOrder;
   const progress=s.tableRun?drawProgress():'請點指揮顯示表上方的行動牌背。';
@@ -302,10 +311,10 @@ function missionInfo(id,atTable=false,formation){
  body+='<div class="buttonrow">'+(m&&id!=='Q1'?button('camMissions','返回'+campaigns.labels[m.book]+'戰役','flat tiny',m.book):button('missions','任務選單','flat tiny'))+'</div>';
  dialog('missionInfo',m&&id!=='Q1'?'任務簡報・'+m.id+' '+title(id):title(id),body,id);
 }
-function quickIntro(){return '<p>以諾曼第第一項任務的 4 × 3 地圖、十回合時限與原版行動牌，進行可獨立完成的快戰改編。</p><h3>目標</h3><p>十回合結束時，肅清第 1、2 列，並讓友軍留在已肅清的 A3 和 D3。</p><h3>本模式的改編規則</h3><ul><li>六枚班算子各有三階。全連共用鋼盔命令點，每回合最多 6 點，下回合最多保留 3 點；另抽一張讀星形主動點。</li><li>移動一格、嘗試尋找掩蔽或重整各花 1 點。每個班每回合至多移動一次。掩蔽成功給予 +2，移動後失去。</li><li>雙方戰鬥時自動檢查有友軍的 PC，接敵以同格的一階敵方算子表示。每枚未壓制友軍提供 −1 敵方檢定修正，最多 −3。友軍檢定採地形值、掩蔽與暴露（−2）。</li><li>HIT 減一階並壓制，PIN 壓制，MISS 無效果。無敵軍同牌時於整理階段恢復。全體退場或回合用盡時結算。</li></ul><p class="tagline">正式任務的編制、命令鏈、事件、射界與特殊兵種另收在「諾曼第戰役」輔助棋桌。</p>';}
+function quickIntro(){return '<p>以諾曼第第一項任務的 4 × 3 地圖、十回合時限與原版行動牌，進行可獨立完成的快戰改編。</p><h3>目標</h3><p>十回合結束時，肅清第 1、2 列，並讓友軍留在已肅清的 A3 和 D3。</p><h3>本模式的改編規則</h3><ul><li>六枚班算子各有三階。全連共用鋼盔命令點，每回合最多 6 點，下回合最多保留 3 點；另抽一張讀左上角的小數字取得主動點。</li><li>移動一格、嘗試尋找掩蔽或重整各花 1 點。每個班每回合至多移動一次。掩蔽成功給予 +2，移動後失去。</li><li>雙方戰鬥時自動檢查有友軍的 PC，接敵以同格的一階敵方算子表示。每枚未壓制友軍提供 −1 敵方檢定修正，最多 −3。友軍檢定採地形值、掩蔽與暴露（−2）。</li><li>HIT 減一階並壓制，PIN 壓制，MISS 無效果。無敵軍同牌時於整理階段恢復。全體退場或回合用盡時結算。</li></ul><p class="tagline">正式任務的編制、命令鏈、事件、射界與特殊兵種另收在「諾曼第戰役」輔助棋桌。</p>';}
 function quickPanel(){
  const u=selectedUnit(),labels={ready:'抽取連隊命令',command:'結束命令，抽主動點',initiative:'結算接敵與戰鬥',review:'開始下一回合'};
- const help={ready:'抽行動牌取得全連共用命令。',command:'選擇友軍，再點虛線目的牌；也可花 1 點尋找掩蔽或重整。',initiative:'星形數字提供主動點。用完後即可結算本回合。',review:'已完成接敵、戰鬥與整理。'};
+ const help={ready:'抽行動牌取得全連共用命令。',command:'選擇友軍，再點虛線目的牌；也可花 1 點尋找掩蔽或重整。',initiative:'左上角的小數字提供主動點。用完後即可結算本回合。',review:'已完成接敵、戰鬥與整理。'};
  let h='<div class="command-strip"><span>可用命令 <b>'+s.points+'</b></span><small>保留 '+s.saved+'</small></div><p class="hint">'+help[s.phase]+'</p>';
  if(s.phase==='review')h+='<p class="mini-check">'+((s.roundReport||[]).slice(-5).map(esc).join('<br>')||'本回合沒有新的接敵或狀態變化。')+'</p>';
  if(u)h+='<div class="selected-info"><b>'+esc(u.name)+'</b>　'+u.steps+' 階　'+(u.pinned?'壓制 ':'')+(u.covered?'掩蔽 ':'')+G.nameAt(u)+'</div><div class="actionpair">'+button('qact','尋找掩蔽','tiny','cover',!Q.canAct(s,u,'cover'))+button('qact','重整','tiny','rally',!Q.canAct(s,u,'rally'))+'</div>';
@@ -542,7 +551,7 @@ document.addEventListener('click',ev=>{
  case 'unit':pickUnit(v);break;
  case 'advance':step();break;
  case 'result':result();break;
- case 'deck':dialog('deck','行動牌組','<p>50 張行動牌，另有 1 張重洗牌。目前牌堆剩 '+s.deck.length+' 張。</p>'+pic('assets/action-back.webp','cardface','行動牌背')+'<p class="tagline">鋼盔顯示啟動命令，星形顯示主動點。卡面同時列出結果、事件圖示與隨機數字。</p>');break;
+ case 'deck':dialog('deck','行動牌組','<p>50 張行動牌，另有 1 張重洗牌。目前牌堆剩 '+s.deck.length+' 張。</p>'+pic('assets/action-back.webp','cardface','行動牌背')+'<p class="tagline">鋼盔顯示啟動命令，鋼盔下方的小數字顯示主動點。卡面同時列出結果、事件圖示與隨機數字。</p>');break;
  case 'last':draws.show(drawGroups(),'最近抽牌','');break;
  case 'putObj':case 'putChosen':{
   const k=a==='putChosen'?$('objKey').value:v;
