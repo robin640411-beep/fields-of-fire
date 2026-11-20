@@ -164,11 +164,11 @@ function createPlayer(catalog){
    if(current!==run)return;
   }
   layer.dataset.stage='impact';
-  const outcome=e.outcome,icon={hit:'✷',pin:'⇊',miss:'↗',success:'↶'}[outcome];
-  const text={hit:'命中',pin:'受壓制',miss:'未命中',success:'撤退'}[outcome];
+  const outcome=e.outcome;
+  const text={hit:'HIT!',miss:'MISS!',pin:'⇊ 受壓制',success:'↶ 撤退'}[outcome];
   const ring=create('span','motion-impact');ring.dataset.outcome=outcome;ring.dataset.target=e.target||'';pos(ring,b);
   ring.style.setProperty('--diameter',Math.max(34,Math.min(75,(e.target?b.w:35)||32)+10)+'px');
-  const tag=create('b','impact-tag');tag.textContent=icon+' '+text;ring.append(tag);layer.append(ring);
+  const tag=create('b','impact-tag');tag.textContent=text;ring.append(tag);layer.append(ring);
   const chip=e.target&&(run.tokens.get(e.target)||board.querySelector('.map-chit[data-value="'+CSS.escape(e.target)+'"]'));
   const victim=chip||(!run.before.units.has(e.target)&&e.targetPiece&&token(run,{piece:e.targetPiece},b));
   const steady=[{opacity:1},{opacity:1}],reactions={
