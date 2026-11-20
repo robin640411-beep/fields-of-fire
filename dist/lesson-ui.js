@@ -187,7 +187,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
   case 'courses':menu(v);return true;
   case 'courseInfo':info(v);return true;
   case 'courseRestart':dialog('courseRestart','重新演練','<p>要將這一課的進度回到第一步嗎？</p><div class="buttonrow">'+button('courseStart','從頭開始','primary',v)+button('courseInfo','繼續保留進度','',v)+'</div>');return true;
-  case 'courseStart':reset();switchState(C.start(v));return true;
+  case 'courseStart':reset();switchState(C.start(v),'演練開始・'+C.lessons[v].title);return true;
   case 'courseResume':reset();switchState(slots()[v]);return true;
   }
   if(!C.has(s.id))return false;

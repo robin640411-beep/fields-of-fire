@@ -159,7 +159,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
    case 'camNew':newSeries(v);break;
    case 'camLaunch':{
     const rule=$('campaignRule').value,formation=$('campaignForm')?.value;
-    entryBrief(C.books[v].order[0][0],()=>switchTo(C.launch(v,rule,formation)),()=>newSeries(v,rule,formation));
+    entryBrief(C.books[v].order[0][0],()=>switchTo(C.launch(v,rule,formation),'戰役開局'),()=>newSeries(v,rule,formation));
     break;
    }
    case 'camResume':{
@@ -219,7 +219,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
     });close();break;
    }
    case 'camSkip':dialog('skipPatrol','略過第 '+s.patrol+' 排巡邏','<p>本排將記錄為未出發，取得 0 XP。</p>'+action('SkipYes','確認略過','','primary')+' '+b('close','返回'));break;
-   case 'camSkipYes':{const next=S.nextPatrol(s,true);if(next){switchTo(next);if(next.outcome)result();}break;}
+   case 'camSkipYes':{const next=S.nextPatrol(s,true);if(next){switchTo(next,'巡邏交接');if(next.outcome)result();}break;}
    case 'camReport':{
     const n=id=>Number($(id)?.value||0);
     const ok=edit(()=>S.ledger(s,'report',{extra:n('extra'),captured:n('captured'),lost:n('lost'),lat:n('lat'),patrolExtra:[1,2,3].map(i=>n('extra'+i))}));
@@ -227,7 +227,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
    case 'camLedger':{const [command,index,idx]=v.split('|'),row=s.settlement?.rows[Number(index)],skill=$('seriesSkill')?.value;
     if(edit(()=>S.ledger(s,command,{id:row?.id,index:Number(idx),grade:idx,skill})))settle();else tell('可用兵力、經驗或輪調條件尚未符合。');break;}
    case 'camNext':{
-    if(S.canAdvance(s,v))entryBrief(v,()=>switchTo(S.advance(s,v)),settle);
+    if(S.canAdvance(s,v))entryBrief(v,()=>switchTo(S.advance(s,v),'戰役推進・進入下一個任務'),settle);
     else tell('請先完成任務間輪調。');
     break;
    }

@@ -20,12 +20,18 @@ s=s||C.start('P1');slots[campaigns.key(s)]=s;
 let selected=null,focus=null,mode='',group=false,sideTab='play',modal='',modalData=null,toastTimer,origin=null;
 const history=[];
 const selectedUnit=()=>s.units.find(u=>u.id===selected);
+const motion=window.FOF_TABLE_MOTION.create(catalog);
+let gesture={},holdLessonPanel=false;
+function animateAction(scene,before,context={}){
+ const beats=window.FOF_MOTION_EVENTS.plan(before,s,{selected,at:focus&&G.nameAt(focus),...gesture,...context});
+ motion.play(scene,beats,()=>{if(holdLessonPanel){holdLessonPanel=false;renderSide();renderRoster();}});
+}
 const conf=()=>G.scenario(s.id);
 const course=()=>C.has(s.id);
 const isTable=()=>!course()&&G.isTable(s);
-const lessons=window.FOF_LESSON_UI({state:()=>s,slots:()=>slots,switchState:st=>{s=st;resetView();},edit,render,dialog,close,tell,button,esc,box,tokenPic,logView,lastRow});
+const lessons=window.FOF_LESSON_UI({state:()=>s,slots:()=>slots,switchState:(st,start)=>{s=st;resetView(start);},edit,render,dialog,close,tell,button,esc,box,tokenPic,logView,lastRow});
 const commandDisplay=window.FOF_COMMAND_DISPLAY.create({state:()=>s,esc,button,edit});
-const campaignUI=window.FOF_CAMPAIGN_UI({state:()=>s,slots:()=>slots,switchTo:st=>{s=st;resetView();},edit,dialog,button,close,tell,esc,missionChoice,entryBrief,result,render});
+const campaignUI=window.FOF_CAMPAIGN_UI({state:()=>s,slots:()=>slots,switchTo:(st,start)=>{s=st;resetView(start);},edit,dialog,button,close,tell,esc,missionChoice,entryBrief,result,render});
 function drawGroups(){
  if(s.tableRun){
   const read=piles.frames(s.tableRun).slice(0,s.tableRun.shown).filter(f=>f.id);
@@ -77,9 +83,11 @@ function flipAction(){
   delete s.drawOrder;history.push(JSON.stringify(s));if(history.length>35)history.shift();
   s.tableRun=run;
  }
- const frames=piles.frames(run);
+ const frames=piles.frames(run),before=s,scene=motion.capture(),frame=frames[run.shown];
+ let events;
  run.shown++;
  if(run.shown>=frames.length){
+  events=piles.battleEvents(s,run);
   const oldPhase=s.phase;
   s=piles.finish(run);window.FOF_TERRAIN_VISIBILITY.refresh(s);
   if(course())lessons.reset();
@@ -87,21 +95,30 @@ function flipAction(){
   if(run.order.type==='contact'||run.order.type==='group')focus=G.at(s,run.order);
   if(!course())tell(s.log.at(-1)?.text||'抽牌完成。');
  }
+ holdLessonPanel=course()&&s.cursor!==before.cursor;
  persist();render();
+ animateAction(scene,before,{frame,order:run.order,partial:s===before&&!!s.tableRun,events});
 }
 function showPending(){
  if(!s.pendingDraws?.length||draws.isOpen())return;
  const owner=s,reading=course()&&s.reading;
  const caption=reading?C.current(s).detail:s.pcOrder&&s.pendingDraws.some(g=>g.why.startsWith('同級 PC 順序'))?s.log.at(-1)?.text:s.pendingDraws.some(g=>g.ids.includes(51))?'重洗牌不計張數。抽滿本次所需的行動牌後，整副重新洗混。':'';
  draws.show(s.pendingDraws,'本次抽牌',caption,()=>{
+  const scene=motion.capture(),before=structuredClone(owner);
   owner.recentDraws=owner.pendingDraws.splice(0);
-  if(reading){C.complete(owner);lessons.reset();}
+  if(reading){C.complete(owner);lessons.reset();holdLessonPanel=true;}
   persist();render();
+  if(reading)animateAction(scene,before);
  });
 }
 function tell(v){if($modal.open){let msg=$modal.querySelector('.modalmessage');if(!msg){msg=document.createElement('p');msg.className='modalmessage';msg.setAttribute('role','status');$modal.querySelector('.modalhead').after(msg);}msg.textContent=v;}$('toast').textContent=v;$('toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('on'),2600);}
 function persist(){slots[campaigns.key(s)]=s;try{localStorage.setItem(key,JSON.stringify({version:1,active:campaigns.key(s),slots}));storageOK=true;}catch{storageOK=false;} $('savedStatus').textContent=storageOK?'✓ 本機自動存檔':'目前僅保留在此頁　請匯出存檔';}
-function edit(fn){const last=JSON.stringify(s);const ok=fn();if(ok===false)return false;window.FOF_TERRAIN_VISIBILITY.refresh(s);history.push(last);if(history.length>35)history.shift();persist();render();return true;}
+function edit(fn){
+ const last=JSON.stringify(s),cursor=s.cursor,scene=motion.capture(),ok=fn();if(ok===false)return false;
+ window.FOF_TERRAIN_VISIBILITY.refresh(s);history.push(last);if(history.length>35)history.shift();
+ holdLessonPanel=course()&&cursor!==s.cursor;
+ persist();render();animateAction(scene,JSON.parse(last));return true;
+}
 function campaignAddress(book){
  const url=new URL(location.href);
  if(book)url.searchParams.set('campaign',book);
@@ -112,7 +129,10 @@ function close(){if(modal==='campaignIntro')campaignAddress(null);if($modal.open
 function dialog(type,heading,html,data=null){
  if(type==='campaignIntro'||modal==='campaignIntro')campaignAddress(type==='campaignIntro'?data:null);
  tabletop.dismiss();modal=type;modalData=data;$modal.dataset.kind=type;$('modalBody').innerHTML='<div class="modalhead"><h2>'+esc(heading)+'</h2>'+button('close','×','','')+'</div><div class="modalcontent">'+html+'</div>';if(!$modal.open)$modal.showModal();$modal.scrollTop=0;}
-function resetView(){lessons.reset();selected=null;focus=null;mode='';group=false;sideTab='play';history.length=0;origin=null;close();persist();render();}
+function resetView(startLabel){
+ motion.stop();lessons.reset();selected=null;focus=null;mode='';group=false;sideTab='play';history.length=0;origin=null;close();persist();render();
+ if(startLabel)motion.play(motion.capture(),[[{kind:'map',region:'board',label:startLabel}]]);
+}
 function activeProgress(){if(!isTable())return {v:G.atThird(s),n:7,label:'抵達第 3 列'};const gs=G.goals(s);return {v:gs.filter(g=>g.done).length,n:gs.length,label:'達成任務條件'};}
 function renderHero(){
  const book=quick()?null:conf()?.book;
@@ -210,7 +230,7 @@ function rosterButton(u){
  const t=catalog.get(u.art), st=u.casualty?'傷亡':u.pinned?'壓制':u.exposed?'暴露':G.nameAt(u);
  return '<button class="ubtn '+(selected===u.id?'selected':'')+'" data-action="unit" data-value="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-info="'+esc(st)+'">'+(t?pic(t.art,u.exposed?'faded':''):'<span class="piece-icon">◇</span>')+'<span><b>'+esc(shortAbbr(u))+'</b><small>'+esc(st)+'</small></span></button>';
 }
-function renderRoster(){if(course()){$('roster').innerHTML=lessons.roster();return;}const full=isTable(),list=full?s.units.filter(u=>u.side==='friendly'):s.units;
+function renderRoster(){if(holdLessonPanel)return;if(course()){$('roster').innerHTML=lessons.roster();return;}const full=isTable(),list=full?s.units.filter(u=>u.side==='friendly'):s.units;
  $('roster').innerHTML='<div class="cardbox rosterbox"><div class="rosterhead"><h2>'+(full?'友軍編組':'第 1 排編組')+'</h2><span class="turnpill">'+list.length+' 枚算子</span></div><div class="rostergrid">'+list.map(rosterButton).join('')+'</div></div>';
 }
 function goalBox(){
@@ -251,6 +271,7 @@ function tablePanel(){
 }
 function positionHint(k){const o=conf().objectives;if(k==='outpost')return '在第 2 列選擇前哨。';if(k.startsWith('way'))return '在第 '+o.waypointRows.join('、')+' 列選擇尚未使用的路線點。';const r=o[k+'Row'];return '在第 '+r+' 列放置'+objectiveName(k)+(k==='position'?'，須鄰接指定目標。':'。');}
 function renderSide(){
+ if(holdLessonPanel)return;
  const panel=$('side');
  if(course()){
   const key=s.id+'-'+s.cursor;
@@ -369,6 +390,7 @@ function scoreTable(){
  return series.score(s);
 }
 function result(){
+ const owner=s;if(motion.defer(()=>{if(s===owner)result();}))return;
  const m=conf();let b='<p>完成回合　<b>'+s.turn+'</b>　｜　累計抽牌　<b>'+s.drawCount+'</b></p>';
  if(!m)b+='<p>七枚算子全數到達第 3 列。</p>';
  else if(m.mode==='patrol')b+='<h3>巡邏記錄</h3>'+s.patrolHistory.map((r,i)=>'<p>第 '+(i+1)+' 次　'+(r.ok?'成功':'未完成')+'　'+r.xp+' XP</p>').join('');
@@ -379,7 +401,7 @@ function result(){
 }
 function saveMenu(){dialog('saves','存檔管理','<p>'+esc(storageOK?'每次行動都會自動存檔。切換任務時，各自保留進度。':'瀏覽器目前無法寫入存檔。請使用匯出檔案保存進度。')+'</p><p class="tagline">目前任務　'+esc(title(s.id))+'　／　第 '+s.turn+' 回合</p><div class="buttonrow">'+button('export','匯出全部進度','primary')+button('import','匯入存檔')+'</div>');}
 function start(id,guided=true,form=$('campaignForm')?.value){
- s=id==='T1'?G.training(guided):id==='Q1'?Q.start():campaigns.create(id,{form});resetView();
+ s=id==='T1'?G.training(guided):id==='Q1'?Q.start():campaigns.create(id,{form});resetView('任務開始・'+title(s.id));
 }
 function editCell(c){dialog('editcell','地圖標記・'+G.nameAt(c),'<div class="formgroup"><label for="marks">本牌標記（每行一項）</label><textarea id="marks" maxlength="800">'+esc(c.marks.join('\n'))+'</textarea><label for="pcType">潛在接敵</label><select id="pcType">'+['','A','B','C'].map(v=>'<option value="'+v+'" '+(v===(c.pc||'')?'selected':'')+'>'+esc(v||'無')+'</option>').join('')+'</select><label><input id="pcHidden" type="checkbox" '+(c.hidden?'checked':'')+'> 標記背面朝上</label></div>'+button('saveCell','套用地圖標記','primary'));}
 function addPiece(type,name,art){
@@ -477,12 +499,14 @@ historyViewer.addEventListener('click',ev=>{
 historyViewer.addEventListener('close',()=>{historyImage.removeAttribute('src');});
 document.addEventListener('submit',ev=>{
  if(ev.target.id!=='lessonAmount')return;
+ gesture={action:'lessonAmount',label:'登記演練數值'};queueMicrotask(()=>{gesture={};});
  ev.preventDefault();
  if(course()&&C.current(s)?.kind==='amount')lessons.handle('lessonAmount',new FormData(ev.target).get('amount'));
 });
 document.addEventListener('click',ev=>{
  const el=ev.target.closest('[data-action]');if(!el||el.disabled)return;
  const a=el.dataset.action,v=el.dataset.value||'';
+ gesture={action:a,value:v,label:el.getAttribute('aria-label')||el.textContent.trim()};queueMicrotask(()=>{gesture={};});
  if(el.matches('.campaign-nav a')){
   if(ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.altKey||ev.button!==0)return;
   ev.preventDefault();

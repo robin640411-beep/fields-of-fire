@@ -2,6 +2,7 @@
 (() => {
 'use strict';
 const G=window.FOF,C=window.FOF_COURSE,Q=window.FOF_QUICK;
+const battleTraces=new WeakMap();
 const names={weather:'天候檢定',lesson:'教學抽牌',advance:'回合抽牌',moonlight:'月光能見度',event:'上級事件',order:'同級 PC 順序',contact:'接敵檢查',group:'接敵組合',batch:'手動抽牌',combat:'戰鬥效果',cover:'尋找掩蔽',rally:'重整'};
 function validOrder(o){
  if(!o||!Object.hasOwn(names,o.type))return false;
@@ -42,11 +43,11 @@ function label(s,o){
  if(o.type==='contact'||o.type==='group')return G.nameAt(o)+'・'+names[o.type];
  return names[o.type];
 }
-function resolve(s,o){
+function resolve(s,o,events){
  if(!validForState(s,o)||s.outcome)return false;
  if(C.has(s.id))return o.type==='lesson'&&C.beginDraw(s);
  switch(o.type){
- case 'advance':return s.id==='Q1'?Q.advance(s):s.id==='T1'&&G.advanceTraining(s);
+ case 'advance':return s.id==='Q1'?Q.advance(s,events):s.id==='T1'&&G.advanceTraining(s);
  case 'weather':{if(!s.weatherDue)return false;const m=G.scenario(s.id);if(!m?.weather)return false;
    const die=G.draw(s,1,'天候・R4')[0].rand[4],n=die+(s.raining?1:0);s.vis=m.weather.outcomes[n-1];s.raining=n>=3;s.weatherDue=false;G.note(s,'天候表結果 '+n+'，能見度 +'+s.vis+'。');return true;}
  case 'moonlight':if(G.scenario(s.id)?.mode!=='patrol'||s.vis)return false;
@@ -74,8 +75,15 @@ function frames(run){
 }
 function prepare(s,order){
  const after=structuredClone(s);delete after.drawOrder;
- if(!resolve(after,order))return null;
- return {after,order,shown:0};
+ const events=[];
+ if(!resolve(after,order,events))return null;
+ const run={after,order,shown:0};
+ if(events.length)battleTraces.set(run,events);
+ return run;
+}
+function battleEvents(s,run){
+ if(s.id!=='Q1'||s.phase!=='initiative'||run.order.type!=='advance')return [];
+ return battleTraces.get(run)||Q.recordedBattle(s,run.after.pendingDraws);
 }
 function finish(run){
  const s=run.after;
@@ -83,5 +91,5 @@ function finish(run){
  if(C.has(s.id)&&s.reading)C.complete(s);
  return s;
 }
-window.FOF_TABLE_DRAW={validForState,defaultOrder,label,frames,prepare,finish};
+window.FOF_TABLE_DRAW={validForState,defaultOrder,label,frames,prepare,finish,battleEvents};
 })();
