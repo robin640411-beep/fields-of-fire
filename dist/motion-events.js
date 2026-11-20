@@ -59,7 +59,8 @@ function plan(before,after,ctx={}){
  }
  if(shots)for(const shot of shots)add({...shot,kind:'fire',targetPiece:oldUnits.has(shot.target)?piece(before,oldUnits.get(shot.target)):undefined});
  if(!shots&&specific&&!['move','retreat','evacuate'].includes(specific.kind)){
-  add({...specific,kind:specific.kind==='fire'?'check':specific.kind,region:anchor,piece:specific.unit&&oldUnits.has(specific.unit)?piece(before,oldUnits.get(specific.unit)):undefined});
+  const redirect=specific.kind==='fire'&&specific.from&&specific.to&&/轉移/.test(specific.label);
+  add({...specific,kind:specific.kind==='fire'&&!redirect?'check':specific.kind,shooter:redirect?specific.unit:undefined,region:anchor,piece:specific.unit&&oldUnits.has(specific.unit)?piece(before,oldUnits.get(specific.unit)):undefined});
  }
  if(order==='combat'&&ctx.order.target){
   const target=oldUnits.get(ctx.order.target),shooter=oldUnits.get(ctx.order.shooter);

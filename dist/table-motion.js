@@ -95,49 +95,74 @@ function createPlayer(catalog){
   if(minX>=port.scrollLeft&&maxX<=port.scrollLeft+port.clientWidth&&minY>=port.scrollTop&&maxY<=port.scrollTop+port.clientHeight)return;
   if(port.scrollWidth>port.clientWidth||port.scrollHeight>port.clientHeight)port.scrollTo({left:(minX+maxX-port.clientWidth)/2,top:(minY+maxY-port.clientHeight)/2,behavior:'instant'});
  }
- const revealArrow=[{clipPath:'inset(-18px 100% -18px -8px)'},{clipPath:'inset(-18px -16px -18px -8px)',offset:.32},{clipPath:'inset(-18px -16px -18px -8px)'}];
- function route(a,b,side){
-  const line=create('span','motion-arrow');line.dataset.side=side||'neutral';pos(line,a);
-  line.style.width=Math.max(9,Math.hypot(b.x-a.x,b.y-a.y))+'px';
-  line.style.setProperty('--angle',Math.atan2(b.y-a.y,b.x-a.x)+'rad');layer.append(line);return line;
- }
+ let routeId=0;
  const shift=(a,b)=>'translate('+Number(b.x-a.x)+'px,'+Number(b.y-a.y)+'px)';
+ function svgNode(name,attrs){
+  const node=document.createElementNS('http://www.w3.org/2000/svg',name);
+  for(const [key,value] of Object.entries(attrs))node.setAttribute(key,value);
+  return node;
+ }
+ // One dashed path and moving arrowhead for any side, including nearby or stacked counters.
+ function route(a,b,kind){
+  const near=Math.hypot(b.x-a.x,b.y-a.y)<55,dir=b.x>=a.x?1:-1;
+  const c=near?{x:a.x-18*dir,y:a.y-39}:a,d=near?{x:b.x+18*dir,y:b.y-39}:b;
+  const pad=13,x=Math.min(a.x,b.x,c.x,d.x)-pad,y=Math.min(a.y,b.y,c.y,d.y)-pad;
+  const w=Math.max(a.x,b.x,c.x,d.x)-x+pad,h=Math.max(a.y,b.y,c.y,d.y)-y+pad;
+  const pair=p=>(p.x-x)+' '+(p.y-y);
+  const path='M '+pair(a)+(near?' C '+pair(c)+' '+pair(d)+' ':' L ')+pair(b);
+  const arrow=create('span','motion-arrow');
+  arrow.dataset.kind=kind;pos(arrow,{x,y});arrow.style.width=w+'px';arrow.style.height=h+'px';
+  const svg=svgNode('svg',{viewBox:'0 0 '+w+' '+h});
+  const maskId='fof-route-'+(++routeId),mask=svgNode('mask',{id:maskId,maskUnits:'userSpaceOnUse',x:0,y:0,width:w,height:h});
+  const reveal=svgNode('path',{d:path,pathLength:1,fill:'none',stroke:'white','stroke-width':10,'stroke-dasharray':'1 1'});
+  const line=svgNode('path',{d:path,class:'motion-shaft',mask:'url(#'+maskId+')'});
+  const head=svgNode('path',{d:'M 0 0 L -15 -8 L -12 0 L -15 8 Z'});
+  mask.append(reveal);svg.append(mask,line,head);arrow.append(svg);layer.append(arrow);
+  const len=line.getTotalLength(),headFrames=[],travelFrames=[];
+  let heading;
+  for(let i=0;i<=24;i++){
+   const distance=i*len/24,p=line.getPointAtLength(distance);
+   const prev=line.getPointAtLength(Math.max(0,distance-.5)),next=line.getPointAtLength(Math.min(len,distance+.5));
+   const angle=Math.atan2(next.y-prev.y,next.x-prev.x);
+   heading=heading===undefined?angle:heading+Math.atan2(Math.sin(angle-heading),Math.cos(angle-heading));
+   headFrames.push({transform:'translate('+p.x+'px,'+p.y+'px) rotate('+heading+'rad)',offset:i/24});
+   travelFrames.push({transform:shift(a,{x:p.x+x,y:p.y+y}),offset:i/24});
+  }
+  head.style.transform=headFrames.at(-1).transform;
+  return {arrow,reveal,head,headFrames,travelFrames};
+ }
+ async function showDirection(run,a,b,kind){
+  const follow=frameRoute(a,b),path=route(a,b,kind),steady=[{opacity:1},{opacity:1}];
+  // Hold the completed arrow before the counter travels or the target reacts.
+  const ms=1350,drawn=.48;
+  if(run.quiet)await anim(run,path.arrow,steady,ms);
+  else await Promise.all([
+   anim(run,path.reveal,[{strokeDashoffset:'1'},{strokeDashoffset:'0',offset:drawn},{strokeDashoffset:'0'}],ms),
+   anim(run,path.head,[...path.headFrames.map(f=>({...f,offset:f.offset*drawn})),{transform:path.head.style.transform,offset:1}],ms)
+  ]);
+  if(current===run&&follow)port.scrollTo({left:b.x-port.clientWidth/2,top:b.y-port.clientHeight/2,behavior:run.quiet?'instant':'smooth'});
+  return path;
+ }
  async function move(run,e){
   const id=e.piece?.id;
   let a=run.before.units.get(id)||point(run,e,false),b=run.after.units.get(id)||point(run,e,true);
   if(e.kind!=='move')b={x:a.x,y:a.y+(e.side==='enemy'?-45:45)};
   else if(e.from===e.to){a={...a,x:a.x-15};b={...b,x:b.x+3};}
-  const follow=frameRoute(a,b),traveller=token(run,e,a);if(!traveller)return;
+  const traveller=token(run,e,a);if(!traveller)return;
   pos(traveller,a);traveller.hidden=false;
-  const arrow=route(a,b,e.side);layer.dataset.stage='direction';traveller.dataset.stage='direction';
-  await anim(run,arrow,run.quiet?[{opacity:1},{opacity:1}]:revealArrow,1350);
+  layer.dataset.stage='direction';traveller.dataset.stage='direction';
+  const path=await showDirection(run,a,b,'move');
   if(current!==run)return;
   layer.dataset.stage='travel';traveller.dataset.stage='travel';
-  if(follow)port.scrollTo({left:b.x-port.clientWidth/2,top:b.y-port.clientHeight/2,behavior:run.quiet?'instant':'smooth'});
   if(run.quiet){pos(traveller,b);await anim(run,traveller,[{opacity:.8},{opacity:1}],1050);}
-  else await anim(run,traveller,[{transform:'translate(0,0)'},{transform:shift(a,b),opacity:e.kind==='move'?1:.12}],1050);
+  else{
+   if(e.kind!=='move')path.travelFrames.at(-1).opacity=.12;
+   await anim(run,traveller,path.travelFrames,1050);
+  }
   if(current!==run)return;
-  pos(traveller,b);await anim(run,arrow,[{opacity:1},{opacity:.7}],400);
+  pos(traveller,b);await anim(run,path.arrow,[{opacity:1},{opacity:.7}],400);
   if(current!==run)return;
-  arrow.remove();traveller.remove();run.tokens.delete(id);unitMask(run,id,false);
- }
- function firingPath(a,b,side){
-  if(Math.hypot(b.x-a.x,b.y-a.y)>=55)return {arrow:route(a,b,side),frames:[{transform:'translate(0,0)'},{transform:shift(a,b)}]};
-  // Nearby counters still need a legible route with an arrowhead at the actual target.
-  const dir=b.x>=a.x?1:-1,first={x:a.x-18*dir,y:a.y-39},second={x:b.x+18*dir,y:b.y-39};
-  const lowX=Math.min(a.x,b.x,first.x,second.x)-7,lowY=Math.min(first.y,second.y)-7;
-  const width=Math.max(a.x,b.x,first.x,second.x)-lowX+7,height=Math.max(a.y,b.y)-lowY+7;
-  const arrow=create('span','motion-arrow local-shot');pos(arrow,{x:lowX,y:lowY});arrow.dataset.side=side||'neutral';
-  arrow.style.width=width+'px';arrow.style.height=height+'px';
-  const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg'),line=document.createElementNS(ns,'path'),head=document.createElementNS(ns,'path');
-  const pair=p=>(p.x-lowX)+' '+(p.y-lowY);
-  svg.setAttribute('viewBox','0 0 '+width+' '+height);
-  line.setAttribute('d','M '+pair(a)+' C '+pair(first)+' '+pair(second)+' '+pair(b));line.setAttribute('class','shot-line');
-  head.setAttribute('d','M 0 0 L -12 -6 L -9 0 L -12 6 Z');
-  head.setAttribute('transform','translate('+pair(b)+') rotate('+Math.atan2(b.y-second.y,b.x-second.x)*180/Math.PI+')');
-  svg.append(line,head);arrow.append(svg);layer.append(arrow);
-  const frames=Array.from({length:15},(_,i)=>{const t=i/14,u=1-t;const axis=k=>u**3*a[k]+3*u*u*t*first[k]+3*u*t*t*second[k]+t**3*b[k];return {transform:shift(a,{x:axis('x'),y:axis('y')}),offset:t};});
-  return {arrow,frames};
+  path.arrow.remove();traveller.remove();run.tokens.delete(id);unitMask(run,id,false);
  }
  function counterAt(run,id,coord){
   const ghost=id&&run.tokens.get(id);
@@ -148,21 +173,18 @@ function createPlayer(catalog){
  async function shoot(run,e){
   const b=counterAt(run,e.target,e.to);
   if(!b)return;
-  const a=(e.from||e.shooter)?counterAt(run,e.shooter,e.from):null;
-  const follow=frameRoute(a||b,b);
-  let arrow;
-  if(a){
-   const path=firingPath(a,b,e.side);arrow=path.arrow;arrow.dataset.kind='shot';
-   layer.dataset.stage='aim';
-   await anim(run,arrow,run.quiet||arrow.classList.contains('local-shot')?[{opacity:.8},{opacity:1}]:revealArrow,1350);
-   if(current!==run)return;
-   layer.dataset.stage='shot';
-   if(follow)port.scrollTo({left:b.x-port.clientWidth/2,top:b.y-port.clientHeight/2,behavior:run.quiet?'instant':'smooth'});
-   const trace=create('span','motion-trace');pos(trace,run.quiet?b:a);layer.append(trace);
-   await anim(run,trace,run.quiet?[{opacity:.8},{opacity:1}]:path.frames,650);
-   trace.remove();
-   if(current!==run)return;
-  }
+  const source=(e.from||e.shooter)&&counterAt(run,e.shooter,e.from);
+  // Off-map or unspecified fire uses a short incoming cue at the target.
+  const a=source||{x:b.x,y:b.y-62};
+  layer.dataset.stage='aim';
+  const path=await showDirection(run,a,b,'shot');
+  if(current!==run)return;
+  if(e.outcome)await impact(run,e,b);
+  path.arrow.remove();
+ }
+ async function impact(run,e,b){
+  if(!b)return;
+  frameRoute(b,b);
   layer.dataset.stage='impact';
   const outcome=e.outcome;
   const text={hit:'HIT!',miss:'MISS!',pin:'PIN!',success:'↶ 撤退'}[outcome];
@@ -179,7 +201,7 @@ function createPlayer(catalog){
   };
   const animations=[anim(run,ring,run.quiet?steady:[{opacity:.55},{opacity:1,offset:.12},{opacity:1,offset:.92},{opacity:.8}],1550)];
   if(victim)animations.push(anim(run,victim,run.quiet?steady:reactions[outcome],1550));
-  await Promise.all(animations);arrow?.remove();ring.remove();
+  await Promise.all(animations);ring.remove();
   if(victim&&!chip){victim.remove();run.tokens.delete(e.target);}
  }
  function spark(run,e,p,ms){
@@ -210,8 +232,8 @@ function createPlayer(catalog){
  }
  async function effect(run,e,ms){
   const p=point(run,e,true);
-  if(e.kind==='fire'&&e.outcome)return shoot(run,e);
-  if(e.kind==='pin'&&e.piece)return shoot(run,{outcome:'pin',target:e.piece.id,targetPiece:e.piece,to:e.to});
+  if(e.kind==='fire'&&(e.outcome||e.from&&e.to))return shoot(run,e);
+  if(e.kind==='pin'&&e.piece)return impact(run,{outcome:'pin',target:e.piece.id,targetPiece:e.piece},counterAt(run,e.piece.id,e.to));
   if(e.kind==='flight'){
    const path=create('span','motion-flight'),aircraft=document.createElement('i');aircraft.textContent='✈';
    path.setAttribute('aria-hidden','true');path.append(aircraft);label.after(path);
@@ -292,7 +314,7 @@ function createPlayer(catalog){
    if(sheet)animations.push(anim(run,sheet,[{boxShadow:'inset 0 -3px #d9a84f'},{boxShadow:'inset 0 -3px transparent'}],ms));
    if(i===last)for(const {id,a,b,ghost} of tracks){
     animations.push((async()=>{
-     const path=Math.hypot(b.pos.x-a.pos.x,b.pos.y-a.pos.y)>8?route(a.pos,b.pos,'friendly'):null;
+     const path=Math.hypot(b.pos.x-a.pos.x,b.pos.y-a.pos.y)>8?route(a.pos,b.pos,'command').arrow:null;
      if(path)await anim(run,path,[{opacity:.3},{opacity:1}],650);
      if(current!==run)return;
      await anim(run,ghost,[{transform:'translate(0,0)'},{transform:shift(a.pos,b.pos)}],700);
