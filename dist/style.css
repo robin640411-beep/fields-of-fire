@@ -232,6 +232,19 @@ body{min-width:1080px;--campaign-nav-height:42px}
 .legend-row:not(:has(.legend-glyph))>*{grid-column:1}
 .legend-pieces{margin:5px 0 0;padding-top:5px;border-top:1px solid #67765c;overflow-wrap:anywhere}
 .legend-pieces b{color:#fff1c7}
+#terrainPreview[data-unit-face]{
+ display:grid;grid-template-columns:minmax(88px, min(34%,176px)) minmax(0,1fr);align-items:start;
+ gap:0 14px;width:min(550px,var(--preview-room),calc(100vw - 20px));max-height:calc(100dvh - 20px);
+ padding:12px;pointer-events:auto;
+}
+#terrainPreview[data-unit-face] figcaption{grid-column:1/-1;margin-bottom:10px}
+#terrainPreview[data-unit-face] img{grid-area:2/1;width:100%;margin:0;max-height:calc(100dvh - 145px)}
+#terrainPreview .piece-legend{grid-area:2/2;margin:0;min-width:0;max-height:calc(100dvh - 174px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;font:15px/1.45 var(--sans)}
+.piece-legend div+div{margin-top:5px;padding-top:5px;border-top:1px solid #566c59}
+.piece-legend dt{font-weight:700;color:#f5d698;overflow-wrap:anywhere}
+.piece-legend dd{margin:1px 0 0;color:#f5f4e9;overflow-wrap:anywhere}
+#terrainPreview[data-unit-face] small,#terrainPreview[data-unit-face] .marker-rule{grid-column:1/-1;max-height:4.5em;overflow:auto}
+#terrainPreview[data-unit-face] small{margin-top:8px;padding-top:6px;border-top:1px solid #687963;color:#dae4d4}
 .mapkey{border-top:1px solid #546950;gap:18px;justify-content:flex-start;color:#d2dcc4;font-size:.79rem}
 .mapkey span{display:flex;align-items:center;gap:6px}
 .key-piece{width:10px;height:10px;background:#b1c88e;border:1px solid #d4e5b8}.key-destination{width:12px;height:10px;border:1px dashed #f0c56d}.key-target{color:#f0c56d;font-style:normal}

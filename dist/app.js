@@ -228,7 +228,7 @@ function revealCell(c){
 }
 function rosterButton(u){
  const t=catalog.get(u.art), st=u.casualty?'傷亡':u.pinned?'壓制':u.exposed?'暴露':G.nameAt(u);
- return '<button class="ubtn '+(selected===u.id?'selected':'')+'" data-action="unit" data-value="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-info="'+esc(st)+'">'+(t?pic(t.art,u.exposed?'faded':''):'<span class="piece-icon">◇</span>')+'<span><b>'+esc(shortAbbr(u))+'</b><small>'+esc(st)+'</small></span></button>';
+ return '<button class="ubtn '+(selected===u.id?'selected':'')+'" data-action="unit" data-value="'+esc(u.id)+'" data-unit-key="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(u.art||'')+'" data-piece-info="'+esc(st)+'">'+(t?pic(t.art,u.exposed?'faded':''):'<span class="piece-icon">◇</span>')+'<span><b>'+esc(shortAbbr(u))+'</b><small>'+esc(st)+'</small></span></button>';
 }
 function renderRoster(){if(holdLessonPanel)return;if(course()){$('roster').innerHTML=lessons.roster();return;}const full=isTable(),list=full?s.units.filter(u=>u.side==='friendly'):s.units;
  $('roster').innerHTML='<div class="cardbox rosterbox"><div class="rosterhead"><h2>'+(full?'友軍編組':'第 1 排編組')+'</h2><span class="turnpill">'+list.length+' 枚算子</span></div><div class="rostergrid">'+list.map(rosterButton).join('')+'</div></div>';
@@ -438,7 +438,7 @@ function unitDialog(id){
  const u=s.units.find(q=>q.id===id);if(!u)return;
  if(u.side==='marker'&&catalog.has(u.art)&&isTable()&&!quick()&&!s.outcome){configureMark(u.art,u);return;}
  const art=catalog.get(u.art);
- let b='<div class="unitrow" data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(u.art||'')+'" data-piece-info="'+esc([G.nameAt(u),u.side==='marker'&&u.notes].filter(Boolean).join('　'))+'" '+(u.side==='marker'?'data-marker="" ':'')+'tabindex="0">'+(art?pic(art.art,'piece-icon','算子'):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
+ let b='<div class="unitrow" data-unit-key="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(u.art||'')+'" data-piece-info="'+esc([G.nameAt(u),u.side==='marker'&&u.notes].filter(Boolean).join('　'))+'" '+(u.side==='marker'?'data-marker="" ':'')+'tabindex="0">'+(art?pic(art.art,'piece-icon','算子'):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
  if(u.experience)b+='<p>'+esc(campaigns.gradeNames[u.experience])+(u.ammo!=null?'　彈藥 '+u.ammo:'')+(u.skills?.length?'　技能 '+u.skills.map(esc).join('、'):'')+'</p>';
  if(isTable()&&!quick()&&!s.outcome){
   if(u.skills?.length)b+=u.skills.map((skill,i)=>button('useUnitSkill','使用「'+skill+'」','tiny',String(i))).join('');

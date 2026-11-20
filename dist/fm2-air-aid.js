@@ -27,7 +27,8 @@
     for(const [key,items] of Object.entries(layout)){
       if(!visible(Number(key)))continue;
       for(const [name,file,x,y,w] of items){
-        html+='<span tabindex="0" data-piece-name="'+name+'" data-piece-info="'+caption(key)+'" style="position:absolute;left:'+x+'%;top:'+y+'%;width:'+w+'%;line-height:0">'+
+        const face=file==='assault'?'plan-assault':file;
+        html+='<span tabindex="0" data-piece-art="'+face+'" data-piece-name="'+name+'" data-piece-info="'+caption(key)+'" style="position:absolute;left:'+x+'%;top:'+y+'%;width:'+w+'%;line-height:0">'+
           '<img src="'+folder+file+'.webp" alt="'+name+'" draggable="false" style="width:100%;height:auto;display:block"></span>';
       }
     }

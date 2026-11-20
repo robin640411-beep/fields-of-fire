@@ -13,6 +13,8 @@ function role(art){
 }
 function symbol(label){
  if(window.FOF_COURSE_MARKS?.[label])return FOF_COURSE_MARKS[label];
+ if(['集中目標','迫擊砲集中目標','迫擊砲集中目標 303'].includes(label))return 'concentration-mtr-303';
+ if(['砲兵集中','砲兵集中目標','砲兵集中目標 211'].includes(label))return 'concentration-arty-211';
  for(const [re,art] of [
   [/^PC\s*([ABC])/i,m=>'pc-'+m[1].toLowerCase()],[/^PC\s*\?/,'pc-hidden'],
   [/VOF\s+S!/i,'vof-sniper'],[/VOF\s+([PSAH])\b|^([PSAH]) 火力量/i,m=>'vof-'+(m[1]||m[2]).toLowerCase()],

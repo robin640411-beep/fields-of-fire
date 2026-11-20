@@ -87,7 +87,11 @@ function explain(key,label,area,scenario){
  if(/^incoming-[345]$/.test(key))return '來襲火力已生效，這張牌以 −'+key.slice(-1)+' 作為一個整牌火力量值。下一次火力任務更新時移除。';
  if(key==='kr-fpl-l'||key==='kr-fpl-r')return '這枚標記指定機槍算子在遊戲中的最後防護線。接獲連部信號後，沿標記上的斜箭頭放置 H 火力量。';
  if(Object.hasOwn(textMarkers,label))return textMarkers[label];
- if(['砲兵集中','迫擊砲集中目標','集中目標'].includes(label))return '這張牌已登記為相應地圖外火力的目標。再次對此牌呼叫該火力時，嘗試可多抽 1 張行動牌。';
+ if(key==='concentration-mtr-303'||key==='concentration-arty-211'){
+  const mortar=key==='concentration-mtr-303';
+  return (mortar?'MORTAR CONCENTRATION 是迫擊砲集中目標。303':'ARTILLERY CONCENTRATION 是砲兵集中目標。211')+
+   ' 是目標編號，十字準星標示已登記的地形牌。再次呼叫同一地圖外單位對此牌執行火力任務時，多抽 1 張行動牌。該單位成功改打另一張牌後，將這枚標記移到新目標。';
+ }
  if(/^傷亡共\s*\d+\s*階$/.test(label))return '數字記錄這張牌上共有幾階傷亡人員。搬運或後送時，按實際移走的兵力階數更新。';
  return '這枚標記用來記錄此處的任務狀態。其效果依任務簡報或玩家放置時的註記。';
 }

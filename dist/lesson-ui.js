@@ -69,7 +69,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
  const numbered=i=>'<span class="lesson-counter">步驟 <b>'+i+'</b> / '+lesson().steps.length+'</span>';
  function pieceCue(u,selectable){
   const info=[G.nameAt(u),u.lessonStatus].filter(Boolean).join('・');
-  const attrs=' data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(u.art||'')+'" data-piece-info="'+esc(info)+'"';
+  const attrs=' data-unit-key="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(u.art||'')+'" data-piece-info="'+esc(info)+'"';
   if(!selectable)return '<span class="cue-companion" tabindex="0"'+attrs+'>'+tokenPic(u)+'</span>';
   return '<button type="button" class="cue-counter'+(picked===u.id?' is-picked':'')+'" data-action="lessonPick" data-value="'+esc(u.id)+'" aria-label="選取'+esc(u.name)+'（'+G.nameAt(u)+'）"'+attrs+'>'+tokenPic(u)+'</button>';
  }
@@ -160,7 +160,7 @@ window.FOF_LESSON_UI=function({state,slots,switchState,edit,render,dialog,close,
  function roster(){
   const s=state();
   return '<section class="cardbox rosterbox"><div class="rosterhead"><h2>棋桌算子</h2><span class="turnpill">'+s.units.length+' 枚</span></div><div class="rostergrid">'+s.units.map(u=>
-   '<button class="ubtn '+(picked===u.id?'selected':'')+'" data-action="lessonPick" data-value="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-info="'+esc([G.nameAt(u),u.lessonStatus].filter(Boolean).join('・'))+'">'+tokenPic(u)+'<span><b>'+esc(u.name)+'</b><small>'+G.nameAt(u)+(u.lessonStatus?'・'+esc(u.lessonStatus):'')+'</small></span></button>').join('')+'</div></section>';
+   '<button class="ubtn '+(picked===u.id?'selected':'')+'" data-action="lessonPick" data-value="'+esc(u.id)+'" data-unit-key="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(u.art||'')+'" data-piece-info="'+esc([G.nameAt(u),u.lessonStatus].filter(Boolean).join('・'))+'">'+tokenPic(u)+'<span><b>'+esc(u.name)+'</b><small>'+G.nameAt(u)+(u.lessonStatus?'・'+esc(u.lessonStatus):'')+'</small></span></button>').join('')+'</div></section>';
  }
  function fail(message){error=message;render();}
  function success(){close();reset();edit(()=>C.complete(state()));}

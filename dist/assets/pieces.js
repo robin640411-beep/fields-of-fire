@@ -564,6 +564,18 @@ window.FOF_PIECES = [
     "art": "assets/pieces/conc.webp"
   },
   {
+    "id": "concentration-mtr-303",
+    "name": "迫擊砲集中目標 303 · Mortar Concentration",
+    "category": "marker",
+    "art": "assets/pieces/concentration-mtr-303.webp"
+  },
+  {
+    "id": "concentration-arty-211",
+    "name": "砲兵集中目標 211 · Artillery Concentration",
+    "category": "marker",
+    "art": "assets/pieces/concentration-arty-211.webp"
+  },
+  {
     "id": "grenade",
     "name": "榴彈 · Grenade",
     "category": "marker",
