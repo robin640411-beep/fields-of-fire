@@ -161,7 +161,7 @@ function init(s,m,previous,options={}){
  else s.units=s.units.filter(u=>u.side==='marker');
  const manifest=options.company?clone(options.company):roster(m.book,s.startingForm);
  if(!options.company&&m.katusa?.standalone)for(const [i,exp] of m.katusa.standalone.entries()){
-   const u=manifest.filter(u=>u.rifle)[i*3];u.name+='（韓籍班）';u.katusa=true;u.experience=exp;u.art=katusaArt(exp);
+   const u=manifest.filter(u=>u.rifle)[i*3];u.name+='（韓籍班）';u.katusa=true;u.experience=exp;u.art=katusaArt(i);
  }
  deploy(s,m,manifest,s.patrol);if(options.series)s.series=options.series;if(m.weather){s.raining=true;s.weatherDue=true;}
 }
@@ -185,13 +185,17 @@ function switchFormation(s,form){
  }
  s.startingForm=form;if(s.series)s.series.form=form;s.units=s.units.filter(u=>u.side!=='friendly');s.offboard=[];deploy(s,m,[...personnel,...next],s.patrol);return true;
 }
-function katusaArt(exp){return window.FOF_CAMPAIGN_PIECES.find(p=>p.army==='KATUSA'&&/3-step/.test(p.id)&&!p.id.endsWith('-b'))?.id||'s1';}
+function katusaArt(index){return 'army-katusa-'+(index+1)+'-3-step';}
 function create(id,options={}){
  const m=G.scenario(id),s=G.tabletop(id,options.previous||null,true,options);
  if(options.series)s.series=options.series;return s;
 }
 function restore(s){
+ for(const board of [s,s?.tableRun?.after]){
+  for(const u of board?.units||[])if(u.side==='enemy'&&/^army-.*-target$/.test(u.art)&&catalog.get(u.art)?.category==='marker')u.side='marker';
+ }
  if(s){fog.restore(s);if(s.tableRun?.after)fog.restore(s.tableRun.after);}
+ if(s?.planes&&G.scenario(s.id)?.airlift)FOF_VEHICLE_AUDIT.assignAircraft(G.scenario(s.id),s.planes,s.turn);
  if(s?.settlement)window.FOF_SERIES.syncRotation(s);
  if(!s||s.id==='Q1'||s.id==='T1'||s.company||G.scenario(s.id)?.book!=='N')return s;
  const m=G.scenario(s.id);s.company=roster('N');s.startingForm='mortar81';
@@ -236,6 +240,7 @@ function defense(s){
  G.note(s,'已按本回合的任務時程放置 PC。');
 }
 function afterPhase(s,old){
+ if(s.planes)FOF_VEHICLE_AUDIT.assignAircraft(G.scenario(s.id),s.planes,s.turn);
  const m=G.scenario(s.id);
  if(s.outcome||s.phase==='patrolresult')return;
  if(m.scheduledEvents?.some(e=>e.attempt===s.attempt&&e.turn===s.turn&&e.side==='enemy')&&s.phase==='enemy'){

@@ -5,7 +5,7 @@ const G=window.FOF,C=window.FOF_COURSE;
 const different=(a,b)=>JSON.stringify(a)!==JSON.stringify(b);
 const spot=u=>u&&G.nameAt(u);
 const side=u=>u?.side==='enemy'?'enemy':u?.side==='friendly'?'friendly':'neutral';
-const piece=u=>({id:u.id,name:u.name,art:u.art,side:side(u)});
+const piece=(s,u)=>({id:u.id,name:u.name,art:FOF_COUNTERS.art(s,u),side:side(u)});
 const pinned=u=>!!u.pinned||/(?:^|[、・·])\s*受壓制\s*(?:$|[、・·])/.test(u.lessonStatus||'');
 const verbs=[
  ['evacuate',/後送|疏散/],['retreat',/撤退|後退/],['rally',/重整|解除壓制|恢復壓制/],
@@ -57,9 +57,9 @@ function plan(before,after,ctx={}){
  if(ctx.events?.length){
   for(const e of ctx.events)add(e);
  }
- if(shots)for(const shot of shots)add({...shot,kind:'fire',targetPiece:oldUnits.has(shot.target)?piece(oldUnits.get(shot.target)):undefined});
+ if(shots)for(const shot of shots)add({...shot,kind:'fire',targetPiece:oldUnits.has(shot.target)?piece(before,oldUnits.get(shot.target)):undefined});
  if(!shots&&specific&&!['move','retreat','evacuate'].includes(specific.kind)){
-  add({...specific,kind:specific.kind==='fire'?'check':specific.kind,region:anchor,piece:specific.unit&&oldUnits.has(specific.unit)?piece(oldUnits.get(specific.unit)):undefined});
+  add({...specific,kind:specific.kind==='fire'?'check':specific.kind,region:anchor,piece:specific.unit&&oldUnits.has(specific.unit)?piece(before,oldUnits.get(specific.unit)):undefined});
  }
  if(order==='combat'&&ctx.order.target){
   const target=oldUnits.get(ctx.order.target),shooter=oldUnits.get(ctx.order.shooter);
@@ -77,7 +77,7 @@ function plan(before,after,ctx={}){
  if(!noRoute&&!ctx.events?.length){
   for(const u of before.units){
    const v=newUnits.get(u.id);
-   const item={side:side(u),piece:piece(u),from:spot(u)};
+   const item={side:side(u),piece:piece(before,u),from:spot(u)};
    if(!v){
     const exit=specific?.unit===u.id&&['retreat','evacuate'].includes(specific.kind);
     placement.push({...item,kind:exit?specific.kind:'remove',label:exit?specific.label:u.name+' 離開牌面'});
@@ -95,10 +95,10 @@ function plan(before,after,ctx={}){
    if(u.experience!==v.experience||u.art!==v.art||different(u.skills,v.skills)||u.notes!==v.notes)labels.push('更新算子資料');
    if(labels.length){
     const label=labels.join('、'),kind=v.casualty&&!u.casualty||v.steps<u.steps?'loss':pinned(u)!==pinned(v)?(pinned(v)?'pin':'rally'):/解除壓制|重整/.test(label)?'rally':/掩蔽/.test(label)?'cover':'status';
-    changes.push({kind,label:u.name+'・'+label,side:side(v),piece:piece(v),to:spot(v)});
+    changes.push({kind,label:u.name+'・'+label,side:side(v),piece:piece(after,v),to:spot(v)});
    }
   }
-  for(const v of after.units)if(!oldUnits.has(v.id))placement.push({kind:'appear',label:v.name+' 登場',piece:piece(v),side:side(v),to:spot(v)});
+  for(const v of after.units)if(!oldUnits.has(v.id))placement.push({kind:'appear',label:v.name+' 登場',piece:piece(after,v),side:side(v),to:spot(v)});
  }
  if(specific&&['retreat','evacuate'].includes(specific.kind)&&!placement.some(e=>e.kind===specific.kind))add({...specific,inPlace:true,to:specific.to||specific.from});
  const oldMap=new Map(before.map.map(c=>[spot(c),c]));

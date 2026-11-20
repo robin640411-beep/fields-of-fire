@@ -69,6 +69,8 @@ const textMarkers={
  '同牌交戰':'敵我算子位於同一張地形牌。判讀火力量時，區分牌外射入的整牌火力與同牌單位射出的火力。'
 };
 function explain(key,label,area,scenario){
+ if(/^army-.*-target$/.test(key)&&window.FOF_COUNTERS?.rows[key])
+  return FOF_COUNTERS.rows[key].map(([symbol,meaning])=>symbol+'　'+meaning).join('　');
  if(window.FOF_MISSION_MARKERS?.rules.has(key))return FOF_MISSION_MARKERS.rules.get(key);
  if(scenario==='Q1'){
   if(key==='pinned')return '快戰中，這枚單位受到壓制，不能移動。友軍可花 1 點重整並抽 2 張牌；若有重整圖示便移除壓制。回合清理時，同牌沒有敵軍的友軍也會恢復。';

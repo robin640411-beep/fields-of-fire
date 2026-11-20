@@ -33,14 +33,14 @@ function special(s,u,kind){
 function resolve(s,events,draw=G.draw){
  const report=[];const emit=msg=>{G.note(s,msg);report.push(msg);};
  const cue=(kind,u,label,actor,result)=>events?.push({kind,label,...(result?{shooter:actor.id,target:u.id,outcome:result.toLowerCase()}:{}),side:(actor||u).side,
-  from:G.nameAt(actor||u),to:G.nameAt(u),piece:{id:u.id,name:u.name,art:u.art,side:u.side}});
+  from:G.nameAt(actor||u),to:G.nameAt(u),piece:{id:u.id,name:u.name,art:FOF_COUNTERS.art(s,u),side:u.side}});
  let occupied=s.map.filter(c=>G.unitsAt(s,c).some(v=>v.side==='friendly'&&!v.casualty));
  for(const c of occupied.filter(c=>c.pc)){
   const enemies=s.units.filter(u=>u.side==='enemy'&&!u.casualty).length; s.activity=Math.min(3,enemies);
   const n=({A:[0,7,5,3],B:[0,5,3,2],C:[4,3,2,1]})[c.pc][s.activity];
   const encounter=!n||draw(s,n,'快戰 PC '+G.nameAt(c)).some(a=>a.contact);
   c.pc=null;c.hidden=false;
-  if(encounter){const u=G.piece('e'+(++s.serial),'接敵算子','接敵',1,c.x,c.y,'enemy','de-gr1');s.units.push(u);emit(G.nameAt(c)+' 出現一枚接敵算子。');cue('appear',u,'發生接敵・敵軍登場');}
+  if(encounter){const u=G.piece('e'+(++s.serial),'接敵算子','接敵',1,c.x,c.y,'enemy','de-fire');s.units.push(u);emit(G.nameAt(c)+' 出現一枚接敵算子。');cue('appear',u,'發生接敵・敵軍登場');}
   else {emit(G.nameAt(c)+' 完成接敵檢查，移除 PC。');events?.push({kind:'contact',to:G.nameAt(c),label:'未發生接敵'});}
  }
  for(const c of occupied){

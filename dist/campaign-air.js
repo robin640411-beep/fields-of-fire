@@ -11,6 +11,7 @@ function fleet(m){
    stage:wave===0?1:0,cargo:[],arrival:1
  })));
  if(transport.additional)for(let i=1;i<=transport.additional.count;i++)planes.push({key:'增援-'+i,model:'UH-1',wave:2,capacity:3,stage:0,cargo:[],arrival:transport.additional.turn});
+ FOF_VEHICLE_AUDIT.assignAircraft(m,planes,1);
  return planes;
 }
 const armored=u=>/M48/.test(u.name);
@@ -43,6 +44,7 @@ function move(s,key,landing){
  const craft=s.planes?.find(p=>p.key===key);if(!craft||craft.arrival>s.turn||craft.stage>=4||s.phase==='setup'||s.outcome)return false;
  if(craft.stage===1&&!(s.landing||[]).includes(landing))return false;
  craft.stage++;
+ FOF_VEHICLE_AUDIT.assignAircraft(G.scenario(s.id),s.planes,s.turn);
  if(craft.stage===2){
    craft.landing=landing;const cell=C.coord(landing),ids=new Set(craft.cargo);
    const carried=s.offboard.filter(u=>ids.has(u.id));for(const u of carried)Object.assign(u,cell);

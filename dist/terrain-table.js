@@ -3,7 +3,7 @@
 window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backName,objectiveName}){
  const G=window.FOF;
  const M=window.FOF_MARKERS;
- const unitFaces=new Map(Object.entries({...window.FOF_FOOT_GUIDE,...window.FOF_VEHICLE_FACES,...window.FOF_AIR_LOAD_GUIDE}));
+ const unitFaces=new Map(Object.entries(FOF_COUNTERS.rows));
  const mapNotes=new Set(['樹林丘陵目標','同牌交戰']);
  function contents(s,c){
   const raw=[],units=[],notes=[];
@@ -25,7 +25,7 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   }
   for(const u of G.unitsAt(s,c)){
    const condition=[u.lessonStatus,u.pinned&&'受壓制',u.exposed&&'暴露',u.covered&&'基本掩蔽',u.casualty&&'傷亡'].filter(Boolean).join('、');
-   const art=u.side==='marker'&&!catalog.has(u.art)?M.symbol(u.name,s,c)||u.art:u.art;
+   const art=u.side==='marker'&&!catalog.has(u.art)?M.symbol(u.name,s,c)||u.art:FOF_COUNTERS.art(s,u);
    const item={...u,art,label:u.name,condition,short:u.abbr||u.name};
    if(u.casualty){
     const losses=G.unitsAt(s,c).filter(v=>v.casualty&&v.side===u.side);
@@ -42,7 +42,8 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   const entry=catalog.get(item.art),name=item.id||item.owner;
   const identity=item.id?'data-counter-id="'+esc(item.id)+'" ':'';
   const attr=name?'data-action="boardPiece" data-value="'+esc(name)+'"':'data-action="boardPile"';
-  const face=entry?pic(entry.art,'',''):'<span class="chit-text">'+esc((item.short||item.label).slice(0,4))+'</span>';
+  const live=item.casualty&&state().units.find(u=>u.id===item.id);
+  const face=entry?(live?FOF_COUNTERS.picture(state(),live,pic,esc):pic(entry.art,'','')):'<span class="chit-text">'+esc((item.short||item.label).slice(0,4))+'</span>';
   const isMarker=!item.side||item.side==='marker'||entry?.category==='marker';
   const info=[item.info,item.condition,item.notes].filter(Boolean).join('　');
   const preview='data-piece-name="'+esc(item.label)+'" data-piece-info="'+esc(info)+'" data-piece-art="'+esc(item.art||'')+'"'+(isMarker?' data-marker=""':' data-unit-key="'+esc(item.id)+'"');
@@ -193,10 +194,11 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
    const rows=unitFaces.get(key);
    const marker=piece.hasAttribute('data-marker')||entry?.category==='marker';
    const rule=marker?window.FOF_MARKER_GUIDE.explain(piece.dataset.marker||key,name,piece.dataset.area,state().id):'';
-   const title=(key.startsWith('concentration-')||name==='著陸區 LZ')&&entry?entry.name.split(' · ')[0]:name;
+   const status=rows?.some(([tag])=>/Fire Team/.test(tag))?'火力組':null;
+   const title=(key.startsWith('concentration-')||name==='著陸區 LZ')&&entry?entry.name.split(' · ')[0]:status&&!name.includes(status)?name+'・'+status:name;
    const tracksStrength=!marker&&(!rows||rows.some(([mark])=>mark.includes('●')));
    const unit=tracksStrength&&piece.dataset.unitKey&&state().units.find(u=>u.id===piece.dataset.unitKey);
-   const strength=unit&&Number.isFinite(unit.steps)?'本局兵力 '+unit.steps+' 階':'';
+   const strength=unit&&Number.isFinite(unit.steps)?(unit.casualty?'本局登記傷亡 '+Math.max(1,unit.steps)+' 階':'本局兵力 '+unit.steps+' 階'):'';
    const info=[piece.dataset.pieceInfo,strength].filter(Boolean).join('　');
    schedule(piece,src,title,{info,symbol,rule,rows});return;
   }
@@ -238,7 +240,11 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   if(preview.contains(e.target))return;
   dismiss();cancelAnimationFrame(scrollFrame);
   scrollFrame=requestAnimationFrame(()=>{
-   if(!pointerPosition)return;
+   if(!pointerPosition){
+    const target=document.activeElement;
+    if(target?.matches('[data-piece-name]:focus-visible'))inspect({type:'focusin',target});
+    return;
+   }
    const target=document.elementFromPoint(pointerPosition.clientX,pointerPosition.clientY);
    if(target)inspect({target,type:'pointermove',...pointerPosition});
   });

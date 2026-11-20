@@ -172,7 +172,7 @@ function layout(s,c,units,raw){
  for(const [scope,items] of Object.entries(vofs))for(const m of items)locations.push({...m,info:({top:'牌外射入，影響全牌',friendly:'同牌友軍射出',enemy:'同牌敵軍射出'})[scope]});
  if(commonHidden&&!top.some(m=>m.art==='unspotted')){const m={label:'未發現',art:'unspotted',info:'本牌全部敵軍：'+memberNames(hiddenRule.units)};top.push(m);locations.push(m);}
  for(const u of units){
-  if(u.casualty&&!/casualty|loss/i.test(u.art||''))addUnit(u.id,{label:'傷亡',art:u.side==='enemy'?'de-casualty':'casualty'});
+  if(u.casualty&&!/casualty|loss|wreck/i.test(u.art||''))addUnit(u.id,{label:'傷亡',art:u.side==='enemy'?'de-casualty':'casualty'});
   const tokens=(u.condition||'').split(/\s*[、・·]\s*/);
   for(const [name,art] of statusDefs){
    if(!tokens.includes(name)||art==='unspotted'&&commonHidden)continue;

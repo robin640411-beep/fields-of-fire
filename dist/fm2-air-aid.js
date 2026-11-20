@@ -27,9 +27,11 @@
     for(const [key,items] of Object.entries(layout)){
       if(!visible(Number(key)))continue;
       for(const [name,file,x,y,w] of items){
-        const face=file==='assault'?'plan-assault':file;
-        html+='<span tabindex="0" data-piece-art="'+face+'" data-piece-name="'+name+'" data-piece-info="'+caption(key)+'" style="position:absolute;left:'+x+'%;top:'+y+'%;width:'+w+'%;line-height:0">'+
-          '<img src="'+folder+file+'.webp" alt="'+name+'" draggable="false" style="width:100%;height:auto;display:block"></span>';
+        const slot=file==='assault'?'plan-assault':file;
+        const face=FOF_US_FACES.air[slot]||'aircraft-'+name.split(' ').at(-1);
+        const entry=FOF_COUNTERS.get(face);
+        html+='<span tabindex="0" data-slot-face="'+slot+'" data-piece-art="'+face+'" data-piece-name="'+name+'" data-piece-info="'+caption(key)+'" style="position:absolute;left:'+x+'%;top:'+y+'%;width:'+w+'%;line-height:0">'+
+          '<img src="'+entry.art+'" alt="'+name+'" draggable="false" style="width:100%;height:auto;display:block"></span>';
       }
     }
     return html;

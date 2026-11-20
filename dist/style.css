@@ -468,3 +468,10 @@ body{min-width:1080px;--campaign-nav-height:42px}
 .gear-chit{position:absolute;left:calc(-19% - var(--k)*13%);top:calc(13% + var(--k)*18%);width:76%}
 
 .shelter-chit img{transform:rotate(var(--facing,0deg))}
+
+/* A recorded loss can require several printed counters of the same army. */
+.loss-faces{display:flex;align-items:center;justify-content:center;max-width:100%;height:100%}
+.loss-faces>span{display:block;position:relative;min-width:0;flex:1 1 0}
+.loss-faces img{display:block;width:100%;height:auto;object-fit:contain}
+.ubtn .loss-faces,.unitrow .loss-faces{width:48px;height:auto}
+.flight-counter{display:inline-flex;gap:.5rem;align-items:center;cursor:help}.flight-counter img{width:2.5rem;height:2.5rem;object-fit:contain}

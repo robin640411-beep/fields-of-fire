@@ -7,6 +7,15 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
  const opts=(o,selected)=>Object.entries(o).map(([k,v])=>opt(k,v,k===selected)).join('');
  const labels={patrol:'三排巡邏',offensive:'進攻',assault:'進攻',defense:'防禦'};
  const action=(a,label,v,cls='tiny')=>b('cam'+a,label,cls,v);
+ function flightNumber(m,p){
+  const face=FOF_VEHICLE_AUDIT.aircraft(m,p);
+  return face?p.model+' '+face.slice('aircraft-'.length):p.model+'（待配發機號）';
+ }
+ function flightCounter(m,p){
+  const id=FOF_VEHICLE_AUDIT.aircraft(m,p),entry=FOF_COUNTERS.get(id),label=flightNumber(m,p);
+  if(!entry)return h(label);
+  return '<span class="flight-counter" tabindex="0" data-piece-art="'+h(id)+'" data-piece-name="'+h(label)+'" data-piece-info="'+h('機位 '+p.key)+'"><img src="'+h(entry.art)+'" alt="">'+h(label)+'</span>';
+ }
  function directory(){return '<div class="book-list">'+['N','K','H','V'].map(k=>{const book=C.books[k],save=slots()['campaign-'+k];return '<button class="choice" data-action="camBook" data-value="'+k+'"><span class="code">'+k+'</span><span><strong>'+book.label+'</strong><small>'+book.missions.length+' 個獨立任務・'+book.order.length+' 場連續戰役'+(save?'・已存至任務 '+G.scenario(save.id).number:'')+'</small></span></button>';}).join('')+'</div>';}
  function illustration(id,bookLabel){
   const art=window.FOF_HISTORY_FIGURES[id];
@@ -142,12 +151,12 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
   if(s.landing?.length===3&&m.terrainSetup.landingChoice==='contiguous')html+='<label>大型 LZ <select id="landingStart">'+Array.from({length:s.cols-2},(_,x)=>opt(x,G.nameAt({x,y:1})+' 至 '+G.nameAt({x:x+2,y:1}),x===C.coord(s.landing[0]).x)).join('')+'</select></label>';
   if(m.airlift){
     const planes=A.fleet(m).filter(p=>p.arrival===1),plan=s.planes?Object.fromEntries(s.planes.flatMap(p=>p.cargo.map(id=>[id,p.key]))):A.proposed(s);
-    html+='<p>每枚算子選擇機位。UH-1 每架 3 階，CH-47 每架 12 階。機位表按兵力階預排，可自行調整。</p><div class="formation-grid">'+[...all,...ids].filter(u=>!A.armored(u)).map(u=>'<label>'+h(u.name)+'（'+u.steps+'）<select class="flight-seat" data-unit="'+h(u.id)+'">'+opt('','留置',!plan[u.id])+planes.map(p=>opt(p.key,p.model+' '+p.key,plan[u.id]===p.key)).join('')+'</select></label>').join('')+'</div>';
+    html+='<p>每枚算子選擇機位。UH-1 每架 3 階，CH-47 每架 12 階。機位表按兵力階預排，可自行調整。</p><div class="formation-grid">'+[...all,...ids].filter(u=>!A.armored(u)).map(u=>'<label>'+h(u.name)+'（'+u.steps+'）<select class="flight-seat" data-unit="'+h(u.id)+'">'+opt('','留置',!plan[u.id])+planes.map(p=>opt(p.key,flightNumber(m,p),plan[u.id]===p.key)).join('')+'</select></label>').join('')+'</div>';
   }else html+='<div class="formation-grid">'+[...all,...ids].filter(u=>!detached||/步兵班|第\d+班/.test(u.name)).map(u=>'<label><input class="deploy-check" type="checkbox" value="'+h(u.id)+'" '+((detached?ids:all).some(q=>q.id===u.id)?'checked':'')+'> '+h(u.name)+' · '+u.steps+'階</label>').join('')+'</div>';html+=action('ApplyDeploy','確認編組','','primary');
   dialog('campaignDeployment',m.id+' 編組與登場',html);
  }
  function flight(s){
-  const items=s.planes.map(p=>'<tr><th>'+h(p.model)+' '+h(p.key)+'</th><td>'+h(p.arrival>s.turn?'第 '+p.arrival+' 回合到場':A.stages[p.stage])+'</td><td>'+p.cargo.map(id=>h(s.offboard.find(u=>u.id===id)?.name)).join('、')+'</td><td>'+(p.arrival<=s.turn&&p.stage<4?action('FlightMove',A.stages[p.stage+1],p.key):'')+'</td></tr>').join('');
+  const items=s.planes.map(p=>'<tr><th>'+flightCounter(G.scenario(s.id),p)+'</th><td>'+h(p.arrival>s.turn?'第 '+p.arrival+' 回合到場':A.stages[p.stage])+'</td><td>'+p.cargo.map(id=>h(s.offboard.find(u=>u.id===id)?.name)).join('、')+'</td><td>'+(p.arrival<=s.turn&&p.stage<4?action('FlightMove',A.stages[p.stage+1],p.key):'')+'</td></tr>').join('');
   dialog('campaignFlight','飛行管制卡','<p>完成本階段所需的啟動後，將機位往下一格移動。移入著陸區時，該機位的算子會放到選定的地形牌上。</p><label>著陸區 <select id="flightLanding">'+s.landing.map(k=>opt(k,k)).join('')+'</select></label><table class="series-table"><thead><tr><th>機位</th><th>位置</th><th>搭載算子</th><th>移至</th></tr></thead><tbody>'+items+'</tbody></table>');
  }
  function handle(a,v){
@@ -188,7 +197,7 @@ window.FOF_CAMPAIGN_UI=({state,slots,switchTo,edit,dialog,button,close,tell,esc,
     dialog('katusa','韓籍班編組','<p>選兩個不同步兵班。任務書指定的經驗會隨選擇套用。</p>'+m.katusa.standalone.map((g,i)=>'<label class="formgroup">'+C.gradeNames[g]+' <select id="katusa'+i+'">'+available.map((u,j)=>opt(u.id,u.name,j===i*3)).join('')+'</select></label>').join('')+action('ApplyKatusa','套用韓籍編組','','primary'));break;}
    case 'camApplyKatusa':{
     const picks=[$('katusa0').value,$('katusa1').value];if(picks[0]===picks[1]){tell('請選兩個不同的班。');break;}
-    edit(()=>{const base=C.books.K.roster;for(const u of s.company.filter(u=>u.rifle)){const i=picks.indexOf(u.id),meta=base.find(q=>q.id===u.id);u.katusa=i>=0;u.art=i>=0?C.katusaArt(m.katusa.standalone[i]):meta.art;u.name=meta.name+(i>=0?'（韓籍班）':'');u.experience=i>=0?m.katusa.standalone[i]:meta.experience;const p=s.units.find(z=>z.rosterId===u.id);if(p)Object.assign(p,{name:u.name,art:u.art,experience:u.experience});}});close();break;}
+    edit(()=>{const base=C.books.K.roster;for(const u of s.company.filter(u=>u.rifle)){const i=picks.indexOf(u.id),meta=base.find(q=>q.id===u.id);u.katusa=i>=0;u.art=i>=0?C.katusaArt(i):meta.art;u.name=meta.name+(i>=0?'（韓籍班）':'');u.experience=i>=0?m.katusa.standalone[i]:meta.experience;const p=s.units.find(z=>z.rosterId===u.id);if(p)Object.assign(p,{name:u.name,art:u.art,experience:u.experience});}});close();break;}
    case 'camAttach':{
     const choices=[...s.company.filter(u=>!u.platoon&&u.art!=='co-hq'&&u.id!=='81mm Sec'&&u.steps>0),...C.attachments(m).filter(u=>!u.vehicle)];
     dialog('patrolAttachment','第 '+s.patrol+' 排巡邏配屬','<p>依本場編組表選擇參與本次巡邏的連屬單位與配屬算子。</p><div class="formation-grid">'+choices.map((u,i)=>'<label><input type="checkbox" class="patrol-extra" value="'+i+'" '+(s.units.some(p=>p.id==='company-'+u.id)?'checked':'')+'> '+h(u.name)+'</label>').join('')+'</div>'+action('ApplyAttach','確認巡邏編組','','primary'));break;}

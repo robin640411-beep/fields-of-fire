@@ -126,7 +126,16 @@ function ledger(s,action,value){
  if(action==='finishRebuild'&&t.phase==='rebuild'&&!t.rotation){t.phase='replace';t.katusa=eligibleNext(s).includes('K6')?12:0;return true;}
  if(action==='fill'&&t.phase==='replace'&&r&&r.ranks.length<r.max&&['green','veteran','katusa'].includes(value.grade)){
    const g=value.grade;
-   if(g==='katusa'){if(!r.rifle||r.ranks.length&&!r.katusa||!(t.katusa>0))return false;t.katusa--;r.katusa=true;r.art=C.katusaArt('green');}
+   if(g==='katusa'){
+    if(!r.rifle||r.ranks.length&&!r.katusa||!(t.katusa>0))return false;
+    if(!r.katusa||r.ranks.length===1){
+     const numbered=t.rows.filter(u=>u!==r&&u.katusa&&u.ranks.length>=2).map(u=>u.art);
+     const slots=[0,1,2,3].map(C.katusaArt);
+     r.art=slots.includes(r.art)&&!numbered.includes(r.art)?r.art:slots.find(id=>!numbered.includes(id))||slots[0];
+     r.katusa=true;
+    }
+    t.katusa--;
+   }
    else {if(!t[g]||r.katusa&&g==='veteran')return false;t[g]--;}
    const isHQ=/指揮部|排部|副官|士官長/.test(r.name);
    r.ranks.push({grade:isHQ&&!r.ranks.length||g==='katusa'?'green':g,locked:true});return true;

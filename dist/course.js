@@ -16,9 +16,9 @@ const current=s=>lessons[s.id].steps[s.cursor];
 const arts=new Map([...window.FOF_PIECES,...window.FOF_COURSE_PIECES||[]].map(p=>[p.id,p]));
 const fullDeck=()=>[...window.FOF_CARDS.map(c=>c.id),51];
 function addUnit(s,v){
- const p=position(v.at), art=arts.get(v.art);
+ const p=position(v.at), art=window.FOF_COUNTERS?.get(v.art)||arts.get(v.art);
  const squad=/^(s[123]|p[23]s[123]|de-gr[123]|mtr)$/.test(v.art);
- const u=G.piece(v.id,v.name,v.name,v.steps??(squad?3:1),p.x,p.y,v.side||art?.category||'friendly',v.art);
+ const u=G.piece(v.id,v.name,v.name,v.steps??window.FOF_COUNTERS?.strength(v.art)??(squad?3:1),p.x,p.y,v.side||art?.category||'friendly',v.art);
  u.casualty=!!art?.casualty||['casualty','de-casualty'].includes(v.art);
  u.lessonStatus=v.status||'';s.units.push(u);
 }
