@@ -250,6 +250,22 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   });
  },true);
  window.addEventListener('blur',stop);window.addEventListener('resize',stop);
- return {tile,pile,dismiss};
+ function inspectCard(s,c,selected){
+  const t=terrain(c.t),name=c.faceDown?'未揭開地形':t?.name||'集結區',coord=G.nameAt(c);
+  const code=t&&!c.faceDown?G.terrainCode(t):'',face=t&&!c.faceDown?t.face:backFace(!c.y);
+  const title=[coord,name,code].filter(Boolean).join('・');
+  const description=window.FOF_TERRAIN_LEGEND(c.faceDown?null:t,c,null);
+  const {notes}=contents(s,c);
+  const row=({glyph,title:rt,meaning})=>'<div class="legend-row">'+(glyph?'<span class="legend-glyph glyph-'+glyph+'" aria-hidden="true"></span>':'')+
+   '<dt>'+esc(rt)+'</dt><dd>'+esc(meaning)+'</dd></div>';
+  const details='<div class="card-inspect-head"><img class="card-inspect-face" src="'+face+'" alt="'+esc(name)+'">'+
+   '<div class="card-inspect-legend" style="--legend-face:url(\''+face+'\')"><p class="legend-summary">'+esc(description.summary)+'</p><dl>'+
+   description.rows.map(row).join('')+'</dl>'+
+   notes.map(label=>'<p class="legend-pieces"><b>'+esc(label)+'</b>　'+esc(FOF_MARKER_GUIDE.explain('',label,'',s.id))+'</p>').join('')+
+   (c.pending&&c.contactDetail?'<p class="legend-pieces"><b>接敵配置</b>　'+esc(c.contactDetail)+'</p>':'')+
+   '</div></div>';
+  return {title,html:details+pile(s,c,selected)};
+ }
+ return {tile,pile,inspectCard,dismiss};
 };
 })();

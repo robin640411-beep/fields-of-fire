@@ -167,11 +167,22 @@ function destination(c){
  if(quick())return Q.canMove(s,selectedUnit(),c);
  return !isTable()&&selected&&G.allowedMove(s,selected,c,group);
 }
+function currentPhaseLabel(){
+ if(course()){
+  const step=C.lessons[s.id]?.steps?.[s.cursor];
+  if(!step)return '';
+  const turnText=step.roundLabel||(step.turn?'第 '+step.turn+' 回合':'任務設置');
+  return step.phase?turnText+'・'+step.phase:turnText;
+ }
+ const phaseText=s.outcome?'已結算':(G.phaseNames[s.phase]||'巡邏結算');
+ return 'R'+pad(s.turn)+'・'+phaseText;
+}
 function renderBoard(){
  tabletop.dismiss();
  const sheet=!!C.lessons[s.id]?.worksheet;
  $('board').classList.toggle('worksheet-mode',sheet);
  $('boardTitle').textContent=sheet?'連隊編制':'地形棋桌';
+ $('boardPhase').textContent=currentPhaseLabel();
  $('airPlanButton').hidden=s.id!=='H1';
  document.querySelector('.command-record').hidden=sheet;
  $('roster').hidden=course()&&!s.units.length;
@@ -199,7 +210,8 @@ function sizeBoard(){
  const sheetControls=$('sheetSelection').offsetHeight;
  // Both 5:7 piles sit above the sheet and scale with it.
  const sheetFit=Math.floor(Math.min(usableWidth*.35,(usableHeight-sheetControls-54)/(792/612+.29*1.4),510));
- const colSpace=(usableWidth-sheetFit-16-12*(s.cols-1))/s.cols;
+ const stacked=window.innerWidth<=768;
+ const colSpace=stacked?(usableWidth-12*(s.cols-1))/s.cols:(usableWidth-sheetFit-16-12*(s.cols-1))/s.cols;
  const inlineCaption=colSpace>=124;
  const captionHeight=inlineCaption?20:31, gap=6;
  const hFit=(port.clientHeight-16-gap*(rows.size-1)-captionHeight*rows.size)/(rows.size*1.4+extra*.22);
@@ -612,6 +624,16 @@ document.addEventListener('click',ev=>{
  if((s.tableRun||s.drawOrder)&&!['zoomIn','zoomOut','fitBoard','last','saves','export','import','acceptImport','close','missions','missionInfo','courses','courseInfo','courseStart','courseRestart','courseResume','resume','start','restart','guide','lessonTurnGuide','lessonCardKey','lessonFigure','deck','camBook','camMissions','camNew','camLaunch','camResume','camRef','camStatus','brief','camHistory'].includes(a)){tell('請先完成桌上的抽牌。');return;}
  if(campaignUI.handle(a,v))return;
  if(commandDisplay.handle(a,v))return;
+ const isMobileTouch=()=>window.matchMedia('(max-width: 768px), (hover: none)').matches;
+ function openCardInspect(key){
+  const c=G.at(s,readPos(key));
+  if(!c)return;
+  focus=c;
+  const {title,html}=tabletop.inspectCard(s,c,course()?lessons.chosen():selected);
+  const canAct=destination(c)||(course()?lessons.awaitingCell():isTable());
+  const actLabel=destination(c)?'移入此牌':course()?'選擇此牌':'操作此牌';
+  dialog('pile',title,html+'<div class="buttonrow">'+(canAct?button('pileCell',actLabel,'primary',key):'')+button('close','關閉','secondary')+'</div>');
+ }
  if(a==='boardPiece'||a==='boardPile'){
   const key=el.closest('.card-location')?.dataset.coord;
   if(key){
@@ -620,10 +642,8 @@ document.addEventListener('click',ev=>{
     if(course())lessons.handle('cell',key);else selectCell(key);
     return;
    }
-   if(a==='boardPile'){
-    focus=c;
-    dialog('pile',G.nameAt(c)+'・'+(c.faceDown?'未揭開地形':G.terrain(c.t)?.name||'集結區'),tabletop.pile(s,c,course()?lessons.chosen():selected)+
-     button('pileCell',course()?'返回棋桌':'選擇此牌','secondary',key));
+   if(a==='boardPile'||isMobileTouch()){
+    openCardInspect(key);
     return;
    }
   }
@@ -632,6 +652,13 @@ document.addEventListener('click',ev=>{
    if(course())lessons.handle('lessonPick',v);else pickUnit(v);
   }
   return;
+ }
+ if(a==='cell'&&isMobileTouch()){
+  const c=G.at(s,readPos(v));
+  if(c&&!(course()?lessons.awaitingCell():(mode==='move'||destination(c)))){
+   openCardInspect(v);
+   return;
+  }
  }
  if(a==='pileCell'){
   close();if(course())lessons.handle('cell',v);else selectCell(v);return;
