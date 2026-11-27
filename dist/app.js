@@ -102,7 +102,9 @@ function flipAction(){
 function showPending(){
  if(!s.pendingDraws?.length||draws.isOpen())return;
  const owner=s,reading=course()&&s.reading;
- const caption=reading?C.current(s).detail:s.pcOrder&&s.pendingDraws.some(g=>g.why.startsWith('同級 PC 順序'))?s.log.at(-1)?.text:s.pendingDraws.some(g=>g.ids.includes(51))?'重洗牌不計張數。抽滿本次所需的行動牌後，整副重新洗混。':'';
+ const reshuffleNote=s.pendingDraws.some(g=>g.ids.includes(51))?'（抽到重洗牌，不計張數，完成本次抽牌後已依 §2 重新洗混牌組。）':'';
+ const latestLog=s.log.at(-1)?.text||'';
+ const caption=reading?C.current(s).detail:[latestLog,reshuffleNote].filter(Boolean).join(' ');
  draws.show(s.pendingDraws,'本次抽牌',caption,()=>{
   const scene=motion.capture(),before=structuredClone(owner);
   owner.recentDraws=owner.pendingDraws.splice(0);
