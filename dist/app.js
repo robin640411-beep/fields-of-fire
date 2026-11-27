@@ -349,7 +349,25 @@ function renderSide(){
  $('side').innerHTML='<section class="cardbox"><div class="sidehead"><div class="tabbar">'+tabs+'</div><span class="turnpill">R'+pad(s.turn)+'</span></div><div class="sidebody">'+body+'</div>'+lastRow()+'</section>'+goalBox();
 }
 function render(){renderHero();commandDisplay.render();renderBoard();renderPiles();renderSide();renderRoster();updateMobileSummary();queueMicrotask(showPending);}
-function missionMenu(){let body='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide','1')+'<h3>野戰手冊 2</h3>'+button('courses','進階作戰・七堂逐步教學','primary wide','2')+'<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+'<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算');dialog('missions','任務選單',body);}
+function missionMenu(tab='quick'){
+ const tabs=[['quick','快速與教學'],['N','諾曼第'],['K','洛東江'],['H','傷心嶺'],['V','越南']];
+ let body='<div class="book-tabs">'+tabs.map(([k,label])=>button('missions',label,tab===k?'on':'',k)).join('')+'</div>';
+ if(tab==='quick'){
+  body+='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide','1')+
+   '<h3>野戰手冊 2</h3>'+button('courses','進階作戰・七堂逐步教學','primary wide','2')+
+   '<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+
+   '<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算');
+ }else{
+  const book=window.FOF_BOOKS?.[tab];
+  const list=book?.missions||[];
+  body+='<p class="hint">獨立任務模式：可直接單獨遊玩以下任一「'+esc(book?.label||tab)+'」劇本，不需綁定連續戰役進度。</p>';
+  body+=list.map(m=>{
+   const sub=[m.cols&&m.rows?m.cols+'×'+m.rows:'',m.turns?m.turns+' 回合':'',m.date||''].filter(Boolean).join('・');
+   return missionChoice(m.id,m.id,m.title,sub||'獨立劇本');
+  }).join('');
+ }
+ dialog('missions','獨立任務選單',body);
+}
 function missionChoice(id,code,n,sub){return '<button class="choice" data-action="missionInfo" data-value="'+id+'"><span class="code">'+code+'</span><span><strong>'+esc(n)+'</strong><small>'+esc(sub)+(slots[id]?' ・ 已有進度':'')+'</small></span></button>';}
 function entryBrief(id,enter,back,context=''){
  const m=G.scenario(id);
@@ -725,7 +743,7 @@ document.addEventListener('click',ev=>{
  case 'fitBoard':boardZoom(0);break;
  case 'guide':guide();break;
  case 'saves':saveMenu();break;
- case 'missions':missionMenu();break;
+ case 'missions':missionMenu(v||'quick');break;
  case 'brief':missionInfo(s.id,!!conf()&&!quick());break;
  case 'missionInfo':missionInfo(v);break;
  case 'resume':s=slots[v];resetView();break;
