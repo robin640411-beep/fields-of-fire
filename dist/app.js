@@ -557,7 +557,11 @@ function tableDraw(){
 }
 function ledger(){
  const known=s.units.filter(u=>u.side==='friendly'&&(/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr))), names=[...new Set([...known.map(u=>u.id),...Object.keys(s.tracks)])];
- let b='<div class="selected-info">目前活動等級：<b>'+esc(actLabels[s.activity])+'</b>（依規則 §5 接敵時自動更新）</div><h3>命令軌（§4）</h3><p class="tagline">點擊各指揮部的「抽牌啟動」，系統會自動抽 1 張行動牌並讀取鋼盔數字登記命令點。</p>'+names.map(id=>'<div class="detailrow"><label>'+esc(s.units.find(u=>u.id===id)?.name||id)+'</label><span><b class="mono">'+Number(s.tracks[id]||0)+' 點</b> '+button('drawHqCmd','抽牌啟動','tiny primary',id)+'</span></div>').join('')+'<div class="formgroup"><label for="notes">任務紀錄與資源</label><textarea id="notes" maxlength="10000">'+esc(s.notes)+'</textarea></div>'+button('saveLedger','儲存備忘','primary');
+ const ammoUnits=s.units.filter(u=>u.side==='friendly'&&Number.isFinite(u.ammo));
+ const ammoHtml=ammoUnits.length?'<h3>彈藥存量（自動追蹤）</h3>'+ammoUnits.map(u=>'<div class="detailrow"><label>'+esc(u.name)+'</label><b class="mono">'+u.ammo+' 發</b></div>').join(''):'';
+ const evEntries=Object.entries(s.events||{});
+ const evHtml=evEntries.length?'<h3>特殊事件紀錄（自動追蹤）</h3><ul class="loglist">'+evEntries.map(([k,v])=>'<li><time>'+esc(k)+'</time>'+esc(v)+'</li>').join('')+'</ul>':'';
+ let b='<div class="selected-info">目前活動等級：<b>'+esc(actLabels[s.activity])+'</b>（依規則 §5 接敵時自動更新）</div><h3>命令軌（§4）</h3><p class="tagline">點擊各指揮部的「抽牌啟動」，系統會自動抽 1 張行動牌並讀取鋼盔數字登記命令點。</p>'+names.map(id=>'<div class="detailrow"><label>'+esc(s.units.find(u=>u.id===id)?.name||id)+'</label><span><b class="mono">'+Number(s.tracks[id]||0)+' 點</b> '+button('drawHqCmd','抽牌啟動','tiny primary',id)+'</span></div>').join('')+ammoHtml+evHtml+'<div class="formgroup"><label for="notes">任務筆記（個人備忘）</label><textarea id="notes" maxlength="10000">'+esc(s.notes)+'</textarea></div>'+button('saveLedger','儲存筆記','primary');
  dialog('ledger','命令與紀錄',b);
 }
 function recordPatrol(u,from,to){

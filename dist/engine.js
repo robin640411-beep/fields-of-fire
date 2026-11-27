@@ -337,7 +337,12 @@ function hqEvent(s){
  const first=draw(s,1,side==='friendly'?'友軍 HQ 檢查':'敵軍 HQ 檢查')[0];
  let detail='未出現 HQ 圖示，本階段沒有事件。';
  if(first.hq){const tab=window.FOF_TABLES[s.id][side].find(t=>t.from<=s.turn&&t.to>=s.turn);const n=draw(s,1,'上級事件表')[0].rand[tab.rand],e=tab.results[n-1];
-  detail=e.title+'（R'+tab.rand+'＝'+n+'）。'+e.text+(e.xp?' 達成後可另記 '+e.xp+' XP。':'');if(['反攻','反擊'].includes(e.title))s.counterUntil=s.turn+2;
+  detail=e.title+'（R'+tab.rand+'＝'+n+'）。'+e.text+(e.xp?' 達成後可另記 '+e.xp+' XP。':'');
+  if(['反攻','反擊'].includes(e.title))s.counterUntil=s.turn+2;
+  if(e.title==='彈藥補給'){
+   const u=s.units.find(x=>x.side==='friendly'&&Number.isFinite(x.ammo));
+   if(u){u.ammo+=4;detail+='（系統已自動為 '+u.name+' 增加 4 發彈藥，目前共 '+u.ammo+' 發。）';}
+  }
  }s.events[k]=detail;note(s,detail);return detail;
 }
 function validSave(s,inDraw=false){
