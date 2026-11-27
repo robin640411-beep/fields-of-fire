@@ -671,9 +671,21 @@ document.addEventListener('click',ev=>{
   if(!c)return;
   focus=c;
   const {title,html}=tabletop.inspectCard(s,c,course()?lessons.chosen():selected);
-  const canAct=destination(c)||(course()?lessons.awaitingCell():isTable());
-  const actLabel=destination(c)?'移入此牌':course()?'選擇此牌':'操作此牌';
-  dialog('pile',title,html+'<div class="buttonrow">'+(canAct?button('pileCell',actLabel,'primary',key):'')+button('close','關閉','secondary')+'</div>');
+  let acts='';
+  if(destination(c))acts+=button('pileCell','移入此牌','primary',key);
+  else if(course()&&lessons.awaitingCell())acts+=button('pileCell','選擇此牌','primary',key);
+  else if(isTable()&&!quick()&&!s.outcome){
+   if(s.phase==='setup'){
+    const needed=G.needed(s),ref=needed.find(k=>!s.objectives[k]);
+    acts+=needed.map(k=>{
+     const here=s.objectives[k]&&G.same(s.objectives[k],c);
+     return button('putObj',(here?'✓ ':'放置')+objectiveName(k),k===ref?'primary':here?'highlight':'secondary',k);
+    }).join('');
+   }else if(s.phase==='combat'&&c.pc&&G.nextPC(s)===c){
+    acts+=button('checkPC','判定接敵（PC '+c.pc+'）','primary');
+   }
+  }
+  dialog('pile',title,html+'<div class="buttonrow">'+acts+button('close','關閉','secondary')+'</div>');
  }
  if(a==='boardPiece'||a==='boardPile'){
   const key=el.closest('.card-location')?.dataset.coord;
