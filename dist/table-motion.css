@@ -18,7 +18,9 @@
 .motion-skip{pointer-events:auto;flex:none;font-size:13px;padding:4px 7px;color:#fff8e7;background:#435844;border-color:#84937c}
 .motion-signal{z-index:4;display:grid;place-items:center;width:32px;height:32px;background:#23372ded;border:2px solid var(--fx);border-radius:50%;color:var(--fx);font:700 22px/1 var(--sans);box-shadow:0 0 0 4px #1b2c265e,0 2px 8px #15261977}
 .motion-signal:is([data-kind="fire"],[data-kind="assault"],[data-kind="support"],[data-kind="loss"]){outline:2px dashed var(--fx);outline-offset:3px}
-.motion-signal:is([data-kind="order"],[data-kind="record"],[data-kind="supply"],[data-kind="marker"]){border-radius:3px}
+.motion-signal:is([data-kind="order"],[data-kind="record"],[data-kind="supply"]){border-radius:3px}
+.motion-signal[data-kind="marker"]{width:58px;height:58px;background:transparent;border:0;border-radius:0;box-shadow:none}
+.motion-signal[data-kind="marker"] svg{display:block;width:100%;height:100%;filter:drop-shadow(0 2px 5px #00000088)}
 .motion-old-card,.motion-card{z-index:3;border-radius:3px;pointer-events:none}
 .motion-card{z-index:4;transform-style:preserve-3d}
 .motion-card img{position:absolute;inset:0;border-radius:3px;backface-visibility:hidden;box-shadow:0 2px 9px #14271a66}
