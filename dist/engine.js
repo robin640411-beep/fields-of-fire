@@ -45,7 +45,7 @@ function draw(s,n,why){
     out.push(id);s.discard.push(id);
   }
   recordDraw(s,seen,why,remaining,reshuffle);
-  if(reshuffle){s.deck=newDeck(false);s.discard=[];note(s,'重洗牌生效，完成本次抽牌後重新洗混全副牌。');}
+  if(reshuffle){s.deck=newDeck(false);s.discard=[];note(s,'依規則 §2 抽到重洗牌，完成本次抽牌後自動重新洗混全副 51 張行動牌。');}
   return out.map(card);
 }
 const templates=[
@@ -105,7 +105,7 @@ function moveTraining(s,uid,p,group=false){
  const us=movers(s,uid,group),cost=group?2:1;
  for(const u of us){if(p.y!==0||u.y!==0)u.exposed=true;u.x=p.x;u.y=p.y;u.moved=s.phase;}
  s.points-=cost;s.spent+=cost;
- note(s,(group?'全排移動（'+us.length+' 枚）':us[0].name)+'移至 '+nameAt(p)+'，花費 '+cost+' 點。');
+ note(s,(group?'全排移動（'+us.length+' 枚）':us[0].name)+'移至 '+nameAt(p)+'，花費 '+cost+' 點；依規則 §4.2.2a 抵達新牌後自動標記暴露並失去原本掩蔽。');
  if(atThird(s)===7){s.outcome='win';note(s,'七枚算子全數抵達第三列，演練完成。');}
  return true;
 }
@@ -113,13 +113,13 @@ function advanceTraining(s){
  if(s.outcome)return false;
  if(s.phase==='ready'){
   const c=draw(s,1,'排部啟動')[0];s.phase='command';s.spent=0;s.points=s.saved+c.command;s.saved=0;
-  note(s,'啟動命令 '+c.command+' 點，本時段最多花費 6 點。');
+  note(s,'依規則 §4 抽取啟動命令 '+c.command+' 點，本時段最多花費 6 點。');
  }else if(s.phase==='command'){
   s.saved=Math.min(6,s.points);const c=draw(s,1,'一般主動行動')[0];s.phase='initiative';s.spent=0;
-  s.points=Math.floor(c.initiative/2);note(s,'排部保留 '+s.saved+' 點。主動值 '+c.initiative+'，單排折半後可用 '+s.points+' 點。');
+  s.points=Math.floor(c.initiative/2);note(s,'依規則 §4 排部保留 '+s.saved+' 點；主動值 '+c.initiative+'，單排折半捨去後可用 '+s.points+' 點一般主動點。');
  }else if(s.phase==='initiative'){
   for(const u of s.units){u.exposed=false;u.moved='';}
-  note(s,'整理完成，移除暴露標記。');s.turn++;s.phase='ready';s.points=0;s.spent=0;
+  note(s,'依規則 §3 整理階段自動移除所有單位的暴露標記，準備進入下一回合。');s.turn++;s.phase='ready';s.points=0;s.spent=0;
  }else return false;
  return true;
 }
@@ -224,11 +224,11 @@ function advanceTable(s){
    const gs=goals(s);s.outcome=gs.length&&gs.every(g=>g.done)?'win':'loss';note(s,s.outcome==='win'?'任務目標全部達成。':'回合用盡，尚有未達成的目標。');return true;
   }
   for(const u of s.units){u.exposed=false;u.moved='';}
-  s.turn++;s.phase='events';note(s,'開始新回合，已移除暴露標記。');return true;
+  s.turn++;s.phase='events';note(s,'依規則 §3 整理階段自動移除暴露標記，進入第 '+s.turn+' 回合。');return true;
  }
  const idx=phases.indexOf(s.phase);if(idx<0)return false;
  s.phase=phases[idx+1];if(s.phase==='combat')revealPCs(s);
- note(s,'進入'+phaseNames[s.phase]+'。');return true;
+ note(s,'依規則 §3 順序進入'+phaseNames[s.phase]+'。');return true;
 }
 function eligiblePCs(s){
  return s.map.filter(c=>c.pc&&unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty));
@@ -297,7 +297,7 @@ function autoDeployContact(s,c,item,rollNote){
  const parts=[];
  if(spawned.length)parts.push('算子：'+spawned.join('、'));
  if(addedMarks.length)parts.push('標記：'+addedMarks.join('、'));
- const reason='因抽中「'+t+'」'+rollNote+'，系統已依規則自動配置 '+parts.join('；')+'。';
+ const reason='依規則 §5 抽中「'+t+'」'+rollNote+'，系統自動配置 '+parts.join('；')+'（同時依 §6 建立對應火力／標記）。';
  c.contactDetail='組合 '+item.id+'・'+t+rollNote+' — '+reason;
  note(s,nameAt(c)+' '+c.contactDetail);
 }
@@ -325,7 +325,7 @@ function pcCheck(s,c){
  c.pending=n===0||cs.some(a=>a.contact);c.hidden=false;c.pc=null;
  c.contactGrade=grade;c.contactDetail='';
  if(c.pending){contactGroup(s,c);}
- else{note(s,nameAt(c)+' 抽牌未出現接敵圖示，移除 PC。');}
+ else{note(s,nameAt(c)+' 依規則 §5 抽牌未出現接敵圖示，自動移除 PC。');}
  return true;
 }
 function hqEvent(s){
