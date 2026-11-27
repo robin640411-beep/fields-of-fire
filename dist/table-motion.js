@@ -260,6 +260,7 @@ function createPlayer(catalog){
    await anim(run,face,[{opacity:0,transform:'translateY(-20px) scale(.86)'},{opacity:1,transform:'none'}],ms);
    face.remove();if(current===run)mask(run,'terrain'+e.to,'',false);return;
   }
+  if(e.kind==='status')return Promise.resolve();
   return spark(run,e,p,ms);
  }
  function placeHud(){
