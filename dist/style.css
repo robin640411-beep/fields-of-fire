@@ -491,6 +491,21 @@ body{min-width:1080px;--campaign-nav-height:42px}
   white-space: nowrap;
 }
 .board-phase:empty { display: none; }
+.rule-ref {
+  display: inline;
+  padding: 0 4px;
+  margin: 0 1px;
+  border: 0;
+  border-bottom: 1.5px dashed #8a6d2b;
+  border-radius: 3px;
+  background: #f2e8c9;
+  color: #263b2e;
+  font: 700 .92em/1.3 var(--mono);
+  vertical-align: baseline;
+}
+.rule-ref:hover { background: #ead9a6; filter: none; }
+#ruleDialog { width: min(520px, calc(100vw - 24px)); z-index: 40; }
+#ruleDialog .modalcontent p { line-height: 1.7; font-size: .96rem; }
 .mobile-command-card { display: none; }
 #commandSheetHost #command-display { display: block; width: 100%; margin: 0 auto; }
 #commandSheetHost #sheetSelection { color: var(--ink); margin-top: 8px; }
