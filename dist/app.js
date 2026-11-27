@@ -548,7 +548,7 @@ function tableDraw(){
   button('autoDraw','一般主動（1 張・§4）','secondary','1')+
   button('autoDraw',coverLabel,'secondary',String(coverN))+
   button('autoDraw','嘗試重整（1 張・§8）','secondary','1')+
-  '</div><details class="command-record"><summary>自訂抽牌張數</summary><div style="padding:8px 12px"><div class="formgroup"><label for="drawN">抽牌張數</label><input id="drawN" type="number" value="1" min="1" max="12"></div>'+button('drawBatch','指定張數，前往牌組','tiny')+'</div></details>';
+  '</div>';
  dialog('draw','行動牌工具',quickDraws+'<hr class="divider"><h3>戰鬥效果檢定（§6）</h3><p class="tagline">選擇受攻擊算子後，系統會自動依地形掩蔽、暴露狀態與經驗值帶入淨戰鬥修正（NCM）。</p><div class="formgroup"><label for="combatTarget">受攻擊算子</label><select id="combatTarget"><option value="">僅讀取牌面</option>'+combatOptions()+'</select><label for="combatSource">射擊來源</label><select id="combatSource"><option value="">牌外支援或多個來源</option></select><label for="ncm">淨戰鬥修正（NCM）</label><select id="ncm">'+Array.from({length:11},(_,i)=>'<option '+(i===4?'selected':'')+' value="'+(i-4)+'">'+(i-4)+'</option>').join('')+'</select><label for="exp">經驗</label><select id="exp"><option value="line">一般</option><option value="green">新兵</option><option value="veteran">老兵</option></select></div>'+button('combatDraw','準備效果檢定','primary')+'<hr class="divider">'+button('deck','檢視行動牌組','tiny'));
  if(u){
   const sel=$('combatTarget');
@@ -557,7 +557,7 @@ function tableDraw(){
 }
 function ledger(){
  const known=s.units.filter(u=>u.side==='friendly'&&(/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr))), names=[...new Set([...known.map(u=>u.id),...Object.keys(s.tracks)])];
- let b='<label class="formgroup">目前活動等級<select id="activity">'+actLabels.map((x,i)=>'<option value="'+i+'" '+(s.activity===i?'selected':'')+'>'+x+'</option>').join('')+'</select></label>'+button('openLedgerSheet','儲存紀錄並前往左側指揮表','secondary wide')+'<h3>命令軌</h3>'+names.map(id=>'<div class="detailrow"><label>'+esc(s.units.find(u=>u.id===id)?.name||id)+'</label><span>'+button('track','−','tiny',id+'|-1')+' <b class="mono">'+Number(s.tracks[id]||0)+'</b> '+button('track','＋','tiny',id+'|1')+'</span></div>').join('')+'<div class="formgroup"><label for="notes">任務紀錄與資源</label><textarea id="notes" maxlength="10000">'+esc(s.notes)+'</textarea></div>'+button('saveLedger','儲存紀錄','primary');
+ let b='<div class="selected-info">目前活動等級：<b>'+esc(actLabels[s.activity])+'</b>（依規則 §5 接敵時自動更新）</div><h3>命令軌（§4）</h3><p class="tagline">點擊各指揮部的「抽牌啟動」，系統會自動抽 1 張行動牌並讀取鋼盔數字登記命令點。</p>'+names.map(id=>'<div class="detailrow"><label>'+esc(s.units.find(u=>u.id===id)?.name||id)+'</label><span><b class="mono">'+Number(s.tracks[id]||0)+' 點</b> '+button('drawHqCmd','抽牌啟動','tiny primary',id)+'</span></div>').join('')+'<div class="formgroup"><label for="notes">任務紀錄與資源</label><textarea id="notes" maxlength="10000">'+esc(s.notes)+'</textarea></div>'+button('saveLedger','儲存備忘','primary');
  dialog('ledger','命令與紀錄',b);
 }
 function recordPatrol(u,from,to){
@@ -823,12 +823,25 @@ document.addEventListener('click',ev=>{
  case 'rerollContact':case 'checkPC':if(focus)armDraw({type:a==='checkPC'?'contact':'group',x:focus.x,y:focus.y});break;
  case 'emptyContact':case 'finishContact':edit(()=>{const c=G.at(s,focus);if(!c?.pending)return false;s.activity=Number($('contactActivity').value);c.pending=false;G.note(s,G.nameAt(c)+(a==='emptyContact'?' 無可用組合，未發生接敵。':' 已完成接敵配置。')+'活動程度為'+actLabels[s.activity]+'。');});close();break;
  case 'tableDraw':tableDraw();break;
+ case 'drawHqCmd':{
+  const nm=s.units.find(u=>u.id===v)?.name||v;
+  edit(()=>{
+   const card=G.draw(s,1,nm+' 啟動命令')[0];
+   const pts=Number(card?.command||0);
+   s.tracks[v]=Math.max(0,Number(s.tracks[v]||0)+pts);
+   s.commandAreas=s.commandAreas||{};
+   s.commandAreas[v]=s.tracks[v]>0?'available':'done';
+   G.note(s,nm+' 依規則 §4 抽牌啟動，讀取鋼盔數字獲得 '+pts+' 點命令（目前共 '+s.tracks[v]+' 點）。');
+  });
+  ledger();
+  break;
+ }
  case 'autoDraw':armDraw({type:'batch',n:Math.max(1,Math.min(12,Number(v)||1))});break;
  case 'drawBatch':{const n=Number($('drawN').value);if(!Number.isInteger(n)||n<1||n>12)return tell('請輸入 1 至 12');armDraw({type:'batch',n});break;}
  case 'combatDraw':armDraw({type:'combat',n:Number($('ncm').value),exp:$('exp').value,target:$('combatTarget').value,shooter:$('combatSource').value});break;
  case 'ledger':ledger();break;
  case 'track':{const [id,delta]=v.split('|');const notes=$('notes').value,activity=Number($('activity').value);edit(()=>{s.notes=notes;s.activity=activity;window.FOF_COMMAND_DISPLAY.adjust(s,id,Number(delta));});ledger();break;}
- case 'openLedgerSheet':case 'saveLedger':edit(()=>{s.activity=Number($('activity').value);s.notes=$('notes').value;G.note(s,'更新命令與任務紀錄。');});close();if(a==='openLedgerSheet'){$('command-display').focus({preventScroll:true});$('command-display').scrollIntoView({block:'nearest',inline:'start'});}break;
+ case 'openLedgerSheet':case 'saveLedger':edit(()=>{if($('activity'))s.activity=Number($('activity').value);s.notes=$('notes').value;G.note(s,'更新任務備忘紀錄。');});close();if(a==='openLedgerSheet'){$('command-display').focus({preventScroll:true});$('command-display').scrollIntoView({block:'nearest',inline:'start'});}break;
  case 'patrolFinish':patrolFinish();break;
  case 'retry':entryBrief(s.id,campaignRetry,result,'第 '+(s.attempt+1)+' 次嘗試');break;
  case 'export':{const obj={version:1,active:campaigns.key(s),slots};const url=URL.createObjectURL(new Blob([JSON.stringify(obj)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='Fields-of-Fire-存檔.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break;}

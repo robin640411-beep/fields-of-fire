@@ -294,10 +294,12 @@ function autoDeployContact(s,c,item,rollNote){
   addEnemy('敵軍火力組','Enemy','de-fire',2);addMark('VOF S');
  }
  c.pending=false;
+ let actNote='';
+ if(s.activity===0){s.activity=1;actNote='；活動等級依 §5 由未接敵自動升為低';}
  const parts=[];
  if(spawned.length)parts.push('算子：'+spawned.join('、'));
  if(addedMarks.length)parts.push('標記：'+addedMarks.join('、'));
- const reason='依規則 §5 抽中「'+t+'」'+rollNote+'，系統自動配置 '+parts.join('；')+'（同時依 §6 建立對應火力／標記）。';
+ const reason='依規則 §5 抽中「'+t+'」'+rollNote+'，系統自動配置 '+parts.join('；')+'（同時依 §6 建立對應火力／標記'+actNote+'）。';
  c.contactDetail='組合 '+item.id+'・'+t+rollNote+' — '+reason;
  note(s,nameAt(c)+' '+c.contactDetail);
 }
