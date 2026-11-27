@@ -167,6 +167,33 @@ function destination(c){
  if(quick())return Q.canMove(s,selectedUnit(),c);
  return !isTable()&&selected&&G.allowedMove(s,selected,c,group);
 }
+function updateMobileSummary(){
+ const el=$('mobileCommandSummary');
+ if(!el)return;
+ const prompt=$('pilePrompt')?.textContent?.trim()||'';
+ if(course()){
+  const step=C.lessons[s.id]?.steps?.[s.cursor];
+  el.textContent=prompt||step?.phase||'點擊指揮表查看狀態';
+  return;
+ }
+ if(!isTable()){
+  const remain=s.phase==='command'?Math.min(s.points,6-s.spent):s.points;
+  el.textContent=prompt||('可用命令 '+Math.max(0,remain)+' 點');
+  return;
+ }
+ el.textContent=prompt||(G.phaseNames[s.phase]||'指揮狀態');
+}
+function restoreCommandDisplay(){
+ const cd=$('command-display'),supply=document.querySelector('.table-supply');
+ if(cd&&supply&&cd.parentElement!==supply)supply.append(cd);
+}
+function openCommandSheetModal(){
+ const cd=$('command-display');
+ if(!cd)return;
+ dialog('commandSheet','指揮顯示表','<div id="commandSheetHost"></div><div class="buttonrow">'+button('close','關閉','secondary')+'</div>');
+ $('commandSheetHost')?.append(cd);
+ $('panel')?.addEventListener('close',restoreCommandDisplay,{once:true});
+}
 function currentPhaseLabel(){
  if(course()){
   const step=C.lessons[s.id]?.steps?.[s.cursor];
@@ -213,8 +240,8 @@ function sizeBoard(){
  const stacked=window.innerWidth<=768;
  const supplyH=stacked?($('board').querySelector('.table-supply')?.offsetHeight||0)+12:0;
  const colSpace=stacked?(usableWidth-12*(s.cols-1))/s.cols:(usableWidth-sheetFit-16-12*(s.cols-1))/s.cols;
- const inlineCaption=colSpace>=124;
- const captionHeight=inlineCaption?20:31, gap=6;
+ const inlineCaption=stacked||colSpace>=124;
+ const captionHeight=stacked?18:(inlineCaption?20:31), gap=6;
  const availH=stacked?Math.max(200,port.clientHeight-16-supplyH):port.clientHeight-16;
  const hFit=(availH-gap*(rows.size-1)-captionHeight*rows.size)/(rows.size*1.4+extra*.22);
  const fitWidth=Math.max(18,Math.floor(Math.min(290,hFit,colSpace)));
@@ -322,7 +349,7 @@ function renderSide(){
  const body=showCell?cellControls(activeCell):sideTab==='log'?logView():main;
  $('side').innerHTML='<section class="cardbox"><div class="sidehead"><div class="tabbar">'+tabs+'</div><span class="turnpill">R'+pad(s.turn)+'</span></div><div class="sidebody">'+body+'</div>'+lastRow()+'</section>'+goalBox();
 }
-function render(){renderHero();commandDisplay.render();renderBoard();renderPiles();renderSide();renderRoster();queueMicrotask(showPending);}
+function render(){renderHero();commandDisplay.render();renderBoard();renderPiles();renderSide();renderRoster();updateMobileSummary();queueMicrotask(showPending);}
 function missionMenu(){let body='<h3>野戰手冊 1</h3>'+button('courses','基礎訓練・六次逐步演練','primary wide','1')+'<h3>野戰手冊 2</h3>'+button('courses','進階作戰・七堂逐步教學','primary wide','2')+'<h3>自由演練</h3>'+missionChoice('T1','01','啟動與移動','固定地圖・七枚算子・自動判定')+'<h3>單人快戰</h3>'+missionChoice('Q1','Q1','特雷維耶爾快戰','六個班・十回合・接敵與戰鬥自動結算');dialog('missions','任務選單',body);}
 function missionChoice(id,code,n,sub){return '<button class="choice" data-action="missionInfo" data-value="'+id+'"><span class="code">'+code+'</span><span><strong>'+esc(n)+'</strong><small>'+esc(sub)+(slots[id]?' ・ 已有進度':'')+'</small></span></button>';}
 function entryBrief(id,enter,back,context=''){
@@ -673,7 +700,8 @@ document.addEventListener('click',ev=>{
  }
  if(lessons.handle(a,v))return;
  switch(a){
- case 'close':close();break;
+ case 'openCommandSheet':openCommandSheetModal();break;
+ case 'close':restoreCommandDisplay();close();break;
  case 'zoomOut':boardZoom(-1);break;
  case 'zoomIn':boardZoom(1);break;
  case 'fitBoard':boardZoom(0);break;

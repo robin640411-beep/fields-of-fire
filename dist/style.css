@@ -491,6 +491,9 @@ body{min-width:1080px;--campaign-nav-height:42px}
   white-space: nowrap;
 }
 .board-phase:empty { display: none; }
+.mobile-command-card { display: none; }
+#commandSheetHost #command-display { display: block; width: 100%; margin: 0 auto; }
+#commandSheetHost #sheetSelection { color: var(--ink); margin-top: 8px; }
 .card-inspect-head {
   display: grid;
   grid-template-columns: minmax(110px, 145px) minmax(0, 1fr);
@@ -552,22 +555,52 @@ body{min-width:1080px;--campaign-nav-height:42px}
   .mast-tools { gap: 6px; }
   .mast-tools button, .hero-acts button { padding: 7px 10px; font-size: .85rem; }
   .shell { padding: 8px; }
-  .board-pane { grid-template-rows: auto minmax(400px, 66dvh) auto; }
+  .board-pane { grid-template-rows: auto minmax(420px, 68dvh) auto; }
   #board { flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; padding: 8px 6px; }
   .table-supply {
-    width: min(300px, calc(100vw - 24px));
+    width: min(100%, calc(100vw - 24px));
     display: grid;
-    grid-template-columns: minmax(50px, 0.36fr) minmax(108px, 0.85fr) minmax(50px, 0.36fr);
-    gap: 4px 6px;
+    grid-template-columns: 58px minmax(0, 1fr) 58px;
+    gap: 6px 10px;
     align-items: start;
   }
   .table-piles { display: contents; }
   .table-piles .action-pile { width: 100%; }
   .table-piles .action-pile:first-child { grid-column: 1; grid-row: 1; }
-  #command-display { grid-column: 2; grid-row: 1; }
+  .mobile-command-card {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 98px;
+    padding: 8px;
+    border: 1px solid #59705b;
+    border-radius: 5px;
+    background: #253b2dcc;
+    text-align: center;
+  }
+  .mobile-command-summary { font-size: 12px; line-height: 1.35; color: #ffe3a6; font-weight: 650; }
+  .mobile-command-card button { width: 100%; padding: 6px 8px; font-size: 12px; color: var(--ink); }
+  #command-display { display: none; }
   .table-piles .action-pile:last-child { grid-column: 3; grid-row: 1; }
-  #pilePrompt { grid-column: 1 / -1; grid-row: 2; height: auto; min-height: 22px; padding: 2px 0; }
-  .pile-label { font-size: 11px; height: auto; flex-wrap: wrap; justify-content: center; text-align: center; line-height: 1.25; margin-bottom: 4px; white-space: normal; }
+  #pilePrompt { display: none; }
+  .pile-label {
+    font-size: 11px;
+    height: 18px;
+    line-height: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    justify-content: center;
+    margin-bottom: 3px;
+  }
+  .cell-ref small { display: none; }
+  .cell-caption { flex-direction: row; align-items: baseline; justify-content: center; gap: 4px; padding-bottom: 2px; }
+  .cell-ref { font-size: 11px; }
+  .cell-name { font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   .command-dock .rostergrid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
   .card-inspect-head { grid-template-columns: 1fr; }
   .card-inspect-face { max-width: 170px; margin: 0 auto; }

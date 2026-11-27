@@ -58,6 +58,10 @@
               <button type="button" id="discardPile" data-action="inspectDiscard" disabled><img id="discardFace" alt="" hidden draggable="false"></button></div>
           </section>
           <div id="pilePrompt" aria-live="polite"></div>
+          <div class="mobile-command-card" aria-label="指揮摘要">
+            <div id="mobileCommandSummary" class="mobile-command-summary"></div>
+            <button type="button" class="secondary tiny" data-action="openCommandSheet">指揮顯示表</button>
+          </div>
           <figure id="command-display" tabindex="-1" aria-label="指揮顯示表">
           <div id="commandPaper"></div>
           <figcaption id="sheetSelection" hidden><label for="commandUnit">登記指揮部</label><select id="commandUnit"></select></figcaption>
