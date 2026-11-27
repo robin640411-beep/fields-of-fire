@@ -475,3 +475,62 @@ body{min-width:1080px;--campaign-nav-height:42px}
 .loss-faces img{display:block;width:100%;height:auto;object-fit:contain}
 .ubtn .loss-faces,.unitrow .loss-faces{width:48px;height:auto}
 .flight-counter{display:inline-flex;gap:.5rem;align-items:center;cursor:help}.flight-counter img{width:2.5rem;height:2.5rem;object-fit:contain}
+
+/* Responsive layout for tablet and mobile viewports */
+@media (max-width: 1080px) {
+  body { min-width: 0; overflow-x: clip; }
+  .mast-inner { height: auto; flex-wrap: wrap; padding: 10px 14px; gap: 10px 14px; }
+  .mast-tools { margin-left: auto; }
+  #hero { order: 3; flex: 1 1 100%; border-left: 0; border-top: 1px solid #425749; padding: 8px 0 0; flex-wrap: wrap; gap: 8px 12px; }
+  .mission-context { white-space: normal; }
+  .hero-acts { margin-left: 0; flex-wrap: wrap; }
+  .campaign-nav { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 12px; scrollbar-width: none; }
+  .campaign-nav::-webkit-scrollbar { display: none; }
+  .campaign-nav strong, .campaign-nav a { white-space: nowrap; flex: none; }
+  .campaign-nav a { padding: 0 12px; }
+  .shell { height: auto; min-height: 0; padding: 10px; }
+  .desk, .desk:has(#side[data-lesson-step]) { grid-template-columns: minmax(0, 1fr); height: auto; gap: 10px; }
+  .board-pane { grid-template-rows: auto minmax(360px, 58dvh) auto; }
+  .boardbar { flex-wrap: wrap; gap: 6px 10px; padding: 8px 12px; }
+  .board-tools { flex-wrap: wrap; gap: 6px; }
+  .mapkey { flex-wrap: wrap; gap: 6px 12px; padding: 6px 12px; }
+  .mapkey .play-edge { margin-left: 0; }
+  .command-dock { overflow-y: visible; padding: 0; }
+}
+
+@media (max-width: 768px) {
+  body { font-size: 15px; }
+  .brand { gap: 8px; }
+  .brand strong { font-size: 24px; }
+  .brand small { font-size: 11px; letter-spacing: .2em; }
+  .crest { width: 32px; height: 37px; }
+  .crest:before, .crest:after, .crest i, .crest b { left: 6px; right: 6px; height: 11px; }
+  .crest:before { top: 6px; }
+  .crest:after { top: 13px; }
+  .crest i { top: 20px; }
+  .mast-tools { gap: 6px; }
+  .mast-tools button, .hero-acts button { padding: 7px 10px; font-size: .85rem; }
+  .shell { padding: 8px; }
+  .board-pane { grid-template-rows: auto minmax(320px, 54dvh) auto; }
+  #board { flex-direction: column; align-items: center; justify-content: flex-start; gap: 12px; padding: 10px 8px; }
+  .table-supply { width: min(var(--sheet-w), calc(100vw - 36px)); }
+  .command-dock .rostergrid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  dialog, #panel[data-kind="courseMenu"], #panel[data-kind="bookReader"], #panel[data-kind="campaignSettlement"],
+  #panel:is([data-kind="campaignBook"], [data-kind="campaignIntro"], [data-kind="campaignHistory"], [data-kind="missionInfo"], [data-kind="missionEntry"]) {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: 92dvh;
+  }
+  .modalhead { padding: 10px 14px; }
+  .modalcontent { padding: 12px 14px; }
+  .book-list, .series-inputs, .formation-grid, .reorg-columns { grid-template-columns: 1fr; }
+  #drawViewer { min-width: 0; width: calc(100vw - 16px); }
+  .draw-head, .draw-foot { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+  #drawFaces { padding: 10px; }
+  #terrainPreview[data-terrain] { grid-template-columns: 1fr; max-height: 82dvh; overflow: auto; }
+  #terrainPreview[data-terrain] img { max-height: 36dvh; }
+  .terrain-legend { grid-column: 1; grid-row: auto; max-height: none; }
+  #terrainPreview[data-unit-face] { grid-template-columns: 1fr; max-height: 82dvh; overflow: auto; }
+  #terrainPreview[data-unit-face] img { max-width: 140px; margin: 0 auto; }
+  #terrainPreview .piece-legend { grid-area: auto; max-height: 40dvh; }
+}
