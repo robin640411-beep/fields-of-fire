@@ -195,6 +195,13 @@ function openCommandSheetModal(){
  $('panel')?.addEventListener('close',restoreCommandDisplay,{once:true});
 }
 function currentPhaseLabel(){
+ const marker=$('commandPaper')?.querySelector('[data-piece-art="phase"]');
+ const sheetPhase=marker?.dataset.pieceName;
+ if(sheetPhase){
+  const label=sheetPhase.endsWith('階段')?sheetPhase:sheetPhase+'階段';
+  const turnText=s.turn?'第 '+s.turn+' 回合':'';
+  return turnText?turnText+'・'+label:label;
+ }
  if(course()){
   const step=C.lessons[s.id]?.steps?.[s.cursor];
   if(!step)return '';
