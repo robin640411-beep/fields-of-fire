@@ -494,16 +494,21 @@ body{min-width:1080px;--campaign-nav-height:42px}
 .mobile-command-card { display: none; }
 #commandSheetHost #command-display { display: block; width: 100%; margin: 0 auto; }
 #commandSheetHost #sheetSelection { color: var(--ink); margin-top: 8px; }
-.card-inspect-head {
-  display: grid;
-  grid-template-columns: minmax(110px, 145px) minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
+.card-inspect-board {
+  display: flex;
+  justify-content: center;
   margin-bottom: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
+.card-inspect-card {
+  --face-w: 190px;
+  position: relative;
+  width: var(--face-w);
+  flex: none;
+}
 .card-inspect-face {
+  display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 5/7;
@@ -511,7 +516,14 @@ body{min-width:1080px;--campaign-nav-height:42px}
   border-radius: 4px;
   box-shadow: 0 2px 8px #15241d44;
 }
-.card-inspect-legend { font-size: .88rem; line-height: 1.45; color: var(--ink); }
+.card-inspect-legend {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: .88rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
 .card-inspect-legend .legend-summary { color: var(--forest); font-weight: 700; margin: 0 0 6px; }
 .card-inspect-legend dl { margin: 0; }
 .card-inspect-legend .legend-row { border-top-color: var(--line); }
