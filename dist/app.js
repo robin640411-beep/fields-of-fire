@@ -531,7 +531,30 @@ function library(cat='friendly',q=''){
  dialog('library','放置算子・'+G.nameAt(focus),'<div class="formgroup"><select id="pieceCat"><option value="friendly">友軍</option><option value="enemy">敵軍</option><option value="marker">遊戲標記</option></select><input id="pieceQuery" type="search" placeholder="搜尋名稱或代號" aria-label="搜尋算子"></div><div id="pieceList" class="gallery">'+list+'</div><p class="tagline">找不到所需算子時，可以名稱建立自訂棋子。</p><div class="buttonrow"><input id="customName" class="control" maxlength="40" placeholder="自訂名稱" aria-label="自訂名稱">'+button('customPiece','放置')+'</div>');
 }
 function combatOptions(target){return s.units.filter(u=>u.side!=='marker'&&!u.casualty&&(!target||u.id!==target.id)).map(u=>'<option value="'+esc(u.id)+'">'+esc(G.nameAt(u)+'・'+u.name)+'</option>').join('');}
-function tableDraw(){dialog('draw','行動牌工具','<p>依任務書抽取指定張數。每張牌的原圖都可放大查看。</p><div class="formgroup"><label for="drawN">抽牌張數</label><input id="drawN" type="number" value="1" min="1" max="12"></div>'+button('drawBatch','指定張數，前往牌組','primary')+'<hr class="divider"><h3>戰鬥效果檢定</h3><p class="tagline">輸入依棋桌狀態計出的淨戰鬥修正。命中時再抽一張讀取經驗欄。依結果在「管理」中翻面、調整兵力階，或從配件庫放置分出的小組。</p><div class="formgroup"><label for="combatTarget">受攻擊算子</label><select id="combatTarget"><option value="">僅讀取牌面</option>'+combatOptions()+'</select><label for="combatSource">射擊來源</label><select id="combatSource"><option value="">牌外支援或多個來源</option></select><label for="ncm">淨戰鬥修正（NCM）</label><select id="ncm">'+Array.from({length:11},(_,i)=>'<option '+(i===4?'selected':'')+' value="'+(i-4)+'">'+(i-4)+'</option>').join('')+'</select><label for="exp">經驗</label><select id="exp"><option value="line">一般</option><option value="green">新兵</option><option value="veteran">老兵</option></select></div>'+button('combatDraw','準備效果檢定','primary')+'<hr class="divider">'+button('deck','檢視行動牌組','tiny'));}
+function autoNcmFor(u){
+ if(!u)return 0;
+ const c=G.at(s,u),t=c&&!c.faceDown?G.terrain(c.t):null;
+ let ncm=Number(t?.cover||0);
+ if(u.covered)ncm+=2;
+ if(u.exposed)ncm-=2;
+ return Math.max(-4,Math.min(6,ncm));
+}
+function tableDraw(){
+ const u=selectedUnit(),c=u?G.at(s,u):focus?G.at(s,focus):null,t=c&&!c.faceDown?G.terrain(c.t):null;
+ const coverN=Math.max(1,Number(t?.draw||1));
+ const coverLabel=c?'尋找掩蔽（'+G.nameAt(c)+' 抽 '+coverN+' 張・§8）':'尋找掩蔽（抽 1 張・§8）';
+ const quickDraws='<p class="hint">系統依規則自動決定抽牌張數，直接點擊對應行動即可：</p><div class="buttonrow">'+
+  button('autoDraw','啟動命令（1 張・§4）','primary','1')+
+  button('autoDraw','一般主動（1 張・§4）','secondary','1')+
+  button('autoDraw',coverLabel,'secondary',String(coverN))+
+  button('autoDraw','嘗試重整（1 張・§8）','secondary','1')+
+  '</div><details class="command-record"><summary>自訂抽牌張數</summary><div style="padding:8px 12px"><div class="formgroup"><label for="drawN">抽牌張數</label><input id="drawN" type="number" value="1" min="1" max="12"></div>'+button('drawBatch','指定張數，前往牌組','tiny')+'</div></details>';
+ dialog('draw','行動牌工具',quickDraws+'<hr class="divider"><h3>戰鬥效果檢定（§6）</h3><p class="tagline">選擇受攻擊算子後，系統會自動依地形掩蔽、暴露狀態與經驗值帶入淨戰鬥修正（NCM）。</p><div class="formgroup"><label for="combatTarget">受攻擊算子</label><select id="combatTarget"><option value="">僅讀取牌面</option>'+combatOptions()+'</select><label for="combatSource">射擊來源</label><select id="combatSource"><option value="">牌外支援或多個來源</option></select><label for="ncm">淨戰鬥修正（NCM）</label><select id="ncm">'+Array.from({length:11},(_,i)=>'<option '+(i===4?'selected':'')+' value="'+(i-4)+'">'+(i-4)+'</option>').join('')+'</select><label for="exp">經驗</label><select id="exp"><option value="line">一般</option><option value="green">新兵</option><option value="veteran">老兵</option></select></div>'+button('combatDraw','準備效果檢定','primary')+'<hr class="divider">'+button('deck','檢視行動牌組','tiny'));
+ if(u){
+  const sel=$('combatTarget');
+  if(sel){sel.value=u.id;sel.dispatchEvent(new Event('change',{bubbles:true}));}
+ }
+}
 function ledger(){
  const known=s.units.filter(u=>u.side==='friendly'&&(/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr))), names=[...new Set([...known.map(u=>u.id),...Object.keys(s.tracks)])];
  let b='<label class="formgroup">目前活動等級<select id="activity">'+actLabels.map((x,i)=>'<option value="'+i+'" '+(s.activity===i?'selected':'')+'>'+x+'</option>').join('')+'</select></label>'+button('openLedgerSheet','儲存紀錄並前往左側指揮表','secondary wide')+'<h3>命令軌</h3>'+names.map(id=>'<div class="detailrow"><label>'+esc(s.units.find(u=>u.id===id)?.name||id)+'</label><span>'+button('track','−','tiny',id+'|-1')+' <b class="mono">'+Number(s.tracks[id]||0)+'</b> '+button('track','＋','tiny',id+'|1')+'</span></div>').join('')+'<div class="formgroup"><label for="notes">任務紀錄與資源</label><textarea id="notes" maxlength="10000">'+esc(s.notes)+'</textarea></div>'+button('saveLedger','儲存紀錄','primary');
@@ -800,6 +823,7 @@ document.addEventListener('click',ev=>{
  case 'rerollContact':case 'checkPC':if(focus)armDraw({type:a==='checkPC'?'contact':'group',x:focus.x,y:focus.y});break;
  case 'emptyContact':case 'finishContact':edit(()=>{const c=G.at(s,focus);if(!c?.pending)return false;s.activity=Number($('contactActivity').value);c.pending=false;G.note(s,G.nameAt(c)+(a==='emptyContact'?' 無可用組合，未發生接敵。':' 已完成接敵配置。')+'活動程度為'+actLabels[s.activity]+'。');});close();break;
  case 'tableDraw':tableDraw();break;
+ case 'autoDraw':armDraw({type:'batch',n:Math.max(1,Math.min(12,Number(v)||1))});break;
  case 'drawBatch':{const n=Number($('drawN').value);if(!Number.isInteger(n)||n<1||n>12)return tell('請輸入 1 至 12');armDraw({type:'batch',n});break;}
  case 'combatDraw':armDraw({type:'combat',n:Number($('ncm').value),exp:$('exp').value,target:$('combatTarget').value,shooter:$('combatSource').value});break;
  case 'ledger':ledger();break;
@@ -813,7 +837,7 @@ document.addEventListener('click',ev=>{
  }
 });
 document.addEventListener('input',e=>{if(e.target.id==='pieceQuery')library($('pieceCat').value,e.target.value);});
-document.addEventListener('change',e=>{if(e.target.id==='combatTarget'){const target=s.units.find(u=>u.id===e.target.value);$('combatSource').innerHTML='<option value="">牌外支援或多個來源</option>'+(target?combatOptions(target):'');}
+document.addEventListener('change',e=>{if(e.target.id==='combatTarget'){const target=s.units.find(u=>u.id===e.target.value);$('combatSource').innerHTML='<option value="">牌外支援或多個來源</option>'+(target?combatOptions(target):'');if(target){const ncmEl=$('ncm'),expEl=$('exp');if(ncmEl)ncmEl.value=String(autoNcmFor(target));if(expEl&&target.experience)expEl.value=target.experience;}}
  if(e.target.id==='pieceCat')library(e.target.value,$('pieceQuery').value);});
 $('importFile').addEventListener('change',async e=>{
  const f=e.target.files[0];e.target.value='';if(!f)return;
