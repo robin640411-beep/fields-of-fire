@@ -211,10 +211,12 @@ function sizeBoard(){
  // Both 5:7 piles sit above the sheet and scale with it.
  const sheetFit=Math.floor(Math.min(usableWidth*.35,(usableHeight-sheetControls-54)/(792/612+.29*1.4),510));
  const stacked=window.innerWidth<=768;
+ const supplyH=stacked?($('board').querySelector('.table-supply')?.offsetHeight||0)+12:0;
  const colSpace=stacked?(usableWidth-12*(s.cols-1))/s.cols:(usableWidth-sheetFit-16-12*(s.cols-1))/s.cols;
  const inlineCaption=colSpace>=124;
  const captionHeight=inlineCaption?20:31, gap=6;
- const hFit=(port.clientHeight-16-gap*(rows.size-1)-captionHeight*rows.size)/(rows.size*1.4+extra*.22);
+ const availH=stacked?Math.max(200,port.clientHeight-16-supplyH):port.clientHeight-16;
+ const hFit=(availH-gap*(rows.size-1)-captionHeight*rows.size)/(rows.size*1.4+extra*.22);
  const fitWidth=Math.max(18,Math.floor(Math.min(290,hFit,colSpace)));
  faceWidth=fixedWidth??fitWidth;
  const board=$('board');
@@ -227,6 +229,12 @@ function sizeBoard(){
  $('fitBoard').setAttribute('aria-pressed',String(fixedWidth===null));
  document.querySelector('[data-action="zoomOut"]').disabled=faceWidth<=scaleSteps[0];
  document.querySelector('[data-action="zoomIn"]').disabled=faceWidth>=scaleSteps.at(-1);
+ if(stacked&&fixedWidth===null&&!s.drawOrder&&!s.tableRun){
+  const grid=$('terrainGrid');
+  if(grid&&port.scrollHeight>port.clientHeight){
+   port.scrollTop=Math.max(0,grid.offsetTop-8);
+  }
+ }
 }
 function boardZoom(direction){
  if(!direction){fixedWidth=null;}

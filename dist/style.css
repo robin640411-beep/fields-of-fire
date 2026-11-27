@@ -552,13 +552,13 @@ body{min-width:1080px;--campaign-nav-height:42px}
   .mast-tools { gap: 6px; }
   .mast-tools button, .hero-acts button { padding: 7px 10px; font-size: .85rem; }
   .shell { padding: 8px; }
-  .board-pane { grid-template-rows: auto minmax(340px, 58dvh) auto; }
-  #board { flex-direction: column; align-items: center; justify-content: flex-start; gap: 12px; padding: 10px 8px; }
+  .board-pane { grid-template-rows: auto minmax(400px, 66dvh) auto; }
+  #board { flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; padding: 8px 6px; }
   .table-supply {
-    width: min(100%, calc(100vw - 28px));
+    width: min(300px, calc(100vw - 24px));
     display: grid;
-    grid-template-columns: minmax(64px, 0.42fr) minmax(136px, 1fr) minmax(64px, 0.42fr);
-    gap: 6px 8px;
+    grid-template-columns: minmax(50px, 0.36fr) minmax(108px, 0.85fr) minmax(50px, 0.36fr);
+    gap: 4px 6px;
     align-items: start;
   }
   .table-piles { display: contents; }
