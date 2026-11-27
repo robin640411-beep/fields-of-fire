@@ -391,9 +391,16 @@ function quickPanel(){
 function guide(){dialog('guide','遊戲說明',button('courses','開啟手冊逐步教學','primary wide')+'<h3>第一次遊玩</h3><ol><li>點指揮顯示表上方的行動牌背，抽取啟動命令牌。</li><li>從「第 1 排編組」選擇單位，點選地圖上有金色虛線的目的牌。從集結區出發也可以斜走。</li><li>排部只能命令同牌單位。沒有合適對象時，結束排部命令，把點數留給下一回合。</li><li>使用一般主動點移動分散的單位，再結束回合。</li></ol><h3>牌堆與存檔</h3><p>抽到重洗牌時會先抽滿本次所需張數，再洗混整副牌。每點一次牌背翻一張，放在右側棄牌堆。停留在棄牌上可看完整牌面。可在「最近抽牌」翻閱最近一次操作。每次行動都會存到這個瀏覽器，也可匯出檔案帶往其他裝置。</p><h3>戰役棋桌</h3><p>從棋桌上方選擇戰役名稱，閱讀歷史背景後，可開始連續戰役或選擇該戰役的獨立任務。游標停在地形牌上可看完整牌面與圖示說明。點選地形牌後，可在右側放置算子或檢查 PC。選算子可移動、登記狀態與兵力。在「行動牌工具」依指定修正值讀牌；「命令與紀錄」可記錄各部命令、彈藥與特殊效果。</p><p class="tagline">依《Fields of Fire Deluxe》第三版規則 §2–6、§8、§12、兩冊《野戰手冊》與四本戰役任務書改編。使用者提供之牌面與算子圖樣，原作 GMT Games。</p>');}
 function cellControls(c){
  let b='';
-  const ref=G.needed(s).find(k=>!s.objectives[k]);
-  if(s.phase==='setup'&&ref)b+='<p class="hint">'+esc(positionHint(ref))+'</p>'+button('putObj','放置'+objectiveName(ref),'primary',ref);
-  if(s.phase==='setup'&&G.needed(s).length)b+='<div class="formgroup"><label>調整任務標記</label><select id="objKey">'+G.needed(s).map(k=>'<option value="'+k+'">'+esc(objectiveName(k))+'</option>').join('')+'</select>'+button('putChosen','放置於此牌','tiny')+'</div>';
+  const needed=G.needed(s),ref=needed.find(k=>!s.objectives[k]);
+  if(s.phase==='setup'&&needed.length){
+   if(ref)b+='<p class="hint">'+esc(positionHint(ref))+'</p>';
+   b+='<div class="buttonrow">'+needed.map(k=>{
+    const here=s.objectives[k]&&G.same(s.objectives[k],c);
+    const label=(here?'✓ ':'放置')+objectiveName(k);
+    const cls=k===ref?'primary':here?'highlight':'secondary';
+    return button('putObj',label,cls,k);
+   }).join('')+'</div>';
+  }
   if(c.pc){
    b+='<p>潛在接敵　<b>'+(c.hidden?'?':c.pc)+'</b></p>';
    if(G.pcCandidates(s).length>1&&!G.nextPC(s))b+=button('choosePC','抽牌決定同級 PC 順序','primary');
