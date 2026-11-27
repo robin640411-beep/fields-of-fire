@@ -558,45 +558,34 @@ body{min-width:1080px;--campaign-nav-height:42px}
   .board-pane { grid-template-rows: auto auto auto; }
   .map-pad { overflow-x: auto; overflow-y: visible; }
   #board {
-    display: grid;
-    grid-template-columns: 58px minmax(0, 1fr) 58px;
-    gap: 10px 8px;
-    align-items: start;
-    justify-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
     width: 100%;
     min-height: 0;
     padding: 8px 6px;
   }
-  .table-supply, .table-piles { display: contents; }
-  .table-piles .action-pile { width: 100%; }
-  .table-piles .action-pile:first-child { grid-column: 1; grid-row: 1; }
-  .mobile-command-card {
-    grid-column: 2;
-    grid-row: 1;
-    width: 100%;
+  .table-supply { display: contents; }
+  .table-piles {
+    order: 1;
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    align-items: start;
     justify-content: center;
-    min-height: 98px;
-    padding: 8px;
-    border: 1px solid #59705b;
-    border-radius: 5px;
-    background: #253b2dcc;
-    text-align: center;
+    gap: 24px;
+    width: 100%;
   }
-  .mobile-command-summary { font-size: 13px; line-height: 1.4; color: #ffe3a6; font-weight: 700; }
-  .table-piles .action-pile:last-child { grid-column: 3; grid-row: 1; }
-  #terrainGrid { grid-column: 1 / -1; grid-row: 2; }
-  #command-display { display: block; grid-column: 1 / -1; grid-row: 3; width: min(360px, 100%); margin: 6px auto 0; }
-  #pilePrompt { display: none; }
+  .table-piles .action-pile { width: 72px; }
+  #pilePrompt { order: 2; height: auto; min-height: 0; padding: 0; }
+  #pilePrompt:empty { display: none; }
+  #terrainGrid { order: 3; }
+  #command-display { order: 4; display: block; width: min(360px, 100%); margin: 6px auto 0; }
   .pile-label {
     font-size: 11px;
     height: 18px;
     line-height: 18px;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     justify-content: center;
     margin-bottom: 3px;
   }
