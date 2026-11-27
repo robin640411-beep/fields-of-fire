@@ -406,8 +406,8 @@ function cellControls(c){
    if(G.pcCandidates(s).length>1&&!G.nextPC(s))b+=button('choosePC','抽牌決定同級 PC 順序','primary');
    else b+=button('checkPC','判定接敵','primary','',G.nextPC(s)!==c);
   }
-  if(c.pending)b+='<p><b>'+esc(c.contactDetail||'接敵已觸發')+'</b>。依任務表配置算子及標記後，更新活動程度，再判定下一枚 PC。</p><label class="formgroup">配置後的活動程度<select id="contactActivity">'+actLabels.map((v,i)=>'<option value="'+i+'" '+(i===s.activity?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select></label><div class="buttonrow">'+button('finishContact','完成配置','primary')+button('rerollContact','本組合無法配置・重抽')+button('emptyContact','全部組合皆無法配置')+'</div>';
-  b+='<div class="buttonrow">'+button('library','放置算子')+button('editCell','編輯圖上標記')+'</div>';
+  if(c.contactDetail)b+='<div class="selected-info">'+esc(c.contactDetail)+'</div>';
+  if(!b)b+='<p class="hint">系統會依抽牌與規則自動配置本牌的算子與標記。</p>';
   return b;
 }
 const M=window.FOF_MARKERS;

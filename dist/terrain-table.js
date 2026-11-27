@@ -262,7 +262,7 @@ window.FOF_TERRAIN_TABLE=function({state,catalog,esc,pic,terrain,backFace,backNa
   const legend='<div class="card-inspect-legend" style="--legend-face:url(\''+face+'\')"><p class="legend-summary">'+esc(description.summary)+'</p><dl>'+
    description.rows.map(row).join('')+'</dl>'+
    notes.map(label=>'<p class="legend-pieces"><b>'+esc(label)+'</b>　'+esc(FOF_MARKER_GUIDE.explain('',label,'',s.id))+'</p>').join('')+
-   (c.pending&&c.contactDetail?'<p class="legend-pieces"><b>接敵配置</b>　'+esc(c.contactDetail)+'</p>':'')+
+   (c.contactDetail?'<p class="legend-pieces"><b>接敵自動配置說明</b>　'+esc(c.contactDetail)+'</p>':'')+
    '</div>';
   return {title,html:cardPreview+pile(s,c,selected)+legend};
  }

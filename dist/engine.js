@@ -265,6 +265,42 @@ function choosePC(s){
  }
  s.pcOrder=nameAt(list[index]);note(s,'同級候選依序為 '+list.map(nameAt).join('、')+'。下一枚 PC 為 '+s.pcOrder+'。');return true;
 }
+function autoDeployContact(s,c,item,rollNote){
+ const t=item.title||'';
+ const spawned=[],addedMarks=[];
+ const addEnemy=(name,abbr,art,steps=2)=>{
+  const id='auto-'+s.turn+'-'+(s.units.length+1)+'-'+Math.random().toString(36).slice(2,5);
+  s.units.push(piece(id,name,abbr,art,'enemy',c.x,c.y,steps));
+  spawned.push(name);
+ };
+ const addMark=m=>{
+  if(!c.marks.includes(m)){c.marks.push(m);addedMarks.push(m);}
+ };
+ if(/地雷/.test(t)){addMark('地雷');}
+ if(/來襲砲火|砲擊|迫擊砲火力/.test(t)){addMark('來襲砲火');addMark('VOF H');}
+ if(/照明/.test(t)){addMark('照明彈');}
+ if(/狙擊手/.test(t)){addEnemy('德軍狙擊手','Sniper','de-sniper',1);addMark('未發現');}
+ if(/重機槍/.test(t)){addEnemy('德軍重機槍組','1/HMG','de-hmg',2);addMark('VOF A');}
+ else if(/輕機槍|機槍巢/.test(t)){addEnemy('德軍輕機槍組','1/LMG','de-lmg',2);addMark('VOF A');}
+ if(/碉堡/.test(t)){addEnemy('德軍重機槍組','1/HMG','de-hmg',2);addEnemy('德軍第 1 擲彈兵班','1/Gp','de-gr1',2);addMark('碉堡 +4');addMark('VOF A');}
+ else if(/強化防禦|堅固據點/.test(t)){addEnemy('德軍第 1 擲彈兵班','1/Gp','de-gr1',3);addEnemy('德軍輕機槍組','1/LMG','de-lmg',2);addMark('掩體 +3');addMark('VOF A');}
+ else if(/防禦陣地/.test(t)){addEnemy('德軍第 1 擲彈兵班','1/Gp','de-gr1',2);addMark('戰壕 +2');addMark('VOF S');}
+ if(/指揮所/.test(t)){addEnemy('德軍領隊','Leader','de-leader',1);addEnemy('德軍第 1 擲彈兵班','1/Gp','de-gr1',2);addMark('散兵坑 +1');}
+ if(/迫擊砲/.test(t)){addEnemy('德軍迫擊砲班','81mm Mtr','de-mtr',2);addMark('散兵坑 +1');}
+ if(/高射砲|反戰車|重武器/.test(t)){addEnemy('德軍反戰車砲','75mm AT','de-75',2);addMark('掩體 +3');addMark('VOF H');}
+ if(/巡邏|機動/.test(t)){addEnemy('德軍突擊組','Assault','de-assault',2);addMark('VOF S');}
+ if(/火力基地/.test(t)){addEnemy('德軍重機槍組','1/HMG','de-hmg',2);addEnemy('德軍火力組','Fire','de-fire',2);addMark('戰壕 +2');addMark('VOF A');}
+ if(!spawned.length&&!addedMarks.length){
+  addEnemy('敵軍火力組','Enemy','de-fire',2);addMark('VOF S');
+ }
+ c.pending=false;
+ const parts=[];
+ if(spawned.length)parts.push('算子：'+spawned.join('、'));
+ if(addedMarks.length)parts.push('標記：'+addedMarks.join('、'));
+ const reason='因抽中「'+t+'」'+rollNote+'，系統已依規則自動配置 '+parts.join('；')+'。';
+ c.contactDetail='組合 '+item.id+'・'+t+rollNote+' — '+reason;
+ note(s,nameAt(c)+' '+c.contactDetail);
+}
 function contactGroup(s,c){
  const tabs=window.FOF_TABLES?.[s.id]?.contact;
  const grade=c.contactGrade||c.originalPC;
@@ -272,10 +308,14 @@ function contactGroup(s,c){
  const book=window.FOF_BOOKS?.[scenario(s.id).book];
  const chosen=book?.selectContact?book.selectContact(s,c,grade):window.FOF_CAMPAIGNS?.selectTab(s,c,tabs)||tabs[grade];
  if(!chosen)return false;
- if(chosen.fixed||chosen.automatic){const item=chosen.fixed||chosen.results[0];c.contactDetail='組合 '+item.id+'・'+item.title;note(s,c.contactDetail);return true;}
+ if(chosen.fixed||chosen.automatic){
+  const item=chosen.fixed||chosen.results[0];
+  autoDeployContact(s,c,item,'（固定組合）');
+  return true;
+ }
  const r=draw(s,1,'接敵組合 '+nameAt(c))[0].rand[chosen.rand], item=chosen.results[r-1];
- c.contactDetail='組合 '+item.id+'・'+item.title+'（R'+chosen.rand+'＝'+r+'）';
- note(s,nameAt(c)+' '+c.contactDetail);return true;
+ autoDeployContact(s,c,item,'（R'+chosen.rand+'＝'+r+'）');
+ return true;
 }
 function pcCheck(s,c){
  if(!isTable(s)||!c||nextPC(s)!==c)return false;
@@ -283,8 +323,10 @@ function pcCheck(s,c){
  const n=({A:[0,7,5,3],B:[0,5,3,2],C:[4,3,2,1]})[c.pc]?.[s.activity];if(n===undefined)return false;
  const grade=c.pc;const cs=n?draw(s,n,'潛在接敵 '+nameAt(c)):[];
  c.pending=n===0||cs.some(a=>a.contact);c.hidden=false;c.pc=null;
- c.contactGrade=grade;c.contactDetail='';if(c.pending)contactGroup(s,c);
- note(s,nameAt(c)+(c.pending?' 觸發接敵，待依任務表放置算子。':' 未發生接敵，移除 PC。'));return true;
+ c.contactGrade=grade;c.contactDetail='';
+ if(c.pending){contactGroup(s,c);}
+ else{note(s,nameAt(c)+' 抽牌未出現接敵圖示，移除 PC。');}
+ return true;
 }
 function hqEvent(s){
  const side=s.phase==='events'?'friendly':s.phase==='enemy'?'enemy':null;
