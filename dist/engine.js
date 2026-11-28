@@ -224,7 +224,7 @@ function advanceTable(s){
    const gs=goals(s);s.outcome=gs.length&&gs.every(g=>g.done)?'win':'loss';note(s,s.outcome==='win'?'任務目標全部達成。':'回合用盡，尚有未達成的目標。');return true;
   }
   for(const u of s.units){u.exposed=false;u.moved='';}
-  s.turn++;s.phase='events';note(s,'依規則 §3 整理階段自動移除暴露標記，進入第 '+s.turn+' 回合。');return true;
+  s.turn++;s.phase='events';s.foughtCells=[];note(s,'依規則 §3 整理階段自動移除暴露標記，進入第 '+s.turn+' 回合。');return true;
  }
  const idx=phases.indexOf(s.phase);if(idx<0)return false;
  s.phase=phases[idx+1];if(s.phase==='combat')revealPCs(s);

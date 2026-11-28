@@ -336,10 +336,12 @@ function tablePanel(){
  else if(s.phase==='vehicles')hintText=hasVehicles?'依規則 §3.6 進行反戰車射擊與車輛移動。':'目前地圖上沒有已啟動的車輛或反戰車戰鬥目標，依規則 §3.6 本階段無事發生，可直接完成此階段。';
  else if(s.phase==='combat'){
   const nextPc=G.nextPC(s),elig=G.pcCandidates(s);
+  const fought=new Set(s.foughtCells||[]);
+  const combatCell=s.map.find(c=>!fought.has(G.nameAt(c))&&G.unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty)&&G.unitsAt(s,c).some(u=>u.side==='enemy'&&!u.casualty));
   if(nextPc)hintText='依規則 §3.7.2 請先判定 '+G.nameAt(nextPc)+' 的潛在接敵（PC '+nextPc.pc+'）。';
   else if(elig.length>1)hintText='有多枚同級 PC 需依規則 §3.7.2 抽牌決定結算順序。';
-  else if(activeCombat)hintText='所有 PC 已結算，依規則 §3.7.4 使用「行動牌工具」結算雙方戰鬥效果。';
-  else hintText='目前地圖上沒有待結算的 PC 或交火中敵軍，依規則 §3.7 本階段無事發生，可直接完成此階段。';
+  else if(combatCell)hintText='所有 PC 已結算，請按下方按鈕依規則 §3.7.4 自動結算 '+G.nameAt(combatCell)+' 的雙方戰鬥。';
+  else hintText='目前地圖上沒有待結算的 PC 或交火中敵軍，依規則 §3.7 本階段已完成，可直接進入整理階段。';
  }
  else if(s.phase==='cleanup')hintText='依規則 §3.8 按「結束回合」後，系統將自動移除暴露標記、檢查目標並進入下一回合。';
  else hintText='查看巡邏記錄，結算本次結果。';
@@ -352,8 +354,11 @@ function tablePanel(){
  }
  if(s.phase==='combat'){
   const nextPc=G.nextPC(s),eligible=G.pcCandidates(s);
+  const fought=new Set(s.foughtCells||[]);
+  const combatCell=!nextPc&&!(eligible.length>1)?s.map.find(c=>!fought.has(G.nameAt(c))&&G.unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty)&&G.unitsAt(s,c).some(u=>u.side==='enemy'&&!u.casualty)):null;
   if(nextPc)h+=button('cell','判定 '+G.nameAt(nextPc)+'・PC '+nextPc.pc+'（§3.7.2）','primary wide',nextPc.x+','+nextPc.y);
   else if(eligible.length>1)h+=button('choosePC','抽牌決定同級 PC 順序（§3.7.2）','primary wide');
+  else if(combatCell)h+=button('autoCombatCell','自動結算 '+G.nameAt(combatCell)+' 雙方戰鬥（§3.7.4）','primary wide',combatCell.x+','+combatCell.y);
  }
  if(!setup)h+='<div class="table-controls">'+button('tableDraw','行動牌工具')+button('ledger','命令與紀錄')+'</div>';
  h+='<div class="buttonrow">'+button(s.phase==='patrolresult'?'patrolFinish':'advance',setup?'完成設置':s.phase==='patrolresult'?'結算本次巡邏':s.phase==='cleanup'?'結束回合':'完成此階段','primary wide','',!!next)+'</div>';
@@ -609,11 +614,7 @@ function tableDraw(){
   button('autoDraw',coverLabel,'secondary',String(coverN))+
   button('autoDraw','嘗試重整（1 張・§8）','secondary','1')+
   '</div>';
- dialog('draw','行動牌工具',quickDraws+'<hr class="divider"><h3>戰鬥效果檢定（§6）</h3><p class="tagline">選擇受攻擊算子後，系統會自動依地形掩蔽、暴露狀態與經驗值帶入淨戰鬥修正（NCM）。</p><div class="formgroup"><label for="combatTarget">受攻擊算子</label><select id="combatTarget"><option value="">僅讀取牌面</option>'+combatOptions()+'</select><label for="combatSource">射擊來源</label><select id="combatSource"><option value="">牌外支援或多個來源</option></select><label for="ncm">淨戰鬥修正（NCM）</label><select id="ncm">'+Array.from({length:11},(_,i)=>'<option '+(i===4?'selected':'')+' value="'+(i-4)+'">'+(i-4)+'</option>').join('')+'</select><label for="exp">經驗</label><select id="exp"><option value="line">一般</option><option value="green">新兵</option><option value="veteran">老兵</option></select></div>'+button('combatDraw','準備效果檢定','primary')+'<hr class="divider">'+button('deck','檢視行動牌組','tiny'));
- if(u){
-  const sel=$('combatTarget');
-  if(sel){sel.value=u.id;sel.dispatchEvent(new Event('change',{bubbles:true}));}
- }
+ dialog('draw','行動牌工具',quickDraws+'<hr class="divider">'+button('deck','檢視行動牌組','tiny'));
 }
 function ledger(){
  const known=s.units.filter(u=>u.side==='friendly'&&(/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr))), names=[...new Set([...known.map(u=>u.id),...Object.keys(s.tracks)])];
@@ -888,6 +889,37 @@ document.addEventListener('click',ev=>{
  case 'rerollContact':case 'checkPC':if(focus)armDraw({type:a==='checkPC'?'contact':'group',x:focus.x,y:focus.y});break;
  case 'emptyContact':case 'finishContact':edit(()=>{const c=G.at(s,focus);if(!c?.pending)return false;s.activity=Number($('contactActivity').value);c.pending=false;G.note(s,G.nameAt(c)+(a==='emptyContact'?' 無可用組合，未發生接敵。':' 已完成接敵配置。')+'活動程度為'+actLabels[s.activity]+'。');});close();break;
  case 'tableDraw':tableDraw();break;
+ case 'autoCombatCell':{
+  const c=G.at(s,readPos(v));
+  if(!c)break;
+  edit(()=>{
+   s.foughtCells=[...(s.foughtCells||[]),G.nameAt(c)];
+   const all=G.unitsAt(s,c).filter(u=>!u.casualty&&u.side!=='marker');
+   const friends=all.filter(u=>u.side==='friendly'),enemies=all.filter(u=>u.side==='enemy');
+   const liveF=friends.filter(u=>!u.pinned),liveE=enemies.filter(u=>!u.pinned);
+   const summary=[];
+   if(liveF.length){
+    for(const e of enemies){
+     const ncm=Math.max(-4,Math.min(6,(G.terrain(c.t)?.cover||0)-Math.min(3,liveF.length)));
+     const r=G.draw(s,1,'友軍射擊檢定 '+e.name)[0].results[ncm+4];
+     if(r==='HIT'){e.steps--;e.pinned=true;if(e.steps<=0){e.casualty=true;summary.push('友軍命中 '+e.name+'（§3.7.4，已殲滅）');}else summary.push('友軍命中 '+e.name+'（§3.7.4，減 1 階並壓制）');}
+     else if(r==='PIN'){e.pinned=true;summary.push('友軍壓制 '+e.name+'（§3.7.4）');}
+     else summary.push('友軍射擊 '+e.name+' 未命中（§3.7.4，MISS）');
+    }
+   }
+   if(liveE.length){
+    for(const u of friends){
+     const ncm=autoNcmFor(u);
+     const r=G.draw(s,1,'敵軍射擊檢定 '+u.name)[0].results[ncm+4];
+     if(r==='HIT'){u.steps--;u.pinned=true;if(u.steps<=0){u.casualty=true;summary.push(u.name+' 遭命中退場（§3.7.4）');}else summary.push(u.name+' 遭命中減 1 階並壓制（§3.7.4）');}
+     else if(r==='PIN'){u.pinned=true;summary.push(u.name+' 遭敵軍壓制（§3.7.4）');}
+     else summary.push(u.name+' 承受射擊未命中（§3.7.4，修正 '+(ncm>=0?'+':'')+ncm+'）');
+    }
+   }
+   G.note(s,G.nameAt(c)+' 雙方戰鬥自動結算（§3.7.4）：'+(summary.join('；')||'雙方均受壓制無法射擊。'));
+  });
+  break;
+ }
  case 'drawHqCmd':{
   const nm=s.units.find(u=>u.id===v)?.name||v;
   edit(()=>{
