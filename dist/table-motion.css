@@ -12,7 +12,7 @@
 .motion-arrow svg{display:block;width:100%;height:100%;overflow:visible;fill:var(--route-color,currentColor)}
 .motion-shaft{fill:none;stroke:var(--route-color,currentColor);stroke-width:6;stroke-dasharray:10 5}
 .motion-hud{position:fixed;inset:auto;margin:0;translate:-50% -100%;z-index:30;border:1px solid #869b7e;border-radius:5px;background:#20342bf5;color:#f8f6e8;box-shadow:0 2px 12px #19271f55;align-items:center;gap:9px;padding:5px 7px 5px 10px;font:600 14px/1.4 var(--sans);pointer-events:none}
-.motion-hud:popover-open{display:flex}
+.motion-hud,.motion-hud:popover-open{display:none!important}
 .motion-actor{color:var(--fx);white-space:nowrap;border-right:1px solid #7a8b79;padding-right:8px}
 .motion-label{max-width:70ch;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .motion-skip{pointer-events:auto;flex:none;font-size:13px;padding:4px 7px;color:#fff8e7;background:#435844;border-color:#84937c}

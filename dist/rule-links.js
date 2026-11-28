@@ -150,8 +150,8 @@ function showRule(ref) {
     dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
   }
   const info = lookupRule(ref);
-  dlg.querySelector('#ruleDialogTitle').textContent = info.title;
-  dlg.querySelector('#ruleDialogBody').textContent = info.body;
+  dlg.querySelector('#ruleDialogTitle').textContent = info.title.replace(/§/g, '');
+  dlg.querySelector('#ruleDialogBody').textContent = info.body.replace(/§(\d+(?:\.\d+)*[a-zA-Z]?(?:[–-]\d+(?:\.\d+)*)?)/g, '($1)');
   if (!dlg.open) dlg.showModal();
 }
 
@@ -178,11 +178,15 @@ function linkifyNode(root) {
     const frag = document.createDocumentFragment();
     while ((match = RULE_RE.exec(text))) {
       if (match.index > last) frag.append(text.slice(last, match.index));
+      const num = match[0].replace(/^§+/, '');
+      const prevChar = text[match.index - 1] || '';
+      const nextChar = text[match.index + match[0].length] || '';
+      const inParens = (prevChar === '(' || prevChar === '（') && (nextChar === ')' || nextChar === '）');
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'rule-ref';
-      btn.dataset.rule = match[0];
-      btn.textContent = match[0];
+      btn.dataset.rule = num;
+      btn.textContent = inParens ? num : '(' + num + ')';
       frag.append(btn);
       last = match.index + match[0].length;
     }
@@ -209,7 +213,24 @@ const observer = new MutationObserver(mutations => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
+  const stripBtnSection = root => {
+    if (!root || root.nodeType !== 1) return;
+    for (const b of root.querySelectorAll('button:not(.rule-ref)')) {
+      if (b.textContent && b.textContent.includes('§')) {
+        b.textContent = b.textContent.replace(/§(\d+(?:\.\d+)*[a-zA-Z]?)/g, '$1');
+      }
+    }
+  };
   linkifyNode(document.body);
-  observer.observe(document.body, { childList: true, subtree: true });
+  stripBtnSection(document.body);
+  const fullObserver = new MutationObserver(mutations => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType === 1) { linkifyNode(node); stripBtnSection(node); }
+        else if (node.nodeType === 3) linkifyNode(node.parentElement);
+      }
+    }
+  });
+  fullObserver.observe(document.body, { childList: true, subtree: true });
 });
 })();
