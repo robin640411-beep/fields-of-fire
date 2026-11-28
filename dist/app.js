@@ -410,6 +410,9 @@ function tablePanel(){
  if(s.turn>=2&&['events','enemy'].includes(s.phase)&&!s.outcome){
   h+=evDetail?'<div class="selected-info">'+esc(evDetail)+'</div>':button('hqEvent','檢查'+(s.phase==='events'?'友軍':'敵軍')+'上級事件（§'+(s.phase==='events'?'3.1':'3.4.1')+'）','primary wide');
  }
+ if(s.phase==='enemy'&&enemies.length&&!s.outcome&&!s.enemyActedTurn?.[s.turn]){
+  h+=button('autoEnemyAct','自動執行敵軍活動檢查（'+enemies.length+' 枚・§8.6.2）','primary wide');
+ }
  if(s.phase==='orders'&&!s.outcome){
   const hqs=s.units.filter(u=>u.side==='friendly'&&!u.casualty&&(/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr)));
   const doneSet=new Set(s.activatedHqs||[]);
@@ -950,11 +953,31 @@ document.addEventListener('click',ev=>{
   const k=a==='putChosen'?$('objKey').value:v;
   if(edit(()=>{if(!G.placeObjective(s,k,focus))return false;G.note(s,objectiveName(k)+' 位於 '+G.nameAt(focus)+'。');return true;})){close();tell('已放置'+objectiveName(k));}else tell(positionHint(k)+' 請確認位置符合條件。');
   break;}
- case 'library':case 'editCell':case 'saveCell':case 'track':case 'unitApply':case 'removeAsk':case 'drawBatch':case 'combatDraw':tell('此項目已改由系統依規則自動執行。');break;
- case 'commitMark':applyMark();break;
- case 'legacyMark':{const c=G.at(s,focus),i=Number(v);configureMark(M.symbol(c.marks[i],s,c),null,i);break;}
- case 'placePiece':{const t=catalog.get(v);if(!t)return;if(t.category==='marker'&&(M.role(t.id)!=='area'||['grenade-miss','crossfire'].includes(t.id))){configureMark(t.id);break;}if(edit(()=>addPiece(t.category,FOF_COUNTERS.title(t.id),t.id))){close();tell('已放置算子');}break;}
- case 'customPiece':{const nm=$('customName').value.trim();if(!nm)return tell('請輸入算子名稱');edit(()=>addPiece($('pieceCat').value,nm,''));close();break;}
+ case 'library':case 'editCell':case 'saveCell':case 'track':case 'unitApply':case 'removeAsk':case 'removeUnit':case 'drawBatch':case 'combatDraw':case 'commitMark':case 'legacyMark':case 'placePiece':case 'customPiece':tell('此項目已改由系統依規則自動執行。');break;
+ case 'autoEnemyAct':{
+  const enemies=s.units.filter(u=>u.side==='enemy'&&!u.casualty);
+  if(!enemies.length)break;
+  edit(()=>{
+   s.enemyActedTurn=s.enemyActedTurn||{};
+   s.enemyActedTurn[s.turn]=true;
+   const notes=[];
+   for(const e of enemies){
+    const c=G.at(s,e);
+    const hasFriend=c&&G.unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty);
+    if(e.pinned){
+     const card=G.draw(s,1,'敵軍受壓制重整檢查 '+e.name+'（§8.6.2）')[0];
+     if(card.rally){e.pinned=false;notes.push(e.name+' 抽到 Rally，解除壓制');}
+     else notes.push(e.name+' 未抽到 Rally，維持受壓制');
+    }else if(hasFriend){
+     notes.push(e.name+' 與友軍交火中，維持射擊不行動（§8.6.2）');
+    }else{
+     notes.push(e.name+' 維持警戒位置（§8.6.2）');
+    }
+   }
+   G.note(s,'依規則 §3.4.2 與 §8.6.2 完成敵軍活動檢查：'+notes.join('；')+'。');
+  });
+  break;
+ }
  case 'editCell':editCell(G.at(s,focus));break;
  case 'saveCell':{const c=G.at(s,focus);edit(()=>{c.marks=$('marks').value.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,35);if(c.pc!==($('pcType').value||null)||!!c.hidden!==$('pcHidden').checked)G.setPC(s,c,$('pcType').value||null,$('pcHidden').checked);G.note(s,'更新 '+G.nameAt(c)+' 的地圖標記。');});close();break;}
  case 'editUnit':unitDialog(v);break;
