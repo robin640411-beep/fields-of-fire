@@ -352,6 +352,14 @@ function tablePanel(){
  if(s.turn>=2&&['events','enemy'].includes(s.phase)&&!s.outcome){
   h+=evDetail?'<div class="selected-info">'+esc(evDetail)+'</div>':button('hqEvent','檢查'+(s.phase==='events'?'友軍':'敵軍')+'上級事件（§'+(s.phase==='events'?'3.1':'3.4.1')+'）','primary wide');
  }
+ if(s.phase==='orders'&&!s.outcome){
+  const hqs=s.units.filter(u=>u.side==='friendly'&&!u.casualty&&(/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr)));
+  if(hqs.length){
+   h+='<div class="sidebox" style="margin:6px 0;padding:8px 10px;background:#eef1e3;border:1px solid var(--line);border-radius:4px">'+
+    hqs.map(u=>'<div class="detailrow"><label>'+esc(u.name)+'</label><span><b class="mono">'+Number(s.tracks[u.id]||0)+' 點</b> '+button('drawHqCmd','抽牌啟動','tiny primary',u.id)+'</span></div>').join('')+
+    '</div>';
+  }
+ }
  if(s.phase==='combat'){
   const nextPc=G.nextPC(s),eligible=G.pcCandidates(s);
   const fought=new Set(s.foughtCells||[]);
@@ -898,10 +906,12 @@ document.addEventListener('click',ev=>{
    const friends=all.filter(u=>u.side==='friendly'),enemies=all.filter(u=>u.side==='enemy');
    const liveF=friends.filter(u=>!u.pinned),liveE=enemies.filter(u=>!u.pinned);
    const summary=[];
+   s.pendingDraws=s.pendingDraws||[];
    if(liveF.length){
     for(const e of enemies){
      const ncm=Math.max(-4,Math.min(6,(G.terrain(c.t)?.cover||0)-Math.min(3,liveF.length)));
-     const r=G.draw(s,1,'友軍射擊檢定 '+e.name)[0].results[ncm+4];
+     const card=G.draw(s,1,'友軍射擊檢定 '+e.name)[0];
+     const r=card.results[ncm+4];
      if(r==='HIT'){e.steps--;e.pinned=true;if(e.steps<=0){e.casualty=true;summary.push('友軍命中 '+e.name+'（§3.7.4，已殲滅）');}else summary.push('友軍命中 '+e.name+'（§3.7.4，減 1 階並壓制）');}
      else if(r==='PIN'){e.pinned=true;summary.push('友軍壓制 '+e.name+'（§3.7.4）');}
      else summary.push('友軍射擊 '+e.name+' 未命中（§3.7.4，MISS）');
@@ -910,7 +920,8 @@ document.addEventListener('click',ev=>{
    if(liveE.length){
     for(const u of friends){
      const ncm=autoNcmFor(u);
-     const r=G.draw(s,1,'敵軍射擊檢定 '+u.name)[0].results[ncm+4];
+     const card=G.draw(s,1,'敵軍射擊檢定 '+u.name)[0];
+     const r=card.results[ncm+4];
      if(r==='HIT'){u.steps--;u.pinned=true;if(u.steps<=0){u.casualty=true;summary.push(u.name+' 遭命中退場（§3.7.4）');}else summary.push(u.name+' 遭命中減 1 階並壓制（§3.7.4）');}
      else if(r==='PIN'){u.pinned=true;summary.push(u.name+' 遭敵軍壓制（§3.7.4）');}
      else summary.push(u.name+' 承受射擊未命中（§3.7.4，修正 '+(ncm>=0?'+':'')+ncm+'）');
@@ -922,15 +933,15 @@ document.addEventListener('click',ev=>{
  }
  case 'drawHqCmd':{
   const nm=s.units.find(u=>u.id===v)?.name||v;
+  close();
   edit(()=>{
-   const card=G.draw(s,1,nm+' 啟動命令')[0];
+   const card=G.draw(s,1,nm+' 啟動命令（§3.3）')[0];
    const pts=Number(card?.command||0);
    s.tracks[v]=Math.max(0,Number(s.tracks[v]||0)+pts);
    s.commandAreas=s.commandAreas||{};
    s.commandAreas[v]=s.tracks[v]>0?'available':'done';
-   G.note(s,nm+' 依規則 §4 抽牌啟動，讀取鋼盔數字獲得 '+pts+' 點命令（目前共 '+s.tracks[v]+' 點）。');
+   G.note(s,nm+' 依規則 §3.3 抽牌啟動，讀取鋼盔數字獲得 '+pts+' 點命令（目前共 '+s.tracks[v]+' 點）。');
   });
-  ledger();
   break;
  }
  case 'autoDraw':armDraw({type:'batch',n:Math.max(1,Math.min(12,Number(v)||1))});break;
