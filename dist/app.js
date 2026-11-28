@@ -57,7 +57,7 @@ function renderPiles(){
  $('deckRemaining').textContent='剩 '+remaining+' 張';
  deck.disabled=!s.tableRun&&!order;deck.setAttribute('aria-label',label);
  deck.classList.toggle('ready',!deck.disabled);
- let promptText=deck.disabled?'':label;
+ let promptText=deck.disabled?'':(isTable()&&!quick()&&!s.tableRun&&!s.drawOrder?'':label);
  if(s.tableRun&&s.tableRun.shown>0){
   const frames=piles.frames(s.tableRun),cur=frames[s.tableRun.shown-1];
   if(cur){
@@ -316,19 +316,44 @@ function trainingPanel(){
 }
 function tablePanel(){
  const setup=s.phase==='setup',next=setup?G.needed(s).find(k=>!s.objectives[k]):null;
- const info={setup:next?'下一個標記為「'+objectiveName(next)+'」。請選擇地圖上的位置。':'目標已就位，可調整起始編組並開始任務。',events:'抽取事件牌，依任務書登記事件。',orders:'以命令軌記錄各指揮部點數，選擇算子和目的牌進行移動。',enemy:'依任務表調整敵方算子與標記。',retreat:'依牌面狀態更新算子與位置。',vehicles:'依任務需要移動車輛算子，完成後推進階段。',combat:'點選有友軍與 PC 的牌進行接敵檢查。使用牌堆工具判讀戰鬥結果。',cleanup:'檢查標記與目標，完成本回合。',patrolresult:'查看巡邏記錄，結算本次結果。'};
- let h='<p class="hint">'+esc(mode==='move'?'請選擇所選算子的目的地。':info[s.phase])+'</p>';
+ const enemies=s.units.filter(u=>u.side==='enemy'&&!u.casualty);
+ const activeCombat=s.map.some(c=>G.unitsAt(s,c).some(u=>u.side==='friendly'&&!u.casualty)&&G.unitsAt(s,c).some(u=>u.side==='enemy'&&!u.casualty));
+ const hasRetreatables=s.units.some(u=>!u.casualty&&/paralyzed|litter|癱瘓|擔架/.test((u.art||'')+(u.name||'')));
+ const hasVehicles=s.units.some(u=>!u.casualty&&FOF_COUNTERS.isVehicle(s,u));
+ const evKey=s.turn+'-'+(s.phase==='events'?'friendly':'enemy');
+ const evDetail=s.events?.[evKey];
+ let hintText='';
+ if(mode==='move')hintText='請選擇所選算子的目的地。';
+ else if(setup)hintText=next?'下一個標記為「'+objectiveName(next)+'」。請點選地圖上的地形卡放置。':'目標已就位，可按「完成設置」開始第 1 回合。';
+ else if(s.phase==='events')hintText=s.turn<2?'第 1 回合依規則 §3.1 略過友軍上級事件，可直接進入下一階段。':evDetail?'本回合友軍上級事件已檢定完成（§3.1）。':'依規則 §3.1 抽 1 張行動牌檢查友軍上級事件。';
+ else if(s.phase==='orders')hintText='依規則 §3.3 先於「命令與紀錄」為指揮部抽牌啟動，再選擇友軍執行移動、掩蔽或重整。';
+ else if(s.phase==='enemy'){
+  const evPart=s.turn<2?'第 1 回合依規則 §3.4.1 略過敵軍上級事件。':evDetail?'敵軍上級事件已檢定。':'請先檢查敵軍上級事件（§3.4.1）。';
+  const actPart=enemies.length?'地圖上有 '+enemies.length+' 枚敵軍單位，依規則 §3.4.2 檢查敵軍活動。':'目前地圖上尚無已現身敵軍，依規則 §3.4.2 本步驟無事發生，可直接完成此階段。';
+  hintText=evPart+actPart;
+ }
+ else if(s.phase==='retreat')hintText=hasRetreatables?'依規則 §3.5 處理癱瘓組、擔架組俘虜與撤退。':'目前地圖上沒有癱瘓組、擔架組或可俘虜單位，依規則 §3.5 本階段無事發生，可直接完成此階段。';
+ else if(s.phase==='vehicles')hintText=hasVehicles?'依規則 §3.6 進行反戰車射擊與車輛移動。':'目前地圖上沒有已啟動的車輛或反戰車戰鬥目標，依規則 §3.6 本階段無事發生，可直接完成此階段。';
+ else if(s.phase==='combat'){
+  const nextPc=G.nextPC(s),elig=G.pcCandidates(s);
+  if(nextPc)hintText='依規則 §3.7.2 請先判定 '+G.nameAt(nextPc)+' 的潛在接敵（PC '+nextPc.pc+'）。';
+  else if(elig.length>1)hintText='有多枚同級 PC 需依規則 §3.7.2 抽牌決定結算順序。';
+  else if(activeCombat)hintText='所有 PC 已結算，依規則 §3.7.4 使用「行動牌工具」結算雙方戰鬥效果。';
+  else hintText='目前地圖上沒有待結算的 PC 或交火中敵軍，依規則 §3.7 本階段無事發生，可直接完成此階段。';
+ }
+ else if(s.phase==='cleanup')hintText='依規則 §3.8 按「結束回合」後，系統將自動移除暴露標記、檢查目標並進入下一回合。';
+ else hintText='查看巡邏記錄，結算本次結果。';
+
+ let h='<p class="hint">'+esc(hintText)+'</p>';
  if(next)h+='<div class="selected-info">'+esc(positionHint(next))+'</div>';
  if(selectedUnit())h+='<div class="selected-info"><b>'+esc(selectedUnit().name)+'</b>　'+G.nameAt(selectedUnit())+' '+button('editUnit','管理','flat tiny',selected)+'</div>';
  if(s.turn>=2&&['events','enemy'].includes(s.phase)&&!s.outcome){
-  const detail=s.events?.[s.turn+'-'+(s.phase==='events'?'friendly':'enemy')];
-  h+=detail?'<div class="selected-info">'+esc(detail)+'</div>':button('hqEvent','檢查上級事件','secondary wide');
+  h+=evDetail?'<div class="selected-info">'+esc(evDetail)+'</div>':button('hqEvent','檢查'+(s.phase==='events'?'友軍':'敵軍')+'上級事件（§'+(s.phase==='events'?'3.1':'3.4.1')+'）','primary wide');
  }
  if(s.phase==='combat'){
-  const pending=s.map.find(c=>c.pending),next=G.nextPC(s),eligible=G.pcCandidates(s);
-  if(pending)h+=button('cell','完成 '+G.nameAt(pending)+' 的配置與活動程度','secondary wide',pending.x+','+pending.y);
-  else if(next)h+=button('cell','判定 '+G.nameAt(next)+'・PC '+next.pc,'secondary wide',next.x+','+next.y);
-  else if(eligible.length>1)h+=button('choosePC','抽牌決定同級 PC 順序','secondary wide');
+  const nextPc=G.nextPC(s),eligible=G.pcCandidates(s);
+  if(nextPc)h+=button('cell','判定 '+G.nameAt(nextPc)+'・PC '+nextPc.pc+'（§3.7.2）','primary wide',nextPc.x+','+nextPc.y);
+  else if(eligible.length>1)h+=button('choosePC','抽牌決定同級 PC 順序（§3.7.2）','primary wide');
  }
  if(!setup)h+='<div class="table-controls">'+button('tableDraw','行動牌工具')+button('ledger','命令與紀錄')+'</div>';
  h+='<div class="buttonrow">'+button(s.phase==='patrolresult'?'patrolFinish':'advance',setup?'完成設置':s.phase==='patrolresult'?'結算本次巡邏':s.phase==='cleanup'?'結束回合':'完成此階段','primary wide','',!!next)+'</div>';
