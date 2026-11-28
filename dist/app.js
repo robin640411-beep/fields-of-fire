@@ -335,6 +335,23 @@ function tablePanel(){
  return h+campaignUI.setupPanel(s)+'<div class="row">'+button('undo','復原上一步','flat tiny','',!history.length)+'</div>';
 }
 function positionHint(k){const o=conf().objectives;if(k==='outpost')return '在第 2 列選擇前哨。';if(k.startsWith('way'))return '在第 '+o.waypointRows.join('、')+' 列選擇尚未使用的路線點。';const r=o[k+'Row'];return '在第 '+r+' 列放置'+objectiveName(k)+(k==='position'?'，須鄰接指定目標。':'。');}
+function explainFlippedCard(cur){
+ const card=cur.id===51?null:G.card(cur.id);
+ if(!card)return '抽到重洗牌（不計張數，抽完後依 §2 重洗）';
+ if(/潛在接敵|PC/.test(cur.why))return card.contact?'出現接敵圖示（觸發敵軍・§5）':'無接敵圖示（安全・§5）';
+ if(/掩蔽/.test(cur.why))return card.cover?'出現掩蔽圖示（找到掩蔽・§8）':'無掩蔽圖示（§8）';
+ if(/重整/.test(cur.why))return card.rally?'出現重整圖示（解除壓制・§8）':'無重整圖示（§8）';
+ if(/HQ|事件/.test(cur.why))return card.hq?'出現 HQ 圖示（觸發事件・§3）':'無 HQ 圖示（無事發生・§3）';
+ if(/射擊|效果/.test(cur.why))return '依牌面戰鬥結果欄判讀（§6）';
+ if(/命令/.test(cur.why))return '鋼盔啟動命令 '+card.command+' 點（§4）';
+ if(/主動/.test(cur.why))return '一般主動值 '+card.initiative+'（§4）';
+ return '已翻開 #'+pad(cur.id);
+}
+function liveDrawLog(){
+ if(!s.tableRun||!s.tableRun.shown)return '';
+ const frames=piles.frames(s.tableRun).slice(0,s.tableRun.shown);
+ return '<ul class="loglist">'+frames.reverse().map((f,idx)=>'<li><time>#'+(frames.length-idx)+'</time><b>'+esc(f.why)+'</b>：'+esc(explainFlippedCard(f))+'</li>').join('')+'</ul>';
+}
 function renderSide(){
  if(holdLessonPanel)return;
  const panel=$('side');
@@ -349,9 +366,9 @@ function renderSide(){
  delete panel.dataset.lessonStep;
  if(s.tableRun||s.drawOrder){
   const order=s.tableRun?.order||s.drawOrder;
-  const progress=s.tableRun?drawProgress():'請點指揮顯示表上方的行動牌背。';
-  $('side').innerHTML='<section class="draw-guidance"><h3>'+esc(piles.label(s,order))+'</h3><p>'+esc(progress)+'</p>'+
-   (s.tableRun?button('last','檢視已翻的牌','tiny'):button('cancelDraw','取消待抽操作','tiny'))+'</section>';
+  const progress=s.tableRun?drawProgress():'請點上方行動牌背開始翻牌。';
+  $('side').innerHTML='<section class="draw-guidance"><h3>'+esc(piles.label(s,order))+'</h3><p>'+esc(progress)+'</p>'+liveDrawLog()+'<div class="buttonrow">'+
+   (s.tableRun?button('finishDrawRun','一次翻完剩餘抽牌','primary tiny')+button('last','檢視已翻的牌','tiny'):button('cancelDraw','取消待抽操作','tiny'))+'</div></section>';
   return;
  }
  const stages=quick()?['ready','command','initiative','review']:isTable()?['setup','events',...(conf().mode==='defense'?['enemy','orders']:['orders','enemy']),'retreat','vehicles','combat','cleanup']:['ready','command','initiative'];
@@ -722,6 +739,7 @@ document.addEventListener('click',ev=>{
   return;
  }
  if(a==='flipAction'){flipAction();return;}
+ if(a==='finishDrawRun'){if(s.tableRun){const frames=piles.frames(s.tableRun);s.tableRun.shown=Math.max(0,frames.length-1);flipAction();}return;}
  if(a==='focusDraw'){focusDraw();return;}
  if(a==='cancelDraw'){delete s.drawOrder;persist();render();return;}
  if(a==='inspectDiscard'){const id=visiblePiles().top;if(id)draws.show([{why:'棄牌堆頂',ids:[id]}],'棄牌堆','');return;}
