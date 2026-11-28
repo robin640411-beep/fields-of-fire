@@ -57,7 +57,21 @@ function renderPiles(){
  $('deckRemaining').textContent='剩 '+remaining+' 張';
  deck.disabled=!s.tableRun&&!order;deck.setAttribute('aria-label',label);
  deck.classList.toggle('ready',!deck.disabled);
- $('pilePrompt').textContent=deck.disabled?'':label;
+ let promptText=deck.disabled?'':label;
+ if(s.tableRun&&s.tableRun.shown>0){
+  const frames=piles.frames(s.tableRun),cur=frames[s.tableRun.shown-1];
+  if(cur){
+   const card=cur.id===51?null:G.card(cur.id);
+   let resultNote='';
+   if(!card)resultNote='抽到重洗牌（不計張數）';
+   else if(/潛在接敵|PC/.test(cur.why))resultNote=card.contact?'出現接敵圖示（觸發敵軍！）':'無接敵圖示（目前安全）';
+   else if(/掩蔽/.test(cur.why))resultNote=card.cover?'出現掩蔽圖示（成功！）':'無掩蔽圖示';
+   else if(/重整/.test(cur.why))resultNote=card.rally?'出現重整圖示（成功！）':'無重整圖示';
+   else if(/HQ|事件/.test(cur.why))resultNote=card.hq?'出現 HQ 圖示（觸發事件！）':'無 HQ 圖示（無事發生）';
+   promptText=cur.why+'（第 '+s.tableRun.shown+'/'+frames.length+' 張'+(resultNote?'・'+resultNote:'')+'）'+(s.tableRun.shown<frames.length?'・點牌背翻下一張':'');
+  }
+ }
+ $('pilePrompt').textContent=promptText;
  discard.disabled=!top;img.hidden=!top;
  if(top){
   const title=top===51?'重洗牌':'行動牌 #'+pad(top);
@@ -84,6 +98,8 @@ function flipAction(){
   s.tableRun=run;
  }
  const frames=piles.frames(run),before=s,scene=motion.capture(),frame=frames[run.shown];
+ const coordMatch=frame?.why&&/\b([A-F][0-5])\b/.exec(frame.why);
+ if(coordMatch){const col=coordMatch[1].charCodeAt(0)-65,row=Number(coordMatch[1].slice(1));const c=G.at(s,{x:col,y:row});if(c)focus=c;}
  let events;
  run.shown++;
  if(run.shown>=frames.length){
