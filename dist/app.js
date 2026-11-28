@@ -348,7 +348,16 @@ function tablePanel(){
 
  let h='<p class="hint">'+esc(hintText)+'</p>';
  if(next)h+='<div class="selected-info">'+esc(positionHint(next))+'</div>';
- if(selectedUnit())h+='<div class="selected-info"><b>'+esc(selectedUnit().name)+'</b>　'+G.nameAt(selectedUnit())+' '+button('editUnit','管理','flat tiny',selected)+'</div>';
+ if(selectedUnit()){
+  const u=selectedUnit(),uc=G.at(s,u),ut=uc&&!uc.faceDown?G.terrain(uc.t):null;
+  const inOrders=s.phase==='orders'&&!s.outcome&&u.side==='friendly'&&!u.casualty;
+  const canCover=inOrders&&!u.pinned&&!u.covered&&u.y>0&&(ut?.coverDraws||0)>0;
+  const canRally=inOrders&&!!u.pinned;
+  let uActs='';
+  if(canCover)uActs+=button('autoDraw','尋找掩蔽（抽 '+ut.coverDraws+' 張・§8）','tiny secondary',String(ut.coverDraws));
+  if(canRally)uActs+=button('autoDraw','嘗試重整（1 張・§8）','tiny primary','1');
+  h+='<div class="selected-info"><b>'+esc(u.name)+'</b>　'+G.nameAt(u)+' '+button('editUnit','管理','flat tiny',selected)+(uActs?'<div class="buttonrow">'+uActs+'</div>':'')+'</div>';
+ }
  if(s.turn>=2&&['events','enemy'].includes(s.phase)&&!s.outcome){
   h+=evDetail?'<div class="selected-info">'+esc(evDetail)+'</div>':button('hqEvent','檢查'+(s.phase==='events'?'友軍':'敵軍')+'上級事件（§'+(s.phase==='events'?'3.1':'3.4.1')+'）','primary wide');
  }
@@ -357,7 +366,7 @@ function tablePanel(){
   if(hqs.length){
    h+='<div class="sidebox" style="margin:6px 0;padding:8px 10px;background:#eef1e3;border:1px solid var(--line);border-radius:4px">'+
     hqs.map(u=>'<div class="detailrow"><label>'+esc(u.name)+'</label><span><b class="mono">'+Number(s.tracks[u.id]||0)+' 點</b> '+button('drawHqCmd','抽牌啟動','tiny primary',u.id)+'</span></div>').join('')+
-    '</div>';
+    '<div class="buttonrow">'+button('autoDraw','抽取一般主動點（§3.3.2d）','secondary wide','1')+'</div></div>';
   }
  }
  if(s.phase==='combat'){
@@ -368,7 +377,7 @@ function tablePanel(){
   else if(eligible.length>1)h+=button('choosePC','抽牌決定同級 PC 順序（§3.7.2）','primary wide');
   else if(combatCell)h+=button('autoCombatCell','自動結算 '+G.nameAt(combatCell)+' 雙方戰鬥（§3.7.4）','primary wide',combatCell.x+','+combatCell.y);
  }
- if(!setup)h+='<div class="table-controls">'+button('tableDraw','行動牌工具')+button('ledger','命令與紀錄')+'</div>';
+ if(!setup)h+='<div class="buttonrow">'+button('ledger','命令與紀錄','secondary wide')+'</div>';
  h+='<div class="buttonrow">'+button(s.phase==='patrolresult'?'patrolFinish':'advance',setup?'完成設置':s.phase==='patrolresult'?'結算本次巡邏':s.phase==='cleanup'?'結束回合':'完成此階段','primary wide','',!!next)+'</div>';
  return h+campaignUI.setupPanel(s)+'<div class="row">'+button('undo','復原上一步','flat tiny','',!history.length)+'</div>';
 }
