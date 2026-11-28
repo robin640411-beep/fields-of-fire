@@ -181,7 +181,7 @@ const backName=staging=>cardBack(staging).name;
 const tabletop=window.FOF_TERRAIN_TABLE({state:()=>s,catalog,esc,pic,terrain:G.terrain,backFace,backName,objectiveName});
 function destination(c){
  if(course())return lessons.target(c);
- if(isTable()&&!quick()&&mode==='move'&&selectedUnit())return !G.same(selectedUnit(),c)&&campaigns.canMove(s,selectedUnit(),c);
+ if(isTable()&&!quick()&&mode==='move'&&selectedUnit())return !G.same(selectedUnit(),c)&&(s.phase==='setup'||G.near(selectedUnit(),c))&&campaigns.canMove(s,selectedUnit(),c);
  if(quick())return Q.canMove(s,selectedUnit(),c);
  return !isTable()&&selected&&G.allowedMove(s,selected,c,group);
 }
@@ -736,6 +736,7 @@ function selectCell(v){
   if(s.phase!=='orders'&&s.phase!=='setup'){tell('僅能在友軍命令階段（§3.3）移動單位。');mode='';render();return;}
   if(s.phase==='orders'&&u.side==='friendly'){
    if(u.exposed||u.pinned){tell('已暴露或受壓制的單位不可執行一般移動（§4.2.2a）。');mode='';render();return;}
+   if(!G.near(u,c)){tell('依規則 §4.2.2a 每次移動僅能移往相鄰的地形卡。');return;}
    if(activeCmdPoints()<1){tell('沒有可用命令點，請先啟動指揮部或抽取一般主動點（§4.2.2a）。');mode='';render();return;}
   }
   if(!campaigns.canMove(s,u,c)){tell('此任務的地圖移動限制不允許這個目的地。');return;}
