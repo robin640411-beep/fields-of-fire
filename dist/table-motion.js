@@ -227,12 +227,25 @@ function createPlayer(catalog){
   const back=terrain?run.before.cells.get(e.to)?.src:e.id?'assets/action-back.webp':run.before.top||'assets/action-back.webp';
   const a=terrain?cell(run.after,e.to):run.after.regions[e.kind==='shuffle'?'discard':'deck'];
   const b=terrain?a:run.after.regions[e.kind==='shuffle'?'deck':'discard'];if(!a||!b||!back||!src)return;
+  let losPath=null;
+  if(terrain&&e.kind==='reveal'){
+   let best=null,bestDist=Infinity;
+   for(const u of run.after.units.values()){
+    if(!u.coord||u.coord===e.to)continue;
+    const d=Math.hypot(u.x-a.x,u.y-a.y);
+    if(d<bestDist){bestDist=d;best=u;}
+   }
+   if(best){
+    losPath=await showDirection(run,best,a,'los');
+    if(current!==run){losPath?.arrow.remove();return;}
+   }
+  }
   const el=create('span','motion-card');el.dataset.kind=e.kind;el.style.width=a.w+'px';el.style.height=a.h+'px';pos(el,a);
   const front=photo(src),rear=photo(back);rear.className='motion-card-back';front.className='motion-card-front';el.append(rear,front);layer.append(el);
   if(run.quiet){
    pos(el,b);el.style.transform='rotateY(180deg)';await anim(run,el,[{opacity:.4},{opacity:1}],640);
   }else await anim(run,el,[{transform:'translate(0,0) rotateY(0deg)'},{transform:shift(a,b)+' rotateY(180deg)'}],680);
-  el.remove();
+  el.remove();losPath?.arrow.remove();
   if(current===run){if(terrain){mask(run,'terrain'+e.to,'',false);run.oldTerrain.get(e.to)?.remove();}else{mask(run,'discard','',false);run.oldTop?.remove();}}
  }
  async function effect(run,e,ms){
