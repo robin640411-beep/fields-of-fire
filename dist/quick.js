@@ -23,11 +23,11 @@ function canAct(s,u,kind){
 }
 function special(s,u,kind){
  if(!canAct(s,u,kind))return false;s.points--;
- if(kind==='rally'){const cs=G.draw(s,2,'重整檢定');if(cs.some(c=>c.rally)){u.pinned=false;G.note(s,u.name+' 重整成功。');}else G.note(s,u.name+' 未抽到重整圖示。');}
- else{const t=G.terrain(G.at(s,u).t),cs=G.draw(s,Math.min(12,t.coverDraws),'尋找掩蔽');u.covered=cs.some(c=>c.cover);if(u.covered){
+ if(kind==='rally'){const cs=G.draw(s,2,'重整檢定 '+u.name);if(cs.some(c=>c.rally)){u.pinned=false;G.note(s,u.name+' 依規則 §8 抽到重整圖示，解除壓制。');}else G.note(s,u.name+' 依規則 §8 抽 2 張未出現重整圖示，仍維持壓制。');}
+ else{const t=G.terrain(G.at(s,u).t),n=Math.min(12,t.coverDraws),cs=G.draw(s,n,'尋找掩蔽 '+u.name);u.covered=cs.some(c=>c.cover);if(u.covered){
   const here=G.at(s,u),free=window.FOF_MARKERS.shelters(s,here).find(m=>!G.unitsAt(s,u).some(v=>v.shelter===m.key));
   if(free)u.shelter=free.key;else{const marker=G.piece('u'+(++s.serial),'基本掩蔽 +1','掩蔽',1,u.x,u.y,'marker','cover');s.units.push(marker);u.shelter=marker.id;}
- }G.note(s,u.name+(u.covered?' 得到掩蔽。':' 未找到掩蔽。'));}
+ }G.note(s,u.name+(u.covered?' 依規則 §8 抽到掩蔽圖示，成功找到基本掩蔽（+1）。':' 依規則 §8 抽 '+n+' 張未出現掩蔽圖示，未能找到掩蔽。'));}
  return true;
 }
 function resolve(s,events,draw=G.draw){
@@ -37,29 +37,34 @@ function resolve(s,events,draw=G.draw){
  let occupied=s.map.filter(c=>G.unitsAt(s,c).some(v=>v.side==='friendly'&&!v.casualty));
  for(const c of occupied.filter(c=>c.pc)){
   const enemies=s.units.filter(u=>u.side==='enemy'&&!u.casualty).length; s.activity=Math.min(3,enemies);
-  const n=({A:[0,7,5,3],B:[0,5,3,2],C:[4,3,2,1]})[c.pc][s.activity];
-  const encounter=!n||draw(s,n,'快戰 PC '+G.nameAt(c)).some(a=>a.contact);
+  const grade=c.pc;
+  const n=({A:[0,7,5,3],B:[0,5,3,2],C:[4,3,2,1]})[grade][s.activity];
+  const encounter=!n||draw(s,n,'潛在接敵檢查 '+G.nameAt(c)+'（PC '+grade+'）').some(a=>a.contact);
   c.pc=null;c.hidden=false;
-  if(encounter){const u=G.piece('e'+(++s.serial),'接敵算子','接敵',1,c.x,c.y,'enemy','de-fire');s.units.push(u);emit(G.nameAt(c)+' 出現一枚接敵算子。');cue('appear',u,'發生接敵・敵軍登場');}
-  else {emit(G.nameAt(c)+' 完成接敵檢查，移除 PC。');events?.push({kind:'contact',to:G.nameAt(c),label:'未發生接敵'});}
+  if(encounter){const u=G.piece('e'+(++s.serial),'接敵算子','接敵',1,c.x,c.y,'enemy','de-fire');s.units.push(u);emit(G.nameAt(c)+' 依規則 §5 抽牌'+(n?'出現接敵圖示':'自動接敵')+'，發現敵軍並配置接敵算子！');cue('appear',u,'發生接敵・敵軍登場');}
+  else {emit(G.nameAt(c)+' 依規則 §5 抽 '+n+' 張牌未出現接敵圖示，安全無事，移除 PC '+grade+'。');events?.push({kind:'contact',to:G.nameAt(c),label:'未發生接敵'});}
  }
  for(const c of occupied){
   const all=G.unitsAt(s,c).filter(u=>!u.casualty),friends=all.filter(u=>u.side==='friendly'),e=all.find(u=>u.side==='enemy');if(!e)continue;
   const live=friends.filter(u=>!u.pinned),wasPinned=e.pinned;
   let defeat=false,stun=false;
-  if(live.length){const check=draw(s,1,'接敵算子效果')[0].results[4-Math.min(3,live.length)];
-   defeat=check==='HIT';stun=check==='PIN';cue('fire',e,'友軍火力・'+({HIT:'命中',PIN:'壓制',MISS:'未命中'}[check]),live[0],check);}
+  if(live.length){const check=draw(s,1,'友軍射擊檢定 '+G.nameAt(c))[0].results[4-Math.min(3,live.length)];
+   defeat=check==='HIT';stun=check==='PIN';cue('fire',e,'友軍火力・'+({HIT:'命中',PIN:'壓制',MISS:'未命中'}[check]),live[0],check);
+   if(check==='MISS')emit(G.nameAt(c)+' 友軍射擊檢定（§6）：未命中（MISS），敵軍無事。');
+   else if(check==='PIN')emit(G.nameAt(c)+' 友軍射擊檢定（§6）：壓制（PIN）敵軍。');
+  }
   if(!wasPinned){
    for(const u of friends){
     const ncm=Math.max(-4,Math.min(6,(G.terrain(c.t)?.cover||0)+(u.covered?2:0)-(u.exposed?2:0)));
-    const r=draw(s,1,'友軍效果 '+u.abbr)[0].results[ncm+4];
+    const r=draw(s,1,'敵軍射擊檢定 '+u.abbr)[0].results[ncm+4];
     cue('fire',u,'敵軍火力・'+u.name+' '+({HIT:'命中',PIN:'壓制',MISS:'未命中'}[r]),e,r);
-    if(r==='HIT'){u.steps--;u.pinned=true;if(u.steps<=0){u.casualty=true;emit(u.name+' 已退場。');}else emit(u.name+' 減少一階，受壓制。');}
-    else if(r==='PIN'){u.pinned=true;emit(u.name+' 受壓制。');}
+    if(r==='HIT'){u.steps--;u.pinned=true;if(u.steps<=0){u.casualty=true;emit(u.name+' 承受敵軍射擊（§6）命中（HIT），兵力歸零已退場。');}else emit(u.name+' 承受敵軍射擊（§6）命中（HIT），減少一階並受壓制。');}
+    else if(r==='PIN'){u.pinned=true;emit(u.name+' 承受敵軍射擊（§6）受壓制（PIN）。');}
+    else emit(u.name+' 承受敵軍射擊（§6，修正 '+(ncm>=0?'+':'')+ncm+'）：未命中（MISS），安全無事。');
     if(r==='HIT'||r==='PIN')cue(r==='HIT'?'loss':'pin',u,u.casualty?'算子退場':r==='HIT'?'減少一階、受壓制':'受壓制');
    }
   }
-  if(defeat){s.units=s.units.filter(v=>v!==e);emit(G.nameAt(c)+' 的接敵算子移除。');cue('remove',e,'接敵算子退場');}
+  if(defeat){s.units=s.units.filter(v=>v!==e);emit(G.nameAt(c)+' 友軍射擊命中（§6），接敵算子已殲滅移除！');cue('remove',e,'接敵算子退場');}
   else {e.pinned=stun;if(wasPinned!==stun)cue(stun?'pin':'rally',e,stun?'敵軍受壓制':'敵軍解除壓制');}
  }
  for(const u of s.units){

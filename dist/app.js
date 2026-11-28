@@ -103,7 +103,7 @@ function showPending(){
  if(!s.pendingDraws?.length||draws.isOpen())return;
  const owner=s,reading=course()&&s.reading;
  const reshuffleNote=s.pendingDraws.some(g=>g.ids.includes(51))?'（抽到重洗牌，不計張數，完成本次抽牌後已依 §2 重新洗混牌組。）':'';
- const latestLog=s.log.at(-1)?.text||'';
+ const latestLog=(quick()&&s.phase==='review'&&s.roundReport?.length)?s.roundReport.join(' '):(s.log.at(-1)?.text||'');
  const caption=reading?C.current(s).detail:[latestLog,reshuffleNote].filter(Boolean).join(' ');
  draws.show(s.pendingDraws,'本次抽牌',caption,()=>{
   const scene=motion.capture(),before=structuredClone(owner);
