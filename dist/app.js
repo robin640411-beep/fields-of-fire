@@ -315,23 +315,73 @@ function trainingPanel(){
  if(s.phase==='command'&&u?.id==='hq')a+=button('group',group?'✓ 全排移動（2 點）':'改用全排移動（2 點）','tiny '+(group?'highlight':''),'',!group&&(remain<2||!!G.trainingStatus(s,u)))+' ';
  a+=button('advance',lab,'primary wide')+'<div class="row"><small class="tagline">'+(s.guided?'手冊示範牌序':'隨機牌序')+'</small>'+button('undo','復原上一步','flat tiny','',!history.length)+'</div>';return a;
 }
-function activeCmdPoints(){
- if(!s.activeCmd)return 0;
- if(s.activeCmd==='general')return Math.max(0,Number(s.generalPoints||0));
- return Math.max(0,Number(s.tracks[s.activeCmd]||0));
+let pendingCmdAction=null;
+function friendlyHqs(){
+ return s.units.filter(u=>u.side==='friendly'&&!u.casualty&&(/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr)));
 }
-function activeCmdName(){
- if(!s.activeCmd)return '尚未啟動指揮部';
- if(s.activeCmd==='general')return '一般主動點（§3.3.2d）';
- return s.units.find(u=>u.id===s.activeCmd)?.name||s.activeCmd;
+function hqTier(u){
+ return /連指揮部|CO HQ/i.test(u.name+' '+u.abbr)?1:2;
 }
-function spendCmdPoint(cost=1){
- if(activeCmdPoints()<cost)return false;
- if(s.activeCmd==='general'){s.generalPoints=Math.max(0,Number(s.generalPoints||0)-cost);}
- else{
-  s.tracks[s.activeCmd]=Math.max(0,Number(s.tracks[s.activeCmd]||0)-cost);
-  if(s.tracks[s.activeCmd]===0&&s.commandAreas)s.commandAreas[s.activeCmd]='done';
+function nextDrawTier(){
+ const hqs=friendlyHqs(),done=new Set(s.activatedHqs||[]);
+ const t1=hqs.filter(u=>hqTier(u)===1&&!done.has(u.id));
+ if(t1.length)return {tier:1,title:'第 1 層：連指揮部（3.3.1b）',hqs:t1};
+ const t2=hqs.filter(u=>hqTier(u)===2&&!done.has(u.id));
+ if(t2.length)return {tier:2,title:'第 2 層：排指揮部與連幕僚（3.3.1c）',hqs:t2};
+ if(!done.has('general'))return {tier:3,title:'第 3 層：一般主動點（3.3.2d）',hqs:[]};
+ return null;
+}
+function openTierDrawModal(){
+ if(s.phase!=='orders'||s.outcome)return;
+ const cur=nextDrawTier();
+ if(!cur){close();render();return;}
+ let body='<p class="hint">依規則 (3.3) 按層級順序抽牌。同層級內可依任意順序點選抽牌，全部抽完後即可開始啟動單位行動。</p>';
+ if(cur.tier===3){
+  body+='<div class="buttonrow">'+button('drawGeneralInit','抽取一般主動點（3.3.2d）','primary wide')+'</div>';
+ }else{
+  body+=cur.hqs.map(u=>'<div class="detailrow"><label>'+esc(u.name)+'</label>'+button('drawHqCmd','抽牌決定命令點','tiny primary',u.id)+'</div>').join('');
  }
+ dialog('tierDraw','指揮抽牌・'+cur.title,body);
+}
+function eligibleCommanders(u){
+ const pools=[];
+ for(const hq of friendlyHqs()){
+  const pts=Number(s.tracks[hq.id]||0);
+  if(pts<1)continue;
+  if(hq.platoon&&u?.platoon&&hq.platoon!==u.platoon)continue;
+  pools.push({id:hq.id,label:hq.name,pts});
+ }
+ const gp=Number(s.generalPoints||0);
+ if(gp>=1)pools.push({id:'general',label:'一般主動點（3.3.2d）',pts:gp});
+ return pools;
+}
+function deductPool(poolId,cost=1){
+ if(poolId==='general'){s.generalPoints=Math.max(0,Number(s.generalPoints||0)-cost);return;}
+ s.tracks[poolId]=Math.max(0,Number(s.tracks[poolId]||0)-cost);
+ if(s.tracks[poolId]===0&&s.commandAreas)s.commandAreas[poolId]='done';
+}
+function runWithCommandCost(u,actionLabel,onPaid){
+ const pools=eligibleCommanders(u);
+ if(!pools.length){tell('目前沒有可指揮 '+u.name+' 的可用命令點，請先完成指揮抽牌（3.3）。');return;}
+ if(pools.length===1){
+  onPaid(pools[0]);
+  return;
+ }
+ pendingCmdAction={u,actionLabel,onPaid};
+ const body='<p class="hint">有多個層級可指揮 <b>'+esc(u.name)+'</b>，請選擇本次「'+esc(actionLabel)+'」要消耗哪個層級的 1 點命令：</p>'+
+  pools.map(p=>button('chooseCmdPool',p.label+'（剩 '+p.pts+' 點）','primary wide',p.id)).join('')+
+  '<div class="buttonrow">'+button('close','取消','secondary')+'</div>';
+ dialog('chooseCmdPool','選擇消耗的命令點數',body);
+}
+function totalCmdPoints(){
+ return friendlyHqs().reduce((sum,hq)=>sum+Math.max(0,Number(s.tracks[hq.id]||0)),0)+Math.max(0,Number(s.generalPoints||0));
+}
+function activeCmdPoints(){return totalCmdPoints();}
+function activeCmdName(){return nextDrawTier()?'待完成指揮抽牌':'全體可用命令點';}
+function spendCmdPoint(cost=1){
+ const pools=eligibleCommanders(selectedUnit());
+ if(!pools.length)return false;
+ deductPool(pools[0].id,cost);
  return true;
 }
 function expDrawMod(u){
@@ -414,16 +464,15 @@ function tablePanel(){
   h+=button('autoEnemyAct','自動執行敵軍活動檢查（'+enemies.length+' 枚・§8.6.2）','primary wide');
  }
  if(s.phase==='orders'&&!s.outcome){
-  const hqs=s.units.filter(u=>u.side==='friendly'&&!u.casualty&&(/HQ|排部|指揮部|副官|士官長/.test(u.name+' '+u.abbr)));
-  const doneSet=new Set(s.activatedHqs||[]);
-  h+='<div class="command-strip"><span>'+esc(activeCmdName())+' <b>'+activeCmdPoints()+'</b></span><small>每項行動消耗 1 點（§4.2）</small></div>';
-  if(hqs.length){
+  const curTier=nextDrawTier();
+  const hqs=friendlyHqs();
+  h+='<div class="command-strip"><span>'+esc(activeCmdName())+' <b>'+totalCmdPoints()+'</b></span><small>每項行動消耗 1 點（4.2）</small></div>';
+  if(curTier){
+   h+='<div class="buttonrow">'+button('openTierDraw','開啟指揮抽牌視窗（'+curTier.title+'）','primary wide')+'</div>';
+  }else if(hqs.length){
    h+='<div class="sidebox" style="margin:6px 0;padding:8px 10px;background:#eef1e3;border:1px solid var(--line);border-radius:4px">'+
-    hqs.map(u=>{
-     const pts=Number(s.tracks[u.id]||0),act=doneSet.has(u.id),isCur=s.activeCmd===u.id;
-     return '<div class="detailrow"><label>'+(isCur?'▶ ':'')+esc(u.name)+'</label><span><b class="mono">'+pts+' 點</b> '+(act?button('selectCmd',isCur?'使用中':'切換使用','tiny '+(isCur?'highlight':'secondary'),u.id,!pts):button('drawHqCmd','抽牌啟動','tiny primary',u.id))+'</span></div>';
-    }).join('')+
-    '<div class="buttonrow">'+(doneSet.has('general')?button('selectCmd',s.activeCmd==='general'?'使用一般主動點中（'+Number(s.generalPoints||0)+'）':'切換一般主動點（'+Number(s.generalPoints||0)+'）','secondary wide','general',!Number(s.generalPoints||0)):button('drawGeneralInit','抽取一般主動點（§3.3.2d）','secondary wide'))+'</div></div>';
+    hqs.map(u=>'<div class="detailrow"><label>'+esc(u.name)+'</label><b class="mono">'+Number(s.tracks[u.id]||0)+' 點</b></div>').join('')+
+    '<div class="detailrow"><label>一般主動點（3.3.2d）</label><b class="mono">'+Number(s.generalPoints||0)+' 點</b></div></div>';
   }
  }
  if(s.phase==='combat'){
@@ -760,12 +809,17 @@ function selectCell(v){
   const u=selectedUnit();if(G.same(u,c)){tell('請選擇另一張地形牌。');return;}
   if(s.phase!=='orders'&&s.phase!=='setup'){tell('僅能在友軍命令階段（§3.3）移動單位。');mode='';render();return;}
   if(s.phase==='orders'&&u.side==='friendly'){
-   if(u.exposed||u.pinned){tell('已暴露或受壓制的單位不可執行一般移動（§4.2.2a）。');mode='';render();return;}
-   if(!G.near(u,c)){tell('依規則 §4.2.2a 每次移動僅能移往相鄰的地形卡。');return;}
-   if(activeCmdPoints()<1){tell('沒有可用命令點，請先啟動指揮部或抽取一般主動點（§4.2.2a）。');mode='';render();return;}
+   if(nextDrawTier()){tell('請先完成所有層級的指揮抽牌，再啟動單位行動（3.3）。');openTierDrawModal();return;}
+   if(u.exposed||u.pinned){tell('已暴露或受壓制的單位不可執行一般移動（4.2.2a）。');mode='';render();return;}
+   if(!G.near(u,c)){tell('依規則 (4.2.2a) 每次移動僅能移往相鄰的地形卡。');return;}
+   if(!campaigns.canMove(s,u,c)){tell('此任務的地圖移動限制不允許這個目的地。');return;}
+   runWithCommandCost(u,'移往 '+G.nameAt(c),pool=>{
+    edit(()=>{deductPool(pool.id,1);applyPatrolMove(u,{x:u.x,y:u.y},p);G.note(s,'已扣除 '+pool.label+' 1 點命令（4.2.2a）。');});
+    focus=c;mode='';selected=null;render();tell('已移至 '+G.nameAt(c)+'（消耗 '+pool.label+' 1 點）');
+   });
+   return;
   }
   if(!campaigns.canMove(s,u,c)){tell('此任務的地圖移動限制不允許這個目的地。');return;}
-  if(s.phase==='orders'&&u.side==='friendly')spendCmdPoint(1);
   edit(()=>applyPatrolMove(u,{x:u.x,y:u.y},p));focus=c;mode='';selected=null;render();tell('已移至 '+G.nameAt(c));return;
  }
  focus=c;
@@ -1038,17 +1092,27 @@ document.addEventListener('click',ev=>{
   });
   break;
  }
+ case 'openTierDraw':openTierDrawModal();break;
+ case 'chooseCmdPool':{
+  if(!pendingCmdAction)break;
+  const act=pendingCmdAction;pendingCmdAction=null;
+  const pool=eligibleCommanders(act.u).find(p=>p.id===v);
+  close();
+  if(pool)act.onPaid(pool);
+  break;
+ }
  case 'selectCmd':s.activeCmd=v;persist();render();break;
  case 'drawGeneralInit':{
-  if(s.phase!=='orders')return tell('僅能在友軍命令階段（§3.3.2d）抽取一般主動點。');
+  if(s.phase!=='orders')return tell('僅能在友軍指揮階段（3.3.2d）抽取一般主動點。');
   if((s.activatedHqs||[]).includes('general'))return tell('本回合已抽取過一般主動點。');
   edit(()=>{
-   const card=G.draw(s,1,'一般主動點（§3.3.2d）')[0];
+   const card=G.draw(s,1,'一般主動點（3.3.2d）')[0];
    s.generalPoints=Number(card?.initiative||0);
    s.activatedHqs=[...(s.activatedHqs||[]),'general'];
    s.activeCmd='general';
-   G.note(s,'依規則 §3.3.2d 抽取一般主動點，獲得 '+s.generalPoints+' 點（本回合未用完不保留）。');
+   G.note(s,'依規則 (3.3.2d) 抽取一般主動點，獲得 '+s.generalPoints+' 點（本回合未用完不保留）。所有指揮層級抽牌已完成，現在可自由點選單位行動！');
   });
+  close();
   break;
  }
  case 'tableCover':{
@@ -1096,20 +1160,20 @@ document.addEventListener('click',ev=>{
   break;
  }
  case 'drawHqCmd':{
-  if(s.phase!=='orders')return tell('僅能在友軍命令階段（§3.3）啟動指揮部。');
+  if(s.phase!=='orders')return tell('僅能在友軍指揮階段（3.3）啟動指揮部。');
   if((s.activatedHqs||[]).includes(v))return tell('該指揮部本回合已啟動過。');
   const nm=s.units.find(u=>u.id===v)?.name||v;
-  close();
   edit(()=>{
-   const card=G.draw(s,1,nm+' 啟動命令（§3.3）')[0];
+   const card=G.draw(s,1,nm+' 啟動命令（3.3）')[0];
    const pts=Number(card?.command||0);
    s.tracks[v]=Math.max(0,Number(s.tracks[v]||0)+pts);
    s.commandAreas=s.commandAreas||{};
    s.commandAreas[v]=s.tracks[v]>0?'available':'done';
    s.activatedHqs=[...(s.activatedHqs||[]),v];
    s.activeCmd=v;
-   G.note(s,nm+' 依規則 §3.3 抽牌啟動，讀取鋼盔數字獲得 '+pts+' 點命令（目前共 '+s.tracks[v]+' 點）。');
+   G.note(s,nm+' 依規則 (3.3) 抽牌啟動，讀取鋼盔數字獲得 '+pts+' 點命令（目前共 '+s.tracks[v]+' 點）。');
   });
+  if(nextDrawTier())openTierDrawModal();else close();
   break;
  }
  case 'autoDraw':armDraw({type:'batch',n:Math.max(1,Math.min(12,Number(v)||1))});break;
