@@ -51,13 +51,13 @@ function drawProgress(){
  return next.why+'・點牌背翻下一張';
 }
 function renderPiles(){
- const {remaining,top}=visiblePiles(),order=s.drawOrder||piles.defaultOrder(s);
+ const {remaining,top}=visiblePiles(),order=s.drawOrder||(isTable()&&!quick()?null:piles.defaultOrder(s));
  const deck=$('drawPile'),discard=$('discardPile'),img=$('discardFace');
- const label=s.tableRun?drawProgress():piles.label(s,order);
+ const label=s.tableRun?drawProgress():(order?piles.label(s,order):'');
  $('deckRemaining').textContent='剩 '+remaining+' 張';
- deck.disabled=!s.tableRun&&!order;deck.setAttribute('aria-label',label);
+ deck.disabled=!s.tableRun&&!order;deck.setAttribute('aria-label',label||'行動牌組，目前不需抽牌');
  deck.classList.toggle('ready',!deck.disabled);
- let promptText=deck.disabled?'':(isTable()&&!quick()&&!s.tableRun&&!s.drawOrder?'':label);
+ let promptText=deck.disabled?'':label;
  if(s.tableRun&&s.tableRun.shown>0){
   const frames=piles.frames(s.tableRun),cur=frames[s.tableRun.shown-1];
   if(cur){
@@ -90,7 +90,7 @@ function flipAction(){
  if(draws.isOpen()||$modal.open)return;
  let run=s.tableRun;
  if(!run){
-  const order=s.drawOrder||piles.defaultOrder(s);
+  const order=s.drawOrder||(isTable()&&!quick()?null:piles.defaultOrder(s));
   if(!order)return;
   run=piles.prepare(s,order);
   if(!run){delete s.drawOrder;persist();render();tell('目前無法執行這項抽牌。');return;}
@@ -628,10 +628,11 @@ function unitDialog(id){
  let b='<div class="unitrow" data-unit-key="'+esc(u.id)+'" data-piece-name="'+esc(u.name)+'" data-piece-art="'+esc(face||'')+'" data-piece-info="'+esc([G.nameAt(u),u.side==='marker'&&u.notes].filter(Boolean).join('　'))+'" '+(u.side==='marker'?'data-marker="" ':'')+'tabindex="0">'+(art?(u.side==='marker'?pic(art.art,'piece-icon'):FOF_COUNTERS.picture(s,u,pic,esc,'piece-icon')):'')+'　<b>'+esc(shortAbbr(u))+'</b>　'+G.nameAt(u)+'</div>';
  if(u.experience)b+='<p>'+esc(campaigns.gradeNames[u.experience])+(u.ammo!=null?'　彈藥 '+u.ammo:'')+(u.skills?.length?'　技能 '+u.skills.map(esc).join('、'):'')+'</p>';
  if(isTable()&&!quick()&&!s.outcome){
-  const alternatives=FOF_COUNTERS.choices(s,u),vehicle=FOF_COUNTERS.isVehicle(s,u);
-  if(alternatives.length>1)b+='<label class="formgroup" for="unitFace">算子面<select id="unitFace">'+alternatives.map(id=>'<option value="'+esc(id)+'" '+(id===face?'selected':'')+'>'+esc(FOF_COUNTERS.title(id))+'</option>').join('')+'</select></label>';
-  if(u.skills?.length)b+=u.skills.map((skill,i)=>button('useUnitSkill','使用「'+skill+'」','tiny',String(i))).join('');
-  b+='<div class="buttonrow">'+button('moveMode','選擇移動目的地','primary',id)+'</div><div class="formgroup"><label for="steps">兵力階</label><input type="number" id="steps" min="0" max="16" value="'+Number(u.steps)+'"><label><input id="exposed" type="checkbox" '+(u.exposed?'checked':'')+'> 暴露</label><label><input id="pinned" type="checkbox" '+(u.pinned?'checked':'')+'> 受壓制</label>'+(vehicle?'<label for="vehicleLoss">車況</label><select id="vehicleLoss">'+options([['','可用'],['destroyed','擊毀・殘骸'],['burned','燃燒殘骸']],u.casualty?(u.vehicleLoss||'destroyed'):'')+'</select>':'<label><input id="casualty" type="checkbox" '+(u.casualty?'checked':'')+'> 傷亡算子（不計佔領）</label>')+shelterField(u)+'<label for="unitNote">算子紀錄</label><textarea id="unitNote" maxlength="2000">'+esc(u.notes)+'</textarea></div><div class="buttonrow">'+button('unitApply','套用變更','primary',id)+button('removeAsk','移出棋桌','',id)+'</div>';
+  const canMoveNow=s.phase==='orders'&&u.side==='friendly'&&!u.casualty&&!u.exposed&&!u.pinned&&activeCmdPoints()>=1;
+  const st=[u.steps+' 階',u.exposed&&'暴露',u.pinned&&'受壓制',u.covered&&'掩蔽',u.casualty&&'傷亡'].filter(Boolean).join('・');
+  b+='<p class="mini-check">目前狀態：'+esc(st)+'</p>';
+  if(canMoveNow)b+='<div class="buttonrow">'+button('moveMode','選擇移動目的地（1 點・§4.2.2a）','primary',id)+'</div>';
+  else if(s.phase==='orders'&&u.side==='friendly'&&!u.casualty)b+='<p class="tagline">'+(u.exposed||u.pinned?'已暴露或受壓制的單位不可移動（§4.2.2a）。':'請先於行動面板啟動指揮部取得命令點（§3.3）。')+'</p>';
  }
  dialog('unit',u.name,b,id);
 }
@@ -671,7 +672,7 @@ function ledger(){
  const ammoHtml=ammoUnits.length?'<h3>彈藥存量（自動追蹤）</h3>'+ammoUnits.map(u=>'<div class="detailrow"><label>'+esc(u.name)+'</label><b class="mono">'+u.ammo+' 發</b></div>').join(''):'';
  const evEntries=Object.entries(s.events||{});
  const evHtml=evEntries.length?'<h3>特殊事件紀錄（自動追蹤）</h3><ul class="loglist">'+evEntries.map(([k,v])=>'<li><time>'+esc(k)+'</time>'+esc(v)+'</li>').join('')+'</ul>':'';
- let b='<div class="selected-info">目前活動等級：<b>'+esc(actLabels[s.activity])+'</b>（依規則 §5 接敵時自動更新）</div><h3>命令軌（§4）</h3><p class="tagline">點擊各指揮部的「抽牌啟動」，系統會自動抽 1 張行動牌並讀取鋼盔數字登記命令點。</p>'+names.map(id=>'<div class="detailrow"><label>'+esc(s.units.find(u=>u.id===id)?.name||id)+'</label><span><b class="mono">'+Number(s.tracks[id]||0)+' 點</b> '+button('drawHqCmd','抽牌啟動','tiny primary',id)+'</span></div>').join('')+ammoHtml+evHtml+'<div class="formgroup"><label for="notes">任務筆記（個人備忘）</label><textarea id="notes" maxlength="10000">'+esc(s.notes)+'</textarea></div>'+button('saveLedger','儲存筆記','primary');
+ let b='<div class="selected-info">目前活動等級：<b>'+esc(actLabels[s.activity])+'</b>（依規則 §5 接敵時自動更新）</div><h3>命令軌（§4・唯讀總覽）</h3>'+names.map(id=>'<div class="detailrow"><label>'+esc(s.units.find(u=>u.id===id)?.name||id)+'</label><b class="mono">'+Number(s.tracks[id]||0)+' 點</b></div>').join('')+ammoHtml+evHtml+'<div class="formgroup"><label for="notes">任務筆記（個人備忘）</label><textarea id="notes" maxlength="10000">'+esc(s.notes)+'</textarea></div>'+button('saveLedger','儲存筆記','primary');
  dialog('ledger','命令與紀錄',b);
 }
 function recordPatrol(u,from,to){
