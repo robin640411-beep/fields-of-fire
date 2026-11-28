@@ -349,7 +349,7 @@ function tablePanel(){
  if(mode==='move')hintText='請選擇所選算子的目的地。';
  else if(setup)hintText=next?'下一個標記為「'+objectiveName(next)+'」。請點選地圖上的地形卡放置。':'目標已就位，可按「完成設置」開始第 1 回合。';
  else if(s.phase==='events')hintText=s.turn<2?'第 1 回合依規則 §3.1 略過友軍上級事件，可直接進入下一階段。':evDetail?'本回合友軍上級事件已檢定完成（§3.1）。':'依規則 §3.1 抽 1 張行動牌檢查友軍上級事件。';
- else if(s.phase==='orders')hintText='依規則 §3.3 先於「命令與紀錄」為指揮部抽牌啟動，再選擇友軍執行移動、掩蔽或重整。';
+ else if(s.phase==='orders')hintText='依規則 §3.3 先點擊下方指揮部的「抽牌啟動」取得命令點，再點選友軍單位執行移動（§4.2.2a）、尋找掩蔽（§4.2.2e）或移除壓制（§4.2.3a）。';
  else if(s.phase==='enemy'){
   const evPart=s.turn<2?'第 1 回合依規則 §3.4.1 略過敵軍上級事件。':evDetail?'敵軍上級事件已檢定。':'請先檢查敵軍上級事件（§3.4.1）。';
   const actPart=enemies.length?'地圖上有 '+enemies.length+' 枚敵軍單位，依規則 §3.4.2 檢查敵軍活動。':'目前地圖上尚無已現身敵軍，依規則 §3.4.2 本步驟無事發生，可直接完成此階段。';
@@ -370,7 +370,30 @@ function tablePanel(){
  else hintText='查看巡邏記錄，結算本次結果。';
 
  const noticeText=lastNotice||s.log.at(-1)?.text||'';
- let h='<div class="lesson-reading" style="margin-top:0"><h2>階段說明與最新紀錄</h2><p>'+esc(hintText)+'</p><p id="liveNotice"'+(noticeText?'':' hidden')+'>'+esc(noticeText)+'</p></div>';
+ let cueArt='<img class="cue-card" src="assets/action-back.webp" alt="行動牌背面">',cueCap='',cueTitle='依階段指示操作',cueGesture='點擊下方主按鈕推進目前階段。';
+ const selU=selectedUnit();
+ if(setup&&next){
+  cueTitle='放置'+objectiveName(next);cueGesture=positionHint(next)+' 請點選地圖上的地形牌。';
+ }else if(s.phase==='orders'&&selU&&selU.side==='friendly'&&!selU.casualty){
+  const uFace=faceOf(selU),uEntry=catalog.get(uFace);
+  cueArt=uEntry?'<span class="cue-counter is-picked">'+FOF_COUNTERS.picture(s,selU,pic,esc,'')+'</span>':'<span class="cue-number">★</span>';
+  cueCap=G.nameAt(selU);
+  cueTitle='已選取 '+selU.name;
+  cueGesture=mode==='move'?'請直接點選棋桌上有金色虛線的相鄰地形牌移動（消耗 1 點・§4.2.2a）。':(selU.exposed||selU.pinned?'此單位目前無法移動，可執行下方可用行動或改選其他單位。':'請先點擊下方指揮部的「抽牌啟動」取得命令點（§3.3）。');
+ }else if(s.phase==='orders'){
+  cueTitle=activeCmdPoints()>0?'選擇要行動的友軍單位':'啟動指揮部取得命令點';
+  cueGesture=activeCmdPoints()>0?'點選棋桌上的地形牌或下方編組中的友軍算子（每項行動消耗 1 點）。':'點擊下方指揮部的「抽牌啟動」翻開行動牌取得命令點（§3.3）。';
+ }else if(s.phase==='combat'){
+  const nextPc=G.nextPC(s);
+  if(nextPc){cueCap=G.nameAt(nextPc);cueTitle='判定潛在接敵（PC '+nextPc.pc+'）';cueGesture='點擊下方按鈕抽牌判定是否發現敵軍（§3.7.2）。';}
+  else{cueTitle='雙方戰鬥結算';cueGesture='點擊下方按鈕依規則 §3.7.4 自動結算或完成此階段。';}
+ }else{
+  cueTitle=G.phaseNames[s.phase]||'階段操作';
+  cueGesture='確認上方說明後，點擊下方按鈕執行或進入下一階段。';
+ }
+ let h='<section class="lesson-reading" style="margin-top:0"><h2>'+esc(G.phaseNames[s.phase]||'階段說明')+'</h2><p>'+esc(hintText)+'</p></section>'+
+  '<div class="lesson-instruction"><div class="lesson-art">'+cueArt+(cueCap?'<span class="cue-coordinate">'+esc(cueCap)+'</span>':'')+'</div><div><h2 class="lesson-prompt">'+esc(cueTitle)+'</h2><p class="lesson-gesture">'+esc(cueGesture)+'</p></div></div>'+
+  (noticeText?'<div class="lesson-feedback"><small>最新結果</small><p id="liveNotice">'+esc(noticeText)+'</p></div>':'<p id="liveNotice" hidden></p>');
  if(next)h+='<div class="selected-info">'+esc(positionHint(next))+'</div>';
  if(selectedUnit()){
   const u=selectedUnit(),uc=G.at(s,u),ut=uc&&!uc.faceDown?G.terrain(uc.t):null;
@@ -453,13 +476,10 @@ function renderSide(){
  let main='<div class="turn-line"><b class="round-num">'+pad(s.turn)+'</b><div><span class="turn-label">回合'+(isTable()?' / '+campaigns.turnLimit(s):'')+'</span><span class="phase-label">'+esc(s.outcome?'已結算':G.phaseNames[s.phase]||'巡邏結算')+'</span></div></div><div class="phase-track">'+stages.map((p,i)=>'<i class="'+(p===s.phase?'on':i<stages.indexOf(s.phase)?'past':'')+'"></i>').join('')+'</div>';
  if(s.outcome)main+='<h3>'+(isTable()&&conf().mode==='patrol'?'三次巡邏已結算':s.outcome==='win'?'任務完成':'任務結束')+'</h3><p class="hint">'+esc(s.log.at(-1)?.text)+'</p>'+button('result','查看結算','primary wide')+' '+button('undo','復原上一步','flat tiny','',!history.length);
  else main+=quick()?quickPanel():isTable()?tablePanel():trainingPanel();
- const activeCell=focus&&isTable()&&!quick()&&!s.outcome?G.at(s,focus):null;
- const showCell=sideTab==='cell'&&activeCell;
- const tabs=button('tab','行動面板',!showCell&&sideTab!=='log'?'on':'','play')+
-  (activeCell?button('tab',G.nameAt(activeCell)+' 操作',showCell?'on':'','cell'):'')+
+ const tabs=button('tab','行動面板',sideTab!=='log'?'on':'','play')+
   button('tab','任務日誌',sideTab==='log'?'on':'','log');
- const body=showCell?cellControls(activeCell):sideTab==='log'?logView():main;
- $('side').innerHTML='<section class="cardbox"><div class="sidehead"><div class="tabbar">'+tabs+'</div><span class="turnpill">R'+pad(s.turn)+'</span></div><div class="sidebody">'+body+'</div>'+lastRow()+'</section>'+goalBox();
+ const body=sideTab==='log'?logView():main;
+ $('side').innerHTML='<section class="cardbox"><div class="sidehead"><div class="tabbar">'+tabs+'</div>'+button('lessonTurnGuide','流程表','tiny')+'</div><div class="sidebody">'+body+'</div>'+lastRow()+'</section>'+goalBox();
 }
 function render(){renderHero();commandDisplay.render();renderBoard();renderPiles();renderSide();renderRoster();updateMobileSummary();queueMicrotask(showPending);}
 function missionMenu(tab='quick'){
@@ -746,7 +766,6 @@ function selectCell(v){
   edit(()=>applyPatrolMove(u,{x:u.x,y:u.y},p));focus=c;mode='';selected=null;render();tell('已移至 '+G.nameAt(c));return;
  }
  focus=c;
- if(isTable()&&!quick()&&!s.outcome)sideTab='cell';
  const grid=$('terrainGrid');
  grid.querySelector('.tile.focused')?.classList.remove('focused');
  grid.querySelector('.tile[data-value="'+c.x+','+c.y+'"]')?.classList.add('focused');
@@ -754,7 +773,21 @@ function selectCell(v){
 }
 function pickUnit(id){const u=s.units.find(x=>x.id===id);if(!u)return;close();selected=id;group=false;focus=G.at(s,u);sideTab='play';mode='';render();
  if(quick()){tell(u.casualty?'算子已退場':u.side!=='friendly'?'敵方算子由系統結算':'已選擇 '+u.name);if(u.side==='friendly'&&Q.able(s,u))scrollBoard();return;}
- if(isTable()){unitDialog(id);return;}
+ if(isTable()){
+  if(u.casualty){tell(u.name+' 已退場。');return;}
+  if(u.side!=='friendly'){tell(u.name+' 為敵方算子，於雙方戰鬥階段由系統結算。');return;}
+  if(s.phase==='orders'&&!u.exposed&&!u.pinned&&activeCmdPoints()>=1){
+   mode='move';render();scrollBoard();
+   tell('已選擇 '+u.name+'，請直接點選棋桌上有金色虛線的相鄰地形牌移動（消耗 1 點・§4.2.2a）。');
+   return;
+  }
+  if(s.phase==='orders'){
+   tell(u.exposed||u.pinned?u.name+' 目前已暴露或受壓制，無法移動（§4.2.2a）。':'已選擇 '+u.name+'，請先點擊下方指揮部的「抽牌啟動」取得命令點（§3.3）。');
+   return;
+  }
+  tell('已選擇 '+u.name+'（目前為'+G.phaseNames[s.phase]+'，移動須於友軍指揮階段執行）。');
+  return;
+ }
  const msg=G.trainingStatus(s,u);if(!msg)scrollBoard();tell(msg||'已選擇 '+u.name+'，點金色虛線格移動。');}
 function scrollBoard(){if(focus&&fixedWidth!==null)revealCell(focus);}
 function step(){

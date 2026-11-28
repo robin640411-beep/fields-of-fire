@@ -124,7 +124,7 @@ function advanceTraining(s){
  return true;
 }
 const phases=['events','orders','enemy','retreat','vehicles','combat','cleanup'];
-const phaseNames={review:'回合報告',setup:'任務設置',ready:'等待啟動',command:'排部命令',initiative:'一般主動',events:'上級事件',orders:'友軍命令',enemy:'敵軍活動',retreat:'俘虜與撤退',vehicles:'車輛階段',combat:'雙方戰鬥',cleanup:'整理階段'};
+const phaseNames={review:'回合報告',setup:'任務設置',ready:'等待啟動',command:'排部命令',initiative:'一般主動',events:'友軍上級事件',orders:'友軍指揮',enemy:'敵軍活動',retreat:'雙方俘虜與撤退',vehicles:'反戰車戰鬥與車輛移動',combat:'雙方戰鬥',cleanup:'清理'};
 function pcFor(raw){if(!raw)return null;const values=String(raw).replace('?','').split('/');return values[Math.floor(Math.random()*values.length)];}
 function tabletop(id,previous=null,deferMoonlight=false,options={}){
  const m=scenario(id);if(!m)throw Error('未知任務');
