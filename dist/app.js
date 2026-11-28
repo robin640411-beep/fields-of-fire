@@ -130,7 +130,7 @@ function showPending(){
  });
 }
 let lastNotice='';
-function tell(v){lastNotice=v;const box=$('liveNotice');if(box){box.textContent=v;box.hidden=false;}if($modal.open){let msg=$modal.querySelector('.modalmessage');if(!msg){msg=document.createElement('p');msg.className='modalmessage';msg.setAttribute('role','status');$modal.querySelector('.modalhead').after(msg);}msg.textContent=v;return;}if(!box){$('toast').textContent=v;$('toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('on'),2600);}}
+function tell(v){lastNotice=v;const box=$('liveNotice');if(box){box.textContent=v;box.hidden=false;}if($modal.open){let msg=$modal.querySelector('.modalmessage');if(!msg){msg=document.createElement('p');msg.className='modalmessage';msg.setAttribute('role','status');$modal.querySelector('.modalhead').after(msg);}msg.textContent=v;}}
 function persist(){slots[campaigns.key(s)]=s;try{localStorage.setItem(key,JSON.stringify({version:1,active:campaigns.key(s),slots}));storageOK=true;}catch{storageOK=false;} $('savedStatus').textContent=storageOK?'✓ 本機自動存檔':'目前僅保留在此頁　請匯出存檔';}
 function edit(fn){
  const last=JSON.stringify(s),cursor=s.cursor,scene=motion.capture(),ok=fn();if(ok===false)return false;

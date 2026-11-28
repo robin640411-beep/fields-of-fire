@@ -206,7 +206,7 @@ function createPlayer(catalog){
  }
  function spark(run,e,p,ms){
   const mark=create('span','motion-signal');mark.dataset.kind=e.kind;mark.dataset.side=e.side||'neutral';
-  if(e.kind==='marker'){
+  if(e.kind==='marker'||e.kind==='contact'){
    mark.innerHTML='<svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 60,26 85,12 75,36 98,46 76,58 90,82 64,74 54,97 42,75 16,86 27,61 3,50 26,38 12,14 38,24" fill="#ffd43b" stroke="#1b1b1b" stroke-width="3.5" stroke-linejoin="round"/><polygon points="50,14 58,32 76,22 69,40 87,48 69,57 79,74 60,67 52,85 43,68 25,76 33,57 15,49 33,40 23,23 42,31" fill="#e62e2d" stroke="#1b1b1b" stroke-width="2.5" stroke-linejoin="round"/><polygon points="44,24 58,24 54,58 46,58" fill="#ffe64d" stroke="#1b1b1b" stroke-width="3.5" stroke-linejoin="round"/><circle cx="50" cy="70" r="6.5" fill="#ffe64d" stroke="#1b1b1b" stroke-width="3.5"/></svg>';
   }else{
    mark.textContent=symbols[e.kind]||'◆';
