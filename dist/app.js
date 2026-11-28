@@ -613,14 +613,17 @@ function autoNcmFor(u){
  return Math.max(-4,Math.min(6,ncm));
 }
 function tableDraw(){
- const u=selectedUnit(),c=u?G.at(s,u):focus?G.at(s,focus):null,t=c&&!c.faceDown?G.terrain(c.t):null;
- const coverN=Math.max(1,Number(t?.draw||1));
- const coverLabel=c?'尋找掩蔽（'+G.nameAt(c)+' 抽 '+coverN+' 張・§8）':'尋找掩蔽（抽 1 張・§8）';
- const quickDraws='<p class="hint">系統依規則自動決定抽牌張數，直接點擊對應行動即可：</p><div class="buttonrow">'+
-  button('autoDraw','啟動命令（1 張・§4）','primary','1')+
-  button('autoDraw','一般主動（1 張・§4）','secondary','1')+
-  button('autoDraw',coverLabel,'secondary',String(coverN))+
-  button('autoDraw','嘗試重整（1 張・§8）','secondary','1')+
+ const u=selectedUnit(),c=u?G.at(s,u):null,t=c&&!c.faceDown?G.terrain(c.t):null;
+ const inOrders=s.phase==='orders'&&!s.outcome;
+ const canCover=inOrders&&!!u&&u.side==='friendly'&&!u.casualty&&!u.pinned&&!u.covered&&u.y>0&&(t?.coverDraws||0)>0;
+ const canRally=inOrders&&!!u&&u.side==='friendly'&&!u.casualty&&!!u.pinned;
+ const coverN=Math.max(1,Number(t?.coverDraws||1));
+ const coverLabel=canCover?'尋找掩蔽（'+G.nameAt(c)+' 抽 '+coverN+' 張・§8）':'尋找掩蔽（需選取未掩蔽且未壓制之友軍・§8）';
+ const rallyLabel=canRally?'嘗試重整（'+u.name+' 抽 1 張・§8）':'嘗試重整（需選取受壓制之友軍・§8）';
+ const quickDraws='<p class="hint">僅開放目前階段與所選單位符合規則條件的抽牌動作：</p><div class="buttonrow">'+
+  button('autoDraw','一般主動（1 張・§3.3.2d）','primary','1',!inOrders)+
+  button('autoDraw',coverLabel,'secondary',String(coverN),!canCover)+
+  button('autoDraw',rallyLabel,'secondary','1',!canRally)+
   '</div>';
  dialog('draw','行動牌工具',quickDraws+'<hr class="divider">'+button('deck','檢視行動牌組','tiny'));
 }
