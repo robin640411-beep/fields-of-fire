@@ -133,8 +133,18 @@ let lastNotice='';
 function tell(v){lastNotice=v;const box=$('liveNotice');if(box){box.textContent=v;box.hidden=false;}if($modal.open){let msg=$modal.querySelector('.modalmessage');if(!msg){msg=document.createElement('p');msg.className='modalmessage';msg.setAttribute('role','status');$modal.querySelector('.modalhead').after(msg);}msg.textContent=v;}}
 function persist(){slots[campaigns.key(s)]=s;try{localStorage.setItem(key,JSON.stringify({version:1,active:campaigns.key(s),slots}));storageOK=true;}catch{storageOK=false;} $('savedStatus').textContent=storageOK?'✓ 本機自動存檔':'目前僅保留在此頁　請匯出存檔';}
 function edit(fn){
- const last=JSON.stringify(s),cursor=s.cursor,scene=motion.capture(),ok=fn();if(ok===false)return false;
- window.FOF_TERRAIN_VISIBILITY.refresh(s);history.push(last);if(history.length>35)history.shift();
+ const last=JSON.stringify(s),cursor=s.cursor,scene=motion.capture();
+ const wasHidden=new Set((s.map||[]).filter(c=>c.faceDown).map(c=>G.nameAt(c)));
+ const ok=fn();if(ok===false)return false;
+ window.FOF_TERRAIN_VISIBILITY.refresh(s);
+ const revealed=(s.map||[]).filter(c=>!c.faceDown&&wasHidden.has(G.nameAt(c)));
+ if(revealed.length){
+  const list=revealed.map(c=>G.nameAt(c)+'（'+(G.terrain(c.t)?.name||'地形')+'）').join('、');
+  const msg='因友軍視野（LOS）可看見該處（§2），系統自動翻開未知地形：'+list+'。';
+  G.note(s,msg);
+  lastNotice=(lastNotice?lastNotice+' ':'')+msg;
+ }
+ history.push(last);if(history.length>35)history.shift();
  holdLessonPanel=course()&&cursor!==s.cursor;
  persist();render();animateAction(scene,JSON.parse(last));return true;
 }
@@ -814,8 +824,18 @@ function selectCell(v){
    if(!G.near(u,c)){tell('依規則 (4.2.2a) 每次移動僅能移往相鄰的地形卡。');return;}
    if(!campaigns.canMove(s,u,c)){tell('此任務的地圖移動限制不允許這個目的地。');return;}
    runWithCommandCost(u,'移往 '+G.nameAt(c),pool=>{
-    edit(()=>{deductPool(pool.id,1);applyPatrolMove(u,{x:u.x,y:u.y},p);G.note(s,'已扣除 '+pool.label+' 1 點命令（4.2.2a）。');});
-    focus=c;mode='';selected=null;render();tell('已移至 '+G.nameAt(c)+'（消耗 '+pool.label+' 1 點）');
+    const fromCoord=G.nameAt(u),toCoord=G.nameAt(c),toName=c.faceDown?'未揭開地形':(G.terrain(c.t)?.name||'地形');
+    const moveMsg=u.name+' 從 '+fromCoord+' 移至 '+toCoord+'（'+toName+'），消耗 '+pool.label+' 1 點命令並標為暴露（§4.2.2a）。';
+    lastNotice=moveMsg;
+    edit(()=>{
+     deductPool(pool.id,1);
+     recordPatrol(u,{x:u.x,y:u.y},p);
+     if(u.side!=='marker')M.onMove(s,u,p);
+     u.x=p.x;u.y=p.y;
+     if(s.phase!=='setup'&&u.side!=='marker'&&(fromCoord!==toCoord))u.exposed=true;
+     G.note(s,moveMsg);
+    });
+    focus=c;mode='';selected=null;render();
    });
    return;
   }
