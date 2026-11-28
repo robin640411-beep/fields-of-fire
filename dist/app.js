@@ -129,7 +129,8 @@ function showPending(){
   if(reading)animateAction(scene,before);
  });
 }
-function tell(v){if($modal.open){let msg=$modal.querySelector('.modalmessage');if(!msg){msg=document.createElement('p');msg.className='modalmessage';msg.setAttribute('role','status');$modal.querySelector('.modalhead').after(msg);}msg.textContent=v;}$('toast').textContent=v;$('toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('on'),2600);}
+let lastNotice='';
+function tell(v){lastNotice=v;const box=$('liveNotice');if(box){box.textContent=v;box.hidden=false;}if($modal.open){let msg=$modal.querySelector('.modalmessage');if(!msg){msg=document.createElement('p');msg.className='modalmessage';msg.setAttribute('role','status');$modal.querySelector('.modalhead').after(msg);}msg.textContent=v;}$('toast').textContent=v;$('toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('on'),2600);}
 function persist(){slots[campaigns.key(s)]=s;try{localStorage.setItem(key,JSON.stringify({version:1,active:campaigns.key(s),slots}));storageOK=true;}catch{storageOK=false;} $('savedStatus').textContent=storageOK?'✓ 本機自動存檔':'目前僅保留在此頁　請匯出存檔';}
 function edit(fn){
  const last=JSON.stringify(s),cursor=s.cursor,scene=motion.capture(),ok=fn();if(ok===false)return false;
@@ -368,7 +369,8 @@ function tablePanel(){
  else if(s.phase==='cleanup')hintText='依規則 §3.8 按「結束回合」後，系統將自動移除暴露標記、檢查目標並進入下一回合。';
  else hintText='查看巡邏記錄，結算本次結果。';
 
- let h='<p class="hint">'+esc(hintText)+'</p>';
+ const noticeText=lastNotice||s.log.at(-1)?.text||'';
+ let h='<div class="lesson-reading" style="margin-top:0"><h2>階段說明與最新紀錄</h2><p>'+esc(hintText)+'</p><p id="liveNotice"'+(noticeText?'':' hidden')+'>'+esc(noticeText)+'</p></div>';
  if(next)h+='<div class="selected-info">'+esc(positionHint(next))+'</div>';
  if(selectedUnit()){
   const u=selectedUnit(),uc=G.at(s,u),ut=uc&&!uc.faceDown?G.terrain(uc.t):null;
@@ -915,7 +917,7 @@ document.addEventListener('click',ev=>{
   const k=a==='putChosen'?$('objKey').value:v;
   if(edit(()=>{if(!G.placeObjective(s,k,focus))return false;G.note(s,objectiveName(k)+' 位於 '+G.nameAt(focus)+'。');return true;})){close();tell('已放置'+objectiveName(k));}else tell(positionHint(k)+' 請確認位置符合條件。');
   break;}
- case 'library':library();break;
+ case 'library':case 'editCell':case 'saveCell':case 'track':case 'unitApply':case 'removeAsk':case 'drawBatch':case 'combatDraw':tell('此項目已改由系統依規則自動執行。');break;
  case 'commitMark':applyMark();break;
  case 'legacyMark':{const c=G.at(s,focus),i=Number(v);configureMark(M.symbol(c.marks[i],s,c),null,i);break;}
  case 'placePiece':{const t=catalog.get(v);if(!t)return;if(t.category==='marker'&&(M.role(t.id)!=='area'||['grenade-miss','crossfire'].includes(t.id))){configureMark(t.id);break;}if(edit(()=>addPiece(t.category,FOF_COUNTERS.title(t.id),t.id))){close();tell('已放置算子');}break;}

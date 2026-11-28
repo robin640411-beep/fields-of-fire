@@ -153,8 +153,7 @@ function create({state,esc,button,edit}){
   return '<span class="sheet-paper"><img class="printed-sheet" width="1836" height="2376" src="'+sheet.image+'" alt="美國陸軍'+sheet.label+'指揮顯示表" draggable="false">'+marks+'</span>';
  }
  function editor(current){
-  return '<div class="sheet-edit"><h3>'+esc(current.label)+'</h3><div class="sheet-adjust">'+button('sheetDelta','−','',-1,current.points<=0)+'<output>'+current.points+' 點</output>'+button('sheetDelta','＋','',1,current.points>=99)+'</div>'+
-   '<div class="sheet-area-actions">'+button('sheetArea','待用','', 'ready')+button('sheetArea','可用','', 'available',!current.points)+button('sheetArea','保留','', 'saved',!current.points)+button('sheetArea','完成（0）','','done')+'</div></div>';
+  return '<div class="sheet-edit"><h3>'+esc(current.label)+'</h3><p>目前可用命令點：<b>'+current.points+' 點</b>（由系統依 §3.3 自動計算）</p></div>';
  }
  function render(){
   const s=state(),data=snapshot(s),markers=data.markers;
@@ -176,7 +175,7 @@ function create({state,esc,button,edit}){
  function handle(action,value){
   const s=state();
   if(!manual(s)||s.outcome)return false;
-  if(action==='sheetPlace'||action==='sheetArea'||action==='sheetDelta'){
+  if(action==='sheetPlace'||action==='sheetArea'||action==='sheetDelta'){return true;
    edit(()=>{
     if(action==='sheetDelta')return adjust(s,selected,Number(value));
     const [area,points]=value.split('|');
